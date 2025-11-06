@@ -1,7 +1,7 @@
 <resources>
-    <string name="app_name">dontPopYourBRAIN</string>
+    <string name="app_name">argueWithAi</string>
     <string name="accessibility_service_description">accessibilityService</string>
-    <string name="service_label">DontPopYourBRAIN</string>
+    <string name="service_label">argueWithAi</string>
     <string name="service_desc">YouTube Shorts 화면을 감지하는 접근성 서비스</string>
     <string name="service_summary">YouTube Shorts 화면을 감지하는 접근성 서비스</string>
 </resources>

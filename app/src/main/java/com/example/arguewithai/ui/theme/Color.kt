@@ -1,4 +1,4 @@
-package com.example.dontpopyourbrain.ui.theme
+package com.example.arguewithai.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

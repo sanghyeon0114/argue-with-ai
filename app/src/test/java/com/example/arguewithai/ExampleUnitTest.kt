@@ -1,4 +1,4 @@
-package com.example.dontpopyourbrain
+package com.example.arguewithai
 
 import org.junit.Test
 

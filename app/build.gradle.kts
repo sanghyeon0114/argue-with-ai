@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.dontpopyourbrain"
+    namespace = "com.example.arguewithai"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.dontpopyourbrain"
+        applicationId = "com.example.arguewithai"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
