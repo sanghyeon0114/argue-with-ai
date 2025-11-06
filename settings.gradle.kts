@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "dontPopYourBRAIN"
+rootProject.name = "argue-with-ai"
 include(":app")
