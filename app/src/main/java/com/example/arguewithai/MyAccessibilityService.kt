@@ -4,6 +4,9 @@ package com.example.arguewithai
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.example.arguewithai.firebase.FirestoreSessionRepository
+import com.example.arguewithai.firebase.SessionId
+import com.example.arguewithai.firebase.SessionRepository
 import com.example.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth

@@ -1,4 +1,4 @@
-package com.example.arguewithai
+package com.example.arguewithai.firebase
 
 import com.example.arguewithai.utils.TimeProvider
 import com.example.arguewithai.utils.SystemTimeProvider
@@ -7,7 +7,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.util.*
-
 
 @JvmInline
 value class SessionId(val value: String)
@@ -37,8 +36,7 @@ interface SessionRepository {
     suspend fun endSession(sessionId: SessionId): ShortformSession
 }
 
-const val COLLECTION_NAME = "users"
-const val INDIVIDUAL_COLLECTION_NAME = "sessions"
+
 
 class FirestoreSessionRepository (
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -46,7 +44,7 @@ class FirestoreSessionRepository (
     private val time: TimeProvider = SystemTimeProvider()
 ) : SessionRepository {
     private fun uid(): String = auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
-    private fun sessionsCollection() = db.collection(COLLECTION_NAME).document(uid()).collection(INDIVIDUAL_COLLECTION_NAME)
+    private fun sessionsCollection() = db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid()).collection(FirebaseConfig.User.SESSIONS)
 
     override suspend fun startSession(app: String): SessionId {
         val startMs = time.nowMs()

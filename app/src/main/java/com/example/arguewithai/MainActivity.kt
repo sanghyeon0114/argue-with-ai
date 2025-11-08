@@ -13,12 +13,18 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import com.example.arguewithai.firebase.FirestoreAccessibilityRepository
 import com.example.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import androidx.core.content.edit
 
 class MainActivity : ComponentActivity() {
     private lateinit var accessibilityServiceText: TextView
+
+    private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
+    private val accKey = "last_accessibility_enabled"
+    private val accessRepo = FirestoreAccessibilityRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +86,16 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         accessibilityServiceText.text = serviceStatusText()
+
+        val enabled = isMyAccessibilityServiceEnabled()
+        val last = prefs.getBoolean(accKey, false)
+        if (last != enabled) {
+            accessRepo.setAccessibilityEnabled(enabled) { ok ->
+                if (ok) prefs.edit {
+                    putBoolean(accKey, enabled)
+                }
+            }
+        }
     }
 
     private fun serviceStatusText(): String {
