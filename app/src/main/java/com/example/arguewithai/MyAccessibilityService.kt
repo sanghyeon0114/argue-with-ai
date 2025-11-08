@@ -23,12 +23,20 @@ class MyAccessibilityService : AccessibilityService() {
     private var isShorts: Boolean = false
     private var currentSessionId: SessionId? = null
     private val sessionStack: MutableList<SessionId> = mutableListOf()
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Logger.d("[AccessibilityService] 접근성 서비스 연결됨")
+        Logger.d("[AccessibilityService] 연결됨")
+
+        // 권장: 서비스 프로세스에서 초기화/로그인 보장
+        FirebaseApp.initializeApp(this)
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            FirebaseAuth.getInstance().signInAnonymously()
+                .addOnSuccessListener { Logger.d("Firebase login ok") }
+                .addOnFailureListener { Logger.e("Firebase login fail", it) }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -39,14 +47,8 @@ class MyAccessibilityService : AccessibilityService() {
 
         // 유튜브 외로 전환되었을 때, 열린 세션이 있으면 종료
         if (pkg != "com.google.android.youtube") {
-            if (isShorts) {
-                isShorts = false
-                currentSessionId?.let { sid ->
-                    serviceScope.launch {
-                        closeAllSessions(reason = "app out")
-                    }
-                }
-            }
+            if (isShorts) isShorts = false
+            serviceScope.launch { closeAllSessions(reason = "app out") }
             return
         }
 

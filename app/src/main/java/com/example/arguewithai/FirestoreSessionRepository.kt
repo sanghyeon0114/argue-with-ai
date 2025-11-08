@@ -39,13 +39,16 @@ interface SessionRepository {
     suspend fun endSession(sessionId: SessionId): ShortformSession
 }
 
+const val COLLECTION_NAME = "users"
+const val INDIVIDUAL_COLLECTION_NAME = "sessions"
+
 class FirestoreSessionRepository (
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val time: TimeProvider = SystemTimeProvider()
 ) : SessionRepository {
     private fun uid(): String = auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
-    private fun sessionsCollection() = db.collection("users").document(uid()).collection("sessions")
+    private fun sessionsCollection() = db.collection(COLLECTION_NAME).document(uid()).collection(INDIVIDUAL_COLLECTION_NAME)
 
     override suspend fun startSession(app: String): SessionId {
         val startMs = time.nowMs()
@@ -61,7 +64,6 @@ class FirestoreSessionRepository (
         )
 
         val ref = sessionsCollection().add(data).await()
-        Logger.d("✅ Session started: ${ref.id}")
         return SessionId(ref.id)
     }
 
@@ -94,8 +96,6 @@ class FirestoreSessionRepository (
                 day = snap.getString(ShortformSession.DAY),
                 app = snap.getString(ShortformSession.APP)
             )
-        }.await().also {
-            Logger.d("✅ Session ended: ${sessionId.value}, duration=${it.durationSec}s")
-        }
+        }.await()
     }
 }
