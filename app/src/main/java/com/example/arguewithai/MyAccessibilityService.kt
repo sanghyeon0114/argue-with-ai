@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.example.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +28,7 @@ class MyAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.d("MyService", "[AccessibilityService] 접근성 서비스 연결됨")
+        Logger.d("[AccessibilityService] 접근성 서비스 연결됨")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -42,7 +43,7 @@ class MyAccessibilityService : AccessibilityService() {
                 isShorts = false
                 currentSessionId?.let { sid ->
                     serviceScope.launch {
-                        closeAllSessions(reason = "앱 이탈")
+                        closeAllSessions(reason = "app out")
                     }
                 }
             }
@@ -58,11 +59,11 @@ class MyAccessibilityService : AccessibilityService() {
                 runCatching { repo.startSession(app = "YouTube") }
                     .onSuccess { sid ->
                         sessionMutex.withLock { sessionStack.add(sid) }
-                        Log.d("MyService", "✅ Shorts 시청 시작: ${sid.value}")
+                        Logger.d("✅ start watching Shorts: ${sid.value}")
                     }
                     .onFailure {
                         isShorts = false
-                        Log.e("MyService", "❌ 시작 실패", it)
+                        Logger.e("❌ failed to start", it)
                     }
             }
         }
@@ -74,10 +75,10 @@ class MyAccessibilityService : AccessibilityService() {
                 val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
                 if (sid != null) {
                     runCatching { repo.endSession(sid) }
-                        .onSuccess { Log.d("MyService", "✅ Shorts 시청 종료: ${sid.value} (stack=${stackSize()})") }
-                        .onFailure { Log.e("MyService", "❌ 종료 실패", it) }
+                        .onSuccess { Logger.d("✅ Shorts 시청 종료: ${sid.value} (stack=${stackSize()})") }
+                        .onFailure { Logger.e("❌ 종료 실패", it) }
                 } else {
-                    Log.w("MyService", "⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
+                    Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
                 }
             }
         }
@@ -112,11 +113,11 @@ class MyAccessibilityService : AccessibilityService() {
         }
         if (toClose.isEmpty()) return
 
-        Log.d("MyService", "ℹ️ 열린 세션 ${toClose.size}건 종료 처리 시작 ($reason)")
+        Logger.d("ℹ️ 열린 세션 ${toClose.size}건 종료 처리 시작 ($reason)")
         toClose.asReversed().forEach { sid -> // 최신부터 종료
             runCatching { repo.endSession(sid) }
-                .onSuccess { Log.d("MyService", "✅ 종료 완료: ${sid.value}") }
-                .onFailure { Log.e("MyService", "❌ 종료 실패: ${sid.value}", it) }
+                .onSuccess { Logger.d("✅ 종료 완료: ${sid.value}") }
+                .onFailure { Logger.e("❌ 종료 실패: ${sid.value}", it) }
         }
     }
 

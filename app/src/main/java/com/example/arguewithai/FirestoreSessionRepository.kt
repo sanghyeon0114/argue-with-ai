@@ -1,6 +1,9 @@
 package com.example.arguewithai
 
 import android.util.Log
+import com.example.arguewithai.utils.Logger
+import com.example.arguewithai.utils.TimeProvider
+import com.example.arguewithai.utils.SystemTimeProvider
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -36,13 +39,10 @@ interface SessionRepository {
     suspend fun endSession(sessionId: SessionId): ShortformSession
 }
 
-const val LOG_TAG = "MyService"
-
 class FirestoreSessionRepository (
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val time: Utils.TimeProvider = Utils.SystemTimeProvider(),
-    private val logTag: String = LOG_TAG
+    private val time: TimeProvider = SystemTimeProvider()
 ) : SessionRepository {
     private fun uid(): String = auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
     private fun sessionsCollection() = db.collection("users").document(uid()).collection("sessions")
@@ -61,7 +61,7 @@ class FirestoreSessionRepository (
         )
 
         val ref = sessionsCollection().add(data).await()
-        Log.d(logTag, "✅ Session started: ${ref.id}")
+        Logger.d("✅ Session started: ${ref.id}")
         return SessionId(ref.id)
     }
 
@@ -95,7 +95,7 @@ class FirestoreSessionRepository (
                 app = snap.getString(ShortformSession.APP)
             )
         }.await().also {
-            Log.d(logTag, "✅ Session ended: ${sessionId.value}, duration=${it.durationSec}s")
+            Logger.d("✅ Session ended: ${sessionId.value}, duration=${it.durationSec}s")
         }
     }
 }
