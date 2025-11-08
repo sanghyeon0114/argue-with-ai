@@ -3,14 +3,15 @@
     android:description="@string/service_desc"
     android:summary="@string/service_summary"
 
-    android:canRetrieveWindowContent="true"
     android:accessibilityEventTypes="typeAllMask"
-    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFeedbackType="feedbackAllMask"
     android:notificationTimeout="50"
-    android:packageNames="com.google.android.youtube"
 
+    android:canRetrieveWindowContent="true"
     android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+
     android:canRequestFilterKeyEvents="false"
     android:canPerformGestures="false"
+
     android:settingsActivity="">
 </accessibility-service>
