@@ -1,7 +1,5 @@
 package com.example.arguewithai
 
-import android.util.Log
-import com.example.arguewithai.utils.Logger
 import com.example.arguewithai.utils.TimeProvider
 import com.example.arguewithai.utils.SystemTimeProvider
 import com.google.firebase.Timestamp
@@ -53,7 +51,6 @@ class FirestoreSessionRepository (
     override suspend fun startSession(app: String): SessionId {
         val startMs = time.nowMs()
 
-        // 서버 시간이 진실(source of truth)인 필드와 클라이언트 숫자 필드를 함께 기록
         val data = hashMapOf(
             ShortformSession.START_TIME to Timestamp(Date(startMs)),
             ShortformSession.END_TIME to null,
@@ -86,10 +83,10 @@ class FirestoreSessionRepository (
                     ShortformSession.DURATION_SEC to duration
                 )
             )
-            // 트랜잭션 반환값: 종료 후 예상 상태를 구성해 돌려줌
+
             ShortformSession(
                 startTime = snap.getTimestamp(ShortformSession.START_TIME),
-                endTime = Timestamp(Date(endMs)), // 로컬 계산값(콘솔 반영은 serverTimestamp)
+                endTime = Timestamp(Date(endMs)),
                 durationSec = duration,
                 startEpoch = startMs,
                 endEpoch = endMs,

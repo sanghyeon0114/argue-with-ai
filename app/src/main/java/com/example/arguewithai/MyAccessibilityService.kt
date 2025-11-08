@@ -2,7 +2,6 @@ package com.example.arguewithai
 
 
 import android.accessibilityservice.AccessibilityService
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.arguewithai.utils.Logger
@@ -21,7 +20,6 @@ class MyAccessibilityService : AccessibilityService() {
     private val repo: SessionRepository = FirestoreSessionRepository()
 
     private var isShorts: Boolean = false
-    private var currentSessionId: SessionId? = null
     private val sessionStack: MutableList<SessionId> = mutableListOf()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
@@ -30,7 +28,6 @@ class MyAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Logger.d("[AccessibilityService] 연결됨")
 
-        // 권장: 서비스 프로세스에서 초기화/로그인 보장
         FirebaseApp.initializeApp(this)
         if (FirebaseAuth.getInstance().currentUser == null) {
             FirebaseAuth.getInstance().signInAnonymously()
@@ -45,7 +42,6 @@ class MyAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         val root = rootInActiveWindow ?: return
 
-        // 유튜브 외로 전환되었을 때, 열린 세션이 있으면 종료
         if (pkg != "com.google.android.youtube") {
             if (isShorts) isShorts = false
             serviceScope.launch { closeAllSessions(reason = "app out") }
@@ -70,7 +66,7 @@ class MyAccessibilityService : AccessibilityService() {
             }
         }
 
-        // 상태 전이(ON -> OFF): 종료
+        // ON -> OFF
         if (!isYoutubeShorts && isShorts) {
             isShorts = false
             serviceScope.launch {
@@ -87,7 +83,7 @@ class MyAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        // 필요 시 인터럽트 처리
+        // pass
     }
 
     override fun onDestroy() {
