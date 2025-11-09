@@ -10,35 +10,32 @@ import com.example.arguewithai.firebase.FirestoreSessionRepository
 import com.example.arguewithai.firebase.SessionId
 import com.example.arguewithai.firebase.SessionRepository
 import com.example.arguewithai.utils.Logger
+import com.example.arguewithai.utils.SystemTimeProvider
+import com.example.arguewithai.utils.TimeProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicBoolean
 
-class MyAccessibilityService : AccessibilityService() {
+class MyAccessibilityService (
+    private val time: TimeProvider = SystemTimeProvider()
+) : AccessibilityService() {
 
     private val repo: SessionRepository = FirestoreSessionRepository()
 
-    private val isShorts = AtomicBoolean(false)
+    private var isShorts: Boolean = false
     private val sessionStack: MutableList<SessionId> = mutableListOf()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
-    private var lastToggleAt = 0L
-    private fun canToggle(
-        now: Long = android.os.SystemClock.uptimeMillis(),
-        windowMs: Long = 100L
-    ): Boolean {
-        val ok = (now - lastToggleAt) > windowMs
-        if (ok) lastToggleAt = now
-        return ok
-    }
+    private var lastChatAt: Long = 0L
+    private val cooltime: Long = 10 * 60 * 1000L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -53,31 +50,106 @@ class MyAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        event ?: return
+        if (event == null) return
+
         val pkg = event.packageName?.toString() ?: return
         val root = rootInActiveWindow ?: return
 
-        val shorts = when (pkg) {
-            "com.google.android.youtube" -> isYoutubeShortsScreen(root)
-            "com.instagram.android"      -> isInstagramReelsScreen(root)
-            "com.ss.android.ugc.trill"   -> isTikTokScreen(root)
-            else -> false
+        if (isShorts) {
+            val now = time.nowMs()
+            if (lastChatAt < now) {
+                showPrompt()
+                lastChatAt = now + cooltime
+            }
         }
 
-        val currentApp = when (pkg) {
-            "com.google.android.youtube" -> "Youtube"
-            "com.instagram.android"      -> "Instagram"
-            "com.ss.android.ugc.trill"   -> "TikTok"
-            else -> "None"
-        }
+        if(pkg == "com.google.android.youtube") {
+            val isYoutubeShorts: Boolean = isYoutubeShortsScreen(root)
 
-        val isOn = isShorts.get()
-        if (shorts && !isOn) {
-            if (!canToggle()) return
-            startShortForm(currentApp)
-        } else if(!shorts && isOn) {
-            if (!canToggle()) return
-            stopShortForm()
+            if (isYoutubeShorts && !isShorts) {
+                isShorts = true
+                serviceScope.launch {
+                    runCatching { repo.startSession(app = "YouTube") }
+                        .onSuccess { sid ->
+                            sessionMutex.withLock { sessionStack.add(sid) }
+                            Logger.d("✅ start watching Shorts: ${sid.value}")
+                        }
+                        .onFailure {
+                            isShorts = false
+                            Logger.e("❌ failed to start", it)
+                        }
+                }
+            } else if (!isYoutubeShorts && isShorts) {
+                isShorts = false
+                serviceScope.launch {
+                    val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
+                    if (sid != null) {
+                        runCatching { repo.endSession(sid) }
+                            .onSuccess { Logger.d("✅ Shorts 시청 종료: ${sid.value} (stack=${stackSize()})") }
+                            .onFailure { Logger.e("❌ 종료 실패", it) }
+                    } else {
+                        Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
+                    }
+                }
+            }
+        } else if(pkg == "com.instagram.android") {
+            val isInstagramShorts: Boolean = isInstagramReelsScreen(root)
+
+            if (isInstagramShorts && !isShorts) {
+                isShorts = true
+                serviceScope.launch {
+                    runCatching { repo.startSession(app = "Instagram") }
+                        .onSuccess { sid ->
+                            sessionMutex.withLock { sessionStack.add(sid) }
+                            Logger.d("✅ start watching Reels: ${sid.value}")
+                        }
+                        .onFailure {
+                            isShorts = false
+                            Logger.e("❌ failed to start", it)
+                        }
+                }
+            } else if (!isInstagramShorts && isShorts) {
+                isShorts = false
+                serviceScope.launch {
+                    val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
+                    if (sid != null) {
+                        runCatching { repo.endSession(sid) }
+                            .onSuccess { Logger.d("✅ Reels 시청 종료: ${sid.value} (stack=${stackSize()})") }
+                            .onFailure { Logger.e("❌ 종료 실패", it) }
+                    } else {
+                        Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
+                    }
+                }
+            }
+        } else if(pkg == "com.ss.android.ugc.trill") {
+            val isTikTok: Boolean = isTikTokScreen(root)
+
+            if (isTikTok && !isShorts) {
+                isShorts = true
+                serviceScope.launch {
+                    runCatching { repo.startSession(app = "TikTok") }
+                        .onSuccess { sid ->
+                            sessionMutex.withLock { sessionStack.add(sid) }
+                            Logger.d("✅ start watching tiktok: ${sid.value}")
+                        }
+                        .onFailure {
+                            isShorts = false
+                            Logger.e("❌ failed to start", it)
+                        }
+                }
+            } else if(!isTikTok && isShorts) {
+                isShorts = false
+                serviceScope.launch {
+                    val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
+                    if (sid != null) {
+                        runCatching { repo.endSession(sid) }
+                            .onSuccess { Logger.d("✅ tiktok 시청 종료: ${sid.value} (stack=${stackSize()})") }
+                            .onFailure { Logger.e("❌ 종료 실패", it) }
+                    } else {
+                        Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
+                    }
+                }
+            }
         }
     }
 
@@ -87,39 +159,8 @@ class MyAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        kotlinx.coroutines.runBlocking {
-            closeAllSessions(reason = "service destroy")
-            serviceScope.coroutineContext[Job]?.cancelAndJoin()
-        }
-    }
-
-    private fun startShortForm(appName: String) {
-        isShorts.set(true)
-        serviceScope.launch {
-            runCatching { repo.startSession(app = appName) }
-                .onSuccess { sid ->
-                    sessionMutex.withLock { sessionStack.add(sid) }
-                    Logger.d("✅ start watching Short-Form: ${sid.value}")
-                }
-                .onFailure {
-                    isShorts.set(false)
-                    Logger.e("❌ failed to start", it)
-                }
-        }
-    }
-
-    private fun stopShortForm() {
-        isShorts.set(false)
-        serviceScope.launch {
-            val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
-            if (sid != null) {
-                runCatching { repo.endSession(sid) }
-                    .onSuccess { Logger.d("✅ Short-Form 시청 종료: ${sid.value} (stack=${stackSize()})") }
-                    .onFailure { Logger.e("❌ 종료 실패", it) }
-            } else {
-                Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
-            }
-        }
+        serviceScope.launch { closeAllSessions(reason = "session destroy") }
+        serviceScope.cancel()
     }
 
     private suspend fun closeAllSessions(reason: String) {
