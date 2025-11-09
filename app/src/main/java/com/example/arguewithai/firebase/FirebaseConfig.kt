@@ -12,5 +12,6 @@ object FirebaseConfig {
             const val DEVICE = "device"
             const val SETTINGS = "settings"
         }
+        const val CHAT = "chat"
     }
 }

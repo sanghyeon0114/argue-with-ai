@@ -13,6 +13,16 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.arguewithai.R
+import com.example.arguewithai.firebase.ChatMessage
+import com.example.arguewithai.firebase.FirestoreChatRepository
+import com.example.arguewithai.firebase.FirestoreSessionRepository
+import com.example.arguewithai.firebase.SessionRepository
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class ChatActivity: ComponentActivity() {
     private lateinit var recycler: RecyclerView
@@ -21,6 +31,16 @@ class ChatActivity: ComponentActivity() {
     private lateinit var bottomBar: View
     private lateinit var adapter: ChatAdapter
     private val messages = mutableListOf<Message>()
+
+    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private val repo = FirestoreChatRepository()
+
+    // 세션 ID (필요 시 Intent나 날짜 기반으로 바꿔도 됨)
+    private val sessionId: String by lazy {
+        // 예: "2025-11-10T06:10:23_1731186623000" 같은 형태로도 가능
+        intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
+    }
 
     private val aiMessageList = listOf(
         "안녕하세요! 지금 보고 계신 영상은 어떤 이유로 보시나요?",
@@ -123,12 +143,36 @@ class ChatActivity: ComponentActivity() {
         messages.add(Message(text = text, isUser = true))
         adapter.notifyItemInserted(messages.lastIndex)
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
+
+        uiScope.launch {
+            runCatching {
+                repo.appendMessage(
+                    ChatMessage(
+                        sessionId = sessionId,
+                        sender = "user",
+                        text = text
+                    )
+                )
+            }.onFailure { it.printStackTrace() }
+        }
     }
 
     private fun addAi(text: String) {
         messages.add(Message(text = text, isUser = false))
         adapter.notifyItemInserted(messages.lastIndex)
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
+
+        uiScope.launch {
+            runCatching {
+                repo.appendMessage(
+                    ChatMessage(
+                        sessionId = sessionId,
+                        sender = "ai",
+                        text = text
+                    )
+                )
+            }.onFailure { it.printStackTrace() }
+        }
     }
 
     private inline fun <reified T : View> requireViewByIdSafe(id: Int, name: String): T {
