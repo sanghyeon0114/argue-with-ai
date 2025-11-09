@@ -49,8 +49,7 @@ class MyAccessibilityService : AccessibilityService() {
         if(pkg == "com.google.android.youtube") {
             val isYoutubeShorts: Boolean = isYoutubeShortsScreen(root)
 
-            // OFF -> ON
-            if (isYoutubeShorts && !isShorts) {
+            if (isYoutubeShorts && !isShorts) { // OFF -> ON
                 isShorts = true
                 serviceScope.launch {
                     runCatching { repo.startSession(app = "YouTube") }
@@ -63,10 +62,7 @@ class MyAccessibilityService : AccessibilityService() {
                             Logger.e("❌ failed to start", it)
                         }
                 }
-            }
-
-            // ON -> OFF
-            if (!isYoutubeShorts && isShorts) {
+            } else if (!isYoutubeShorts && isShorts) { // ON -> OFF
                 isShorts = false
                 serviceScope.launch {
                     val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
@@ -80,26 +76,36 @@ class MyAccessibilityService : AccessibilityService() {
                 }
             }
         } else if(pkg == "com.instagram.android") {
-//            if (instagramDumpJob != null) return // 이미 실행 중이면 중복 실행 방지
-//
-//            instagramDumpJob = serviceScope.launch {
-//                while (true) {
-//                    val root = rootInActiveWindow
-//                    if (root == null) {
-//                        Logger.w("⛔ dumpNode 실패: rootWindow null")
-//                    } else {
-//                        Logger.d("📌 [Instagram] dumpNode 시작")
-//                        dumpNode(root, 0)
-//                    }
-//                    delay(10_000) // 10초 대기
-//                }
-//            }
-        } else {
-            if (isShorts) isShorts = false
-            serviceScope.launch { closeAllSessions(reason = "app out") }
-            return
-        }
+            val isInstagramShorts: Boolean = isInstagramReelsScreen(root)
 
+            if (isInstagramShorts && !isShorts) {
+                isShorts = true
+                serviceScope.launch {
+                    runCatching { repo.startSession(app = "Instagram") }
+                        .onSuccess { sid ->
+                            sessionMutex.withLock { sessionStack.add(sid) }
+                            Logger.d("✅ start watching Reels: ${sid.value}")
+                        }
+                        .onFailure {
+                            isShorts = false
+                            Logger.e("❌ failed to start", it)
+                        }
+                }
+            } else if (!isInstagramShorts && isShorts) {
+                isShorts = false
+                serviceScope.launch {
+                    val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
+                    if (sid != null) {
+                        runCatching { repo.endSession(sid) }
+                            .onSuccess { Logger.d("✅ Reels 시청 종료: ${sid.value} (stack=${stackSize()})") }
+                            .onFailure { Logger.e("❌ 종료 실패", it) }
+                    } else {
+                        Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
+                    }
+                }
+            }
+
+        }
     }
 
     override fun onInterrupt() {
@@ -156,6 +162,43 @@ class MyAccessibilityService : AccessibilityService() {
         }
 
         return found >= 2
+    }
+
+    private fun isInstagramReelsScreen(root: AccessibilityNodeInfo): Boolean {
+        var found = 0
+
+        root.walkNodes { node ->
+            if (node.className == "android.view.ViewGroup" &&
+                node.viewIdResourceName == "com.instagram.android:id/clips_author_info_component") {
+                found++
+            }
+
+            if (node.className == "android.widget.Button" &&
+                node.viewIdResourceName == "com.instagram.android:id/clips_author_username") {
+                found++
+            }
+
+            if (node.className == "android.view.ViewGroup" &&
+                node.viewIdResourceName == "com.instagram.android:id/clips_caption_component") {
+                found++
+            }
+
+            if (node.className == "android.widget.ImageView" &&
+                node.viewIdResourceName == "com.instagram.android:id/like_button") {
+                found++
+            }
+
+            if (node.className == "android.widget.ImageView" &&
+                node.viewIdResourceName == "com.instagram.android:id/direct_share_button") {
+                found++
+            }
+
+            if (node.className == "android.widget.ImageView" &&
+                node.viewIdResourceName == "com.instagram.android:id/clips_ufi_more_button_component") {
+                found++
+            }
+        }
+        return found >= 5
     }
     private inline fun AccessibilityNodeInfo.walkNodes(visit: (AccessibilityNodeInfo) -> Unit) {
         val stack = ArrayDeque<AccessibilityNodeInfo>()
