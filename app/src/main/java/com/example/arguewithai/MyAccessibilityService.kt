@@ -28,7 +28,7 @@ class MyAccessibilityService : AccessibilityService() {
     private val sessionStack: MutableList<SessionId> = mutableListOf()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
-    private var instagramDumpJob: Job? = null
+    private var tikTokDumpJob: Job? = null
     override fun onServiceConnected() {
         super.onServiceConnected()
         Logger.d("[AccessibilityService] 연결됨")
@@ -104,7 +104,35 @@ class MyAccessibilityService : AccessibilityService() {
                     }
                 }
             }
+        } else if(pkg == "com.ss.android.ugc.trill") {
+            val isTikTok: Boolean = isTikTokScreen(root)
 
+            if (isTikTok && !isShorts) {
+                isShorts = true
+                serviceScope.launch {
+                    runCatching { repo.startSession(app = "TikTok") }
+                        .onSuccess { sid ->
+                            sessionMutex.withLock { sessionStack.add(sid) }
+                            Logger.d("✅ start watching tiktok: ${sid.value}")
+                        }
+                        .onFailure {
+                            isShorts = false
+                            Logger.e("❌ failed to start", it)
+                        }
+                }
+            } else if(!isTikTok && isShorts) {
+                isShorts = false
+                serviceScope.launch {
+                    val sid = sessionMutex.withLock { sessionStack.removeLastOrNull() }
+                    if (sid != null) {
+                        runCatching { repo.endSession(sid) }
+                            .onSuccess { Logger.d("✅ tiktok 시청 종료: ${sid.value} (stack=${stackSize()})") }
+                            .onFailure { Logger.e("❌ 종료 실패", it) }
+                    } else {
+                        Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
+                    }
+                }
+            }
         }
     }
 
@@ -118,15 +146,15 @@ class MyAccessibilityService : AccessibilityService() {
         serviceScope.cancel()
     }
 
-//    private fun dumpNode(node: AccessibilityNodeInfo, depth: Int) {
-//        val indent = " ".repeat(depth * 2)
-//        Logger.d(
-//            "$indent- class=${node.className}, text=${node.text}, contentDesc=${node.contentDescription}, viewId=${node.viewIdResourceName}"
-//        )
-//        for (i in 0 until node.childCount) {
-//            node.getChild(i)?.let { dumpNode(it, depth + 1) }
-//        }
-//    }
+    private fun dumpNode(node: AccessibilityNodeInfo, depth: Int) {
+        val indent = " ".repeat(depth * 2)
+        Logger.d(
+            "$indent- class=${node.className}, text=${node.text}, contentDesc=${node.contentDescription}, viewId=${node.viewIdResourceName}"
+        )
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { dumpNode(it, depth + 1) }
+        }
+    }
 
     private suspend fun closeAllSessions(reason: String) {
         val toClose: List<SessionId> = sessionMutex.withLock {
@@ -200,6 +228,24 @@ class MyAccessibilityService : AccessibilityService() {
         }
         return found >= 5
     }
+
+    private fun isTikTokScreen(root: AccessibilityNodeInfo): Boolean {
+        var found = 0
+
+        root.walkNodes { node ->
+            if (node.className == "android.widget.Button" &&
+                node.viewIdResourceName?.endsWith("com.ss.android.ugc.trill:id/ew0") == true) found++
+
+            if (node.className == "android.widget.Button" &&
+                node.viewIdResourceName?.endsWith("com.ss.android.ugc.trill:id/dnl") == true) found++
+
+            if (node.className == "class=android.widget.Button" &&
+                node.viewIdResourceName?.endsWith("viewId=com.ss.android.ugc.trill:id/ggg") == true) found++
+        }
+
+        return found >= 3
+    }
+
     private inline fun AccessibilityNodeInfo.walkNodes(visit: (AccessibilityNodeInfo) -> Unit) {
         val stack = ArrayDeque<AccessibilityNodeInfo>()
         stack.add(this)
