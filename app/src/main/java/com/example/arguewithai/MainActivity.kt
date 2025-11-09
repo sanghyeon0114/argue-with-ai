@@ -1,8 +1,10 @@
 package com.example.arguewithai
 
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -13,14 +15,16 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.arguewithai.firebase.FirestoreAccessibilityRepository
 import com.example.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
+import com.example.arguewithai.chat.ChatActivity
 
 class MainActivity : ComponentActivity() {
-    private lateinit var accessibilityServiceText: TextView
+    private lateinit var accessibilityText: TextView
 
     private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
     private val accKey = "last_accessibility_enabled"
@@ -36,30 +40,54 @@ class MainActivity : ComponentActivity() {
             setPadding(24, 24, 24, 24)
         }
 
-        val infoText = TextView(this).apply {
+        val overlayInfoText = TextView(this).apply {
+            text = getString(R.string.overlay_guide)
+            textSize = 18f
+            setPadding(0, 0, 0, 32)
+            gravity = Gravity.CENTER
+        }
+
+        val accessibilityInfoText = TextView(this).apply {
             text = getString(R.string.accessibility_guide)
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
-        accessibilityServiceText = TextView(this).apply {
+
+        accessibilityText = TextView(this).apply {
             text = serviceStatusText()
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
 
+        val overlayBtn = Button(this).apply {
+            text = "오버레이 허용"
+            setOnClickListener {
+                requestOverlayPermission()
+            }
+        }
 
-        val btn = Button(this).apply {
+        val accessibilityBtn = Button(this).apply {
             text = "접근성 설정"
             setOnClickListener {
                 openAccessibilitySettingsCompat()
             }
         }
+        val chatBtn = Button(this).apply {
+            text = "채팅 열기"
+            setOnClickListener {
+                val intent = Intent(this@MainActivity, ChatActivity::class.java)
+                startActivity(intent)
+            }
+        }
 
-        layout.addView(infoText)
-        layout.addView(accessibilityServiceText)
-        layout.addView(btn)
+        layout.addView(overlayInfoText)
+        layout.addView(overlayBtn)
+        layout.addView(accessibilityInfoText)
+        layout.addView(accessibilityText)
+        layout.addView(accessibilityBtn)
+        layout.addView(chatBtn)
 
         setContentView(layout)
 
@@ -85,7 +113,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        accessibilityServiceText.text = serviceStatusText()
+        accessibilityText.text = serviceStatusText()
 
         val enabled = isMyAccessibilityServiceEnabled()
         val last = prefs.getBoolean(accKey, false)
@@ -134,6 +162,20 @@ class MainActivity : ComponentActivity() {
             true
         } catch (_: Exception) {
             false
+        }
+    }
+
+    private fun requestOverlayPermission() {
+        if (Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "이미 오버레이 권한이 허용되어 있습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
         }
     }
 }

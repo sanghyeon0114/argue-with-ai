@@ -13,6 +13,7 @@
             <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
         </intent>
     </queries>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -44,6 +45,11 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config"/>
         </service>
+        <activity
+            android:name=".chat.ChatActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+            />
     </application>
 
 </manifest>

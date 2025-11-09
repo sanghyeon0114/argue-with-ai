@@ -5,6 +5,11 @@
     <string name="service_desc">YouTube Shorts 화면을 감지하는 접근성 서비스</string>
     <string name="service_summary">YouTube Shorts 화면을 감지하는 접근성 서비스</string>
 
+    <string name="overlay_guide">화면 띄우기 설정을 켜주세요</string>
     <string name="accessibility_guide">접근성에서 ‘ArgueWithAi’ 서비스를 켜주세요</string>
     <string name="accessibility_error">"설정을 열 수 없습니다. 수동으로 접근성 메뉴를 열어주세요."</string>
+    <string name="send">"챗봇과 대화해주세요"</string>
+
+    <string name="hidden_message">메시지를 입력하세요</string>
+    <string name="button_description">보내기</string>
 </resources>
