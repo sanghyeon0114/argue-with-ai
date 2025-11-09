@@ -18,6 +18,7 @@ class ChatActivity: ComponentActivity() {
     private lateinit var recycler: RecyclerView
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
+    private lateinit var bottomBar: View
     private lateinit var adapter: ChatAdapter
     private val messages = mutableListOf<Message>()
 
@@ -37,6 +38,7 @@ class ChatActivity: ComponentActivity() {
         recycler  = requireViewByIdSafe(R.id.recyclerMessages, "recyclerMessages")
         etMessage = requireViewByIdSafe(R.id.etMessage, "etMessage")
         btnSend   = requireViewByIdSafe(R.id.btnSend, "btnSend")
+        bottomBar = requireViewByIdSafe(R.id.bottomBar, "bottomBar")
 
         val lm = LinearLayoutManager(this).apply { stackFromEnd = true }
         adapter = ChatAdapter(messages)
@@ -62,23 +64,45 @@ class ChatActivity: ComponentActivity() {
         }
     }
 
+
     private fun applyInsets(root: View) {
+        // 1) 루트: 시스템바만
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val sys = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            val bottom = if (imeVisible) ime.bottom else sys.bottom
-
-            v.setPadding(v.paddingLeft, sys.top, v.paddingRight, bottom)
-
-            recycler.setPadding(
-                recycler.paddingLeft, recycler.paddingTop, recycler.paddingRight, bottom
-            )
-
+            v.setPadding(v.paddingLeft, sys.top, v.paddingRight, sys.bottom)
             insets
         }
+
+        // 2) RecyclerView: 시스템바 + IME (리스트 안 가리도록)
+        ViewCompat.setOnApplyWindowInsetsListener(recycler) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, sys.bottom + ime.bottom)
+
+            if (imeVisible && messages.isNotEmpty()) {
+                recycler.post { recycler.scrollToPosition(messages.lastIndex) }
+            }
+            insets
+        }
+
+        // 3) 하단 바: 시스템바 패딩 + (Fallback) ime 보정
+        ViewCompat.setOnApplyWindowInsetsListener(bottomBar) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+
+            // 기본: 시스템바만 패딩 -> adjustResize가 높이를 줄이므로 자동으로 키보드 위에 위치
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, sys.bottom)
+
+            // Fallback: 일부 기기에서 adjustResize 미동작 시, 즉시 위로 띄우기
+            v.translationY = if (imeVisible) -ime.bottom.toFloat() else 0f
+            insets
+        }
+
         ViewCompat.requestApplyInsets(root)
     }
 
@@ -98,13 +122,13 @@ class ChatActivity: ComponentActivity() {
     private fun addUser(text: String) {
         messages.add(Message(text = text, isUser = true))
         adapter.notifyItemInserted(messages.lastIndex)
-        recycler.scrollToPosition(messages.lastIndex)
+        recycler.post { recycler.scrollToPosition(messages.lastIndex) }
     }
 
     private fun addAi(text: String) {
         messages.add(Message(text = text, isUser = false))
         adapter.notifyItemInserted(messages.lastIndex)
-        recycler.scrollToPosition(messages.lastIndex)
+        recycler.post { recycler.scrollToPosition(messages.lastIndex) }
     }
 
     private inline fun <reified T : View> requireViewByIdSafe(id: Int, name: String): T {

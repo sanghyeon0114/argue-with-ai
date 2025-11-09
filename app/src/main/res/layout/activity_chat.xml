@@ -10,6 +10,7 @@
         android:layout_weight="1"/>
 
     <LinearLayout
+        android:id="@+id/bottomBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
@@ -17,12 +18,15 @@
         <EditText
             android:id="@+id/etMessage"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:layout_weight="1"
             android:imeOptions="actionSend"
             android:inputType="text"
             android:hint="@string/hidden_message"
-            />
+            android:autofillHints="none"
+            android:minHeight="48dp"
+            android:paddingVertical="8dp"
+            android:paddingHorizontal="12dp" />
 
         <ImageButton
             android:id="@+id/btnSend"
