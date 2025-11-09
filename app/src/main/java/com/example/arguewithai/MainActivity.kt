@@ -91,14 +91,14 @@ class MainActivity : ComponentActivity() {
         }
 
         val overlayInfoText = TextView(this).apply {
-            text = "앱이 화면 위에 안내 메시지를 띄울 수 있도록\n오버레이 권한을 허용해주세요."
+            text = "오버레이 권한을 허용해주세요."
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
 
         val accessibilityInfoText = TextView(this).apply {
-            text = "숏폼 사용 감지를 위해\n접근성 서비스 활성화가 필요합니다."
+            text = "숏폼 사용 감지를 위해 접근성 서비스 활성화가 필요합니다."
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
@@ -141,7 +141,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun serviceStatusText(): String {
-        return "AccessibilityService: ${isMyAccessibilityServiceEnabled()}"
+        return if (isMyAccessibilityServiceEnabled()) {
+            "상태: 활성화됨 ✅"
+        } else {
+            "상태: 비활성화됨 ❌"
+        }
     }
 
     private fun isMyAccessibilityServiceEnabled(): Boolean {
