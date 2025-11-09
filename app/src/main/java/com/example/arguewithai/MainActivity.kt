@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.LinearLayout
@@ -34,62 +35,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(24, 24, 24, 24)
-        }
-
-        val overlayInfoText = TextView(this).apply {
-            text = getString(R.string.overlay_guide)
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-
-        val accessibilityInfoText = TextView(this).apply {
-            text = getString(R.string.accessibility_guide)
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-
-        accessibilityText = TextView(this).apply {
-            text = serviceStatusText()
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-
-        val overlayBtn = Button(this).apply {
-            text = "오버레이 허용"
-            setOnClickListener {
-                requestOverlayPermission()
-            }
-        }
-
-        val accessibilityBtn = Button(this).apply {
-            text = "접근성 설정"
-            setOnClickListener {
-                openAccessibilitySettingsCompat()
-            }
-        }
-        val chatBtn = Button(this).apply {
-            text = "채팅 열기"
-            setOnClickListener {
-                val intent = Intent(this@MainActivity, ChatActivity::class.java)
-                startActivity(intent)
-            }
-        }
-
-        layout.addView(overlayInfoText)
-        layout.addView(overlayBtn)
-        layout.addView(accessibilityInfoText)
-        layout.addView(accessibilityText)
-        layout.addView(accessibilityBtn)
-        layout.addView(chatBtn)
-
-        setContentView(layout)
+        setView()
 
         Logger.enabled = true
         FirebaseApp.initializeApp(this)
@@ -124,6 +70,74 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun setView() {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(24, 24, 24, 24)
+        }
+
+        fun divider(): View = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                2  // 선 두께 (dp 적용 아래서 해줌)
+            ).apply {
+                topMargin = 32
+                bottomMargin = 32
+            }
+            setBackgroundColor(getColor(android.R.color.darker_gray))
+        }
+
+        val overlayInfoText = TextView(this).apply {
+            text = "앱이 화면 위에 안내 메시지를 띄울 수 있도록\n오버레이 권한을 허용해주세요."
+            textSize = 18f
+            setPadding(0, 0, 0, 32)
+            gravity = Gravity.CENTER
+        }
+
+        val accessibilityInfoText = TextView(this).apply {
+            text = "숏폼 사용 감지를 위해\n접근성 서비스 활성화가 필요합니다."
+            textSize = 18f
+            setPadding(0, 0, 0, 32)
+            gravity = Gravity.CENTER
+        }
+
+        accessibilityText = TextView(this).apply {
+            text = serviceStatusText() // ex: "접근성 서비스: OFF"
+            textSize = 18f
+            setPadding(0, 0, 0, 32)
+            gravity = Gravity.CENTER
+        }
+
+        val overlayBtn = Button(this).apply {
+            text = "오버레이 권한 설정"
+            setOnClickListener { requestOverlayPermission() }
+        }
+
+        val accessibilityBtn = Button(this).apply {
+            text = "접근성 서비스 설정"
+            setOnClickListener { openAccessibilitySettingsCompat() }
+        }
+
+        val chatBtn = Button(this).apply {
+            text = "챗봇 창 열기"
+            setOnClickListener {
+                val intent = Intent(this@MainActivity, ChatActivity::class.java)
+                startActivity(intent)
+            }
+        }
+
+        layout.addView(overlayInfoText)
+        layout.addView(overlayBtn)
+        layout.addView(divider())
+        layout.addView(accessibilityInfoText)
+        layout.addView(accessibilityText)
+        layout.addView(accessibilityBtn)
+        layout.addView(chatBtn)
+
+        setContentView(layout)
     }
 
     private fun serviceStatusText(): String {
