@@ -1,6 +1,8 @@
 package com.example.arguewithai.chat
 
+import android.content.Context
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -9,7 +11,6 @@ import android.widget.ImageButton
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -53,6 +54,11 @@ class ChatActivity : ComponentActivity() {
                 sendCurrentText(); true
             } else false
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        TimeManager.markShown(this)
     }
 
     private fun applyInsets(root: View) {

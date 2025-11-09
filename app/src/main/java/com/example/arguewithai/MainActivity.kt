@@ -1,7 +1,6 @@
 package com.example.arguewithai
 
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
@@ -16,7 +15,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import com.example.arguewithai.firebase.FirestoreAccessibilityRepository
 import com.example.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
@@ -121,21 +119,12 @@ class MainActivity : ComponentActivity() {
             setOnClickListener { openAccessibilitySettingsCompat() }
         }
 
-        val chatBtn = Button(this).apply {
-            text = "챗봇 창 열기"
-            setOnClickListener {
-                val intent = Intent(this@MainActivity, ChatActivity::class.java)
-                startActivity(intent)
-            }
-        }
-
         layout.addView(overlayInfoText)
         layout.addView(overlayBtn)
         layout.addView(divider())
         layout.addView(accessibilityInfoText)
         layout.addView(accessibilityText)
         layout.addView(accessibilityBtn)
-        layout.addView(chatBtn)
 
         setContentView(layout)
     }
