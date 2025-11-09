@@ -47,9 +47,12 @@
         </service>
         <activity
             android:name=".chat.ChatActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
-            />
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.example.arguewithai.PROMPT"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.ArgueWithAi">
+        </activity>
     </application>
 
 </manifest>

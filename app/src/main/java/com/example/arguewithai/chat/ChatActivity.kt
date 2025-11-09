@@ -1,8 +1,6 @@
 package com.example.arguewithai.chat
 
-import android.content.Context
 import android.os.Bundle
-import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -16,18 +14,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.arguewithai.R
 
-class ChatActivity : ComponentActivity() {
+class ChatActivity: ComponentActivity() {
     private lateinit var recycler: RecyclerView
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
     private lateinit var adapter: ChatAdapter
-
     private val messages = mutableListOf<Message>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         setContentView(R.layout.activity_chat)
 
         recycler  = requireViewByIdSafe(R.id.recyclerMessages, "recyclerMessages")
@@ -58,7 +54,6 @@ class ChatActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        TimeManager.markShown(this)
     }
 
     private fun applyInsets(root: View) {

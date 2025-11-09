@@ -3,11 +3,9 @@ package com.example.arguewithai
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.arguewithai.chat.ChatActivity
-import com.example.arguewithai.chat.TimeManager
 import com.example.arguewithai.firebase.FirestoreSessionRepository
 import com.example.arguewithai.firebase.SessionId
 import com.example.arguewithai.firebase.SessionRepository
@@ -18,9 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -231,7 +227,11 @@ class MyAccessibilityService : AccessibilityService() {
     }
     private fun showPrompt() {
         startActivity(Intent(this, ChatActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
         })
     }
 }
