@@ -47,7 +47,8 @@
         </service>
         <activity
             android:name=".chat.ChatActivity"
-            android:exported="true"
+            android:windowSoftInputMode="stateUnchanged|adjustResize"
+            android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity="com.example.arguewithai.PROMPT"
             android:excludeFromRecents="true"

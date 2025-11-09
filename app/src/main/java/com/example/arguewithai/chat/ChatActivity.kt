@@ -21,6 +21,14 @@ class ChatActivity: ComponentActivity() {
     private lateinit var adapter: ChatAdapter
     private val messages = mutableListOf<Message>()
 
+    private val aiMessageList = listOf(
+        "안녕하세요! 지금 보고 계신 영상은 어떤 이유로 보시나요?",
+        "이 영상을 계속 본다면 나중에 후회할 가능성은 얼마나 될까요?",
+        "지금 이 시간이 의미 있는 사용이라고 느껴지시나요?",
+        "답변 감사합니다. 잠시 생각해보는 시간이 되었길 바랍니다."
+    )
+    private var aiIndex = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -41,7 +49,9 @@ class ChatActivity: ComponentActivity() {
         val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
         applyInsets(root)
 
-        addAi("안녕하세요! 무엇을 도와드릴까요?")
+        // 대화 시작 시 첫 질문
+        addAi(aiMessageList[aiIndex])
+        aiIndex++
 
         btnSend.setOnClickListener { sendCurrentText() }
 
@@ -50,10 +60,6 @@ class ChatActivity: ComponentActivity() {
                 sendCurrentText(); true
             } else false
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
     }
 
     private fun applyInsets(root: View) {
@@ -81,7 +87,12 @@ class ChatActivity: ComponentActivity() {
         if (text.isEmpty()) return
         addUser(text)
         etMessage.text?.clear()
-        addAi("“$text” 라고 하셨네요!")
+
+        // AI가 준비된 3개의 질문을 순서대로 던짐
+        if (aiIndex < aiMessageList.size) {
+            addAi(aiMessageList[aiIndex])
+            aiIndex++
+        }
     }
 
     private fun addUser(text: String) {
