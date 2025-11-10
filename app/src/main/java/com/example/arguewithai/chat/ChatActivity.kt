@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.arguewithai.R
@@ -43,7 +44,7 @@ class ChatActivity: ComponentActivity() {
         "안녕하세요! 지금 보고 계신 영상은 어떤 이유로 보시나요?",
         "이 영상을 계속 본다면 나중에 후회할 가능성은 얼마나 될까요?",
         "지금 이 시간이 의미 있는 사용이라고 느껴지시나요?",
-        "답변 감사합니다. 잠시 생각해보는 시간이 되었길 바랍니다."
+        "답변 감사합니다. 잠시 생각해보는 시간이 되었길 바랍니다.\n뒤로가기를 통해 프롬프트를 종료해주세요."
     )
     private var aiIndex = 0
 
@@ -94,7 +95,7 @@ class ChatActivity: ComponentActivity() {
             val sys = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            v.setPadding(v.paddingLeft, sys.top, v.paddingRight, sys.bottom)
+            v.setPadding(v.paddingLeft, sys.top, v.paddingRight, 0)
             insets
         }
 
@@ -103,7 +104,13 @@ class ChatActivity: ComponentActivity() {
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
 
-            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, sys.bottom + ime.bottom)
+            val bottomPadding = if (imeVisible) {
+                ime.bottom + bottomBar.height
+            } else {
+                sys.bottom + bottomBar.height
+            }
+
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bottomPadding)
 
             if (imeVisible && messages.isNotEmpty()) {
                 recycler.post { recycler.scrollToPosition(messages.lastIndex) }
@@ -116,12 +123,19 @@ class ChatActivity: ComponentActivity() {
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
 
-            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, sys.bottom)
-            v.translationY = if (imeVisible) -ime.bottom.toFloat() else 0f
+            if (imeVisible) {
+                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, 0)
+                v.translationY = -ime.bottom.toFloat()
+            } else {
+                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, sys.bottom)
+                v.translationY = 0f
+            }
             insets
         }
 
-        ViewCompat.requestApplyInsets(root)
+        bottomBar.doOnLayout {
+            ViewCompat.requestApplyInsets(root)
+        }
     }
 
     private fun sendCurrentText() {
