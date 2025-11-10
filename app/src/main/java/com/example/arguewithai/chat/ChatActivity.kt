@@ -1,6 +1,6 @@
 package com.example.arguewithai.chat
 
-import android.app.Activity
+import android.os.Build
 import android.os.Bundle
 import android.os.ResultReceiver
 import android.view.View
@@ -48,7 +48,12 @@ class ChatActivity: ComponentActivity() {
     private var aiIndex = 0
 
     private val receiver by lazy {
-        intent.getParcelableExtra<ResultReceiver>("receiver")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra("receiver", ResultReceiver::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra("receiver")
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,7 +77,6 @@ class ChatActivity: ComponentActivity() {
         val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
         applyInsets(root)
 
-        // 대화 시작 시 첫 질문
         addAi(aiMessageList[aiIndex], aiIndex)
 
         btnSend.setOnClickListener { sendCurrentText() }
@@ -86,7 +90,6 @@ class ChatActivity: ComponentActivity() {
 
 
     private fun applyInsets(root: View) {
-        // 1) 루트: 시스템바만
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val sys = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
@@ -95,7 +98,6 @@ class ChatActivity: ComponentActivity() {
             insets
         }
 
-        // 2) RecyclerView: 시스템바 + IME (리스트 안 가리도록)
         ViewCompat.setOnApplyWindowInsetsListener(recycler) { v, insets ->
             val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
@@ -109,16 +111,12 @@ class ChatActivity: ComponentActivity() {
             insets
         }
 
-        // 3) 하단 바: 시스템바 패딩 + (Fallback) ime 보정
         ViewCompat.setOnApplyWindowInsetsListener(bottomBar) { v, insets ->
             val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
 
-            // 기본: 시스템바만 패딩 -> adjustResize가 높이를 줄이므로 자동으로 키보드 위에 위치
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, sys.bottom)
-
-            // Fallback: 일부 기기에서 adjustResize 미동작 시, 즉시 위로 띄우기
             v.translationY = if (imeVisible) -ime.bottom.toFloat() else 0f
             insets
         }
@@ -133,7 +131,6 @@ class ChatActivity: ComponentActivity() {
         aiIndex++
         etMessage.text?.clear()
 
-        // AI가 준비된 3개의 질문을 순서대로 던짐
         if (aiIndex < aiMessageList.size) {
             addAi(aiMessageList[aiIndex], aiIndex)
         }
@@ -182,9 +179,8 @@ class ChatActivity: ComponentActivity() {
         return v ?: error("activity_chat.xml에 id='$name' 뷰가 없습니다.")
     }
 
-    // 사용자가 닫기 버튼을 누르거나 특정 시점에 종료할 때 호출
     private fun closePrompt(reason: String = "user_closed") {
-        receiver?.send(Activity.RESULT_OK, Bundle().apply {
+        receiver?.send(RESULT_OK, Bundle().apply {
             putString("reason", reason)
         })
         finish()
@@ -193,7 +189,7 @@ class ChatActivity: ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (!isChangingConfigurations) {
-            receiver?.send(Activity.RESULT_CANCELED, Bundle().apply {
+            receiver?.send(RESULT_CANCELED, Bundle().apply {
                 putString("reason", "destroyed")
             })
         }

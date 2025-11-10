@@ -13,8 +13,8 @@ class ChatAdapter(
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
-        private const val TYPE_OUT = 1  // 사용자
-        private const val TYPE_IN = 2   // AI/상대
+        private const val TYPE_OUT = 1
+        private const val TYPE_IN = 2
     }
 
     override fun getItemViewType(position: Int): Int =

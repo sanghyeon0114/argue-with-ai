@@ -3,7 +3,6 @@ package com.example.arguewithai
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -20,6 +19,7 @@ import com.example.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
+import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
     private lateinit var accessibilityText: TextView
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
         fun divider(): View = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                2  // 선 두께 (dp 적용 아래서 해줌)
+                2
             ).apply {
                 topMargin = 32
                 bottomMargin = 32
@@ -179,7 +179,7 @@ class MainActivity : ComponentActivity() {
         if (!Settings.canDrawOverlays(this)) {
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
+                "package:$packageName".toUri()
             )
             startActivity(intent)
         }

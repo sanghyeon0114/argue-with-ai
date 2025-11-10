@@ -5,11 +5,9 @@ import com.example.arguewithai.utils.SystemTimeProvider
 import com.example.arguewithai.utils.TimeProvider
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
-import java.util.Date
 
 enum class Sender {
     AI,
@@ -41,10 +39,10 @@ class FirestoreChatRepository(
             .document(sessionId)
 
     private fun chatMessagesCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection("messages")
+        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Chat.MESSAGES)
 
     suspend fun appendMessage(msg: ChatMessage, order: Int) {
-        val docId = order.toString() // 같은 order 문서에 병합
+        val docId = order.toString()
         val ms = time.nowMs()
 
         val payload = hashMapOf(

@@ -9,9 +9,11 @@ object FirebaseConfig {
 
         object Client {
             const val ACCESSIBILITY = "accessibility"
-            const val DEVICE = "device"
-            const val SETTINGS = "settings"
         }
         const val CHAT = "chat"
+
+        object Chat {
+            const val MESSAGES = "messages"
+        }
     }
 }
