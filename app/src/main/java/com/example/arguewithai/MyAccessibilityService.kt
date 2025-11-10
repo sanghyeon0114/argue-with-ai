@@ -3,6 +3,10 @@ package com.example.arguewithai
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.ResultReceiver
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.arguewithai.chat.ChatActivity
@@ -17,7 +21,9 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,7 +39,21 @@ class MyAccessibilityService (
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private var lastChatAt: Long = 0L
-    private val cooltime: Long = 10 * 60 * 1000L
+    private val cooltime: Long = 5 * 1000L //10 * 60 * 1000L
+    private var isPrompt: Boolean = false
+
+    private val promptResultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
+        override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
+            val reason = resultData?.getString("reason") ?: "unknown"
+            Logger.d("ChatActivity closed. reason=$reason, resultCode=$resultCode")
+            reloadCooltime()
+        }
+    }
+    private fun reloadCooltime() {
+        val now = time.nowMs()
+        lastChatAt = now + cooltime
+        isPrompt = false
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -52,12 +72,12 @@ class MyAccessibilityService (
 
         val pkg = event.packageName?.toString() ?: return
         val root = rootInActiveWindow ?: return
+        val now = time.nowMs()
 
-        if (isShorts) {
-            val now = time.nowMs()
-            if (lastChatAt < now) {
+        if (isShorts && !isPrompt && lastChatAt < now) {
+            isPrompt = true
+            serviceScope.launch(Dispatchers.Main) {
                 showPrompt()
-                lastChatAt = now + cooltime
             }
         }
 
@@ -265,12 +285,14 @@ class MyAccessibilityService (
         }
     }
     private fun showPrompt() {
-        startActivity(Intent(this, ChatActivity::class.java).apply {
+        val intent = Intent(this, ChatActivity::class.java).apply {
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP
             )
-        })
+            putExtra("receiver", promptResultReceiver)
+        }
+        startActivity(intent)
     }
 }

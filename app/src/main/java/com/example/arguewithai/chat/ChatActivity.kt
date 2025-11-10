@@ -1,6 +1,8 @@
 package com.example.arguewithai.chat
 
+import android.app.Activity
 import android.os.Bundle
+import android.os.ResultReceiver
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -44,6 +46,10 @@ class ChatActivity: ComponentActivity() {
         "답변 감사합니다. 잠시 생각해보는 시간이 되었길 바랍니다."
     )
     private var aiIndex = 0
+
+    private val receiver by lazy {
+        intent.getParcelableExtra<ResultReceiver>("receiver")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -174,5 +180,22 @@ class ChatActivity: ComponentActivity() {
     private inline fun <reified T : View> requireViewByIdSafe(id: Int, name: String): T {
         val v = findViewById<T>(id)
         return v ?: error("activity_chat.xml에 id='$name' 뷰가 없습니다.")
+    }
+
+    // 사용자가 닫기 버튼을 누르거나 특정 시점에 종료할 때 호출
+    private fun closePrompt(reason: String = "user_closed") {
+        receiver?.send(Activity.RESULT_OK, Bundle().apply {
+            putString("reason", reason)
+        })
+        finish()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (!isChangingConfigurations) {
+            receiver?.send(Activity.RESULT_CANCELED, Bundle().apply {
+                putString("reason", "destroyed")
+            })
+        }
     }
 }
