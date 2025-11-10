@@ -15,10 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.arguewithai.R
 import com.example.arguewithai.firebase.ChatMessage
 import com.example.arguewithai.firebase.FirestoreChatRepository
-import com.example.arguewithai.firebase.FirestoreSessionRepository
-import com.example.arguewithai.firebase.SessionRepository
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.arguewithai.firebase.Sender
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,9 +33,7 @@ class ChatActivity: ComponentActivity() {
 
     private val repo = FirestoreChatRepository()
 
-    // 세션 ID (필요 시 Intent나 날짜 기반으로 바꿔도 됨)
     private val sessionId: String by lazy {
-        // 예: "2025-11-10T06:10:23_1731186623000" 같은 형태로도 가능
         intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
     }
 
@@ -72,8 +67,7 @@ class ChatActivity: ComponentActivity() {
         applyInsets(root)
 
         // 대화 시작 시 첫 질문
-        addAi(aiMessageList[aiIndex])
-        aiIndex++
+        addAi(aiMessageList[aiIndex], aiIndex)
 
         btnSend.setOnClickListener { sendCurrentText() }
 
@@ -129,17 +123,17 @@ class ChatActivity: ComponentActivity() {
     private fun sendCurrentText() {
         val text = etMessage.text?.toString()?.trim().orEmpty()
         if (text.isEmpty()) return
-        addUser(text)
+        addUser(text, aiIndex)
+        aiIndex++
         etMessage.text?.clear()
 
         // AI가 준비된 3개의 질문을 순서대로 던짐
         if (aiIndex < aiMessageList.size) {
-            addAi(aiMessageList[aiIndex])
-            aiIndex++
+            addAi(aiMessageList[aiIndex], aiIndex)
         }
     }
 
-    private fun addUser(text: String) {
+    private fun addUser(text: String, index: Int) {
         messages.add(Message(text = text, isUser = true))
         adapter.notifyItemInserted(messages.lastIndex)
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
@@ -149,15 +143,16 @@ class ChatActivity: ComponentActivity() {
                 repo.appendMessage(
                     ChatMessage(
                         sessionId = sessionId,
-                        sender = "user",
+                        sender = Sender.USER,
                         text = text
-                    )
+                    ),
+                    index
                 )
             }.onFailure { it.printStackTrace() }
         }
     }
 
-    private fun addAi(text: String) {
+    private fun addAi(text: String, index: Int) {
         messages.add(Message(text = text, isUser = false))
         adapter.notifyItemInserted(messages.lastIndex)
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
@@ -167,9 +162,10 @@ class ChatActivity: ComponentActivity() {
                 repo.appendMessage(
                     ChatMessage(
                         sessionId = sessionId,
-                        sender = "ai",
+                        sender = Sender.AI,
                         text = text
-                    )
+                    ),
+                    index
                 )
             }.onFailure { it.printStackTrace() }
         }

@@ -20,7 +20,6 @@ import com.example.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
-import com.example.arguewithai.chat.ChatActivity
 
 class MainActivity : ComponentActivity() {
     private lateinit var accessibilityText: TextView
