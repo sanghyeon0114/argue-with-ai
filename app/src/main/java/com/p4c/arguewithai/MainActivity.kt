@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -25,6 +26,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.p4c.arguewithai.firebase.FirestoreUserRepository
 
 class MainActivity : ComponentActivity() {
     private lateinit var accessibilityText: TextView
@@ -32,6 +34,8 @@ class MainActivity : ComponentActivity() {
     private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
     private val accKey = "last_accessibility_enabled"
     private val accessRepo = FirestoreAccessibilityRepository()
+    private val userRepo = FirestoreUserRepository()
+    private lateinit var nameSection: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,12 +96,41 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(getColor(android.R.color.darker_gray))
         }
 
+        nameSection = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        layout.addView(nameSection)
+        layout.addView(divider())
+
+        userRepo.getUserName { name ->
+            runOnUiThread {
+                if (!name.isNullOrBlank()) {
+                    renderNameDisplay(name)
+                } else {
+                    renderNameInput()
+                }
+            }
+        }
+
         val overlayInfoText = TextView(this).apply {
             text = "오버레이 권한을 허용해주세요."
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
+        val overlayBtn = Button(this).apply {
+            text = "오버레이 권한 설정"
+            setOnClickListener { requestOverlayPermission() }
+        }
+
+        layout.addView(overlayInfoText)
+        layout.addView(overlayBtn)
+        layout.addView(divider())
 
         val accessibilityInfoText = TextView(this).apply {
             text = "숏폼 사용 감지를 위해 접근성 서비스 활성화가 필요합니다."
@@ -105,23 +138,21 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
-
         accessibilityText = TextView(this).apply {
             text = serviceStatusText() // ex: "접근성 서비스: OFF"
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
-
-        val overlayBtn = Button(this).apply {
-            text = "오버레이 권한 설정"
-            setOnClickListener { requestOverlayPermission() }
-        }
-
         val accessibilityBtn = Button(this).apply {
             text = "접근성 서비스 설정"
             setOnClickListener { openAccessibilitySettingsCompat() }
         }
+
+        layout.addView(accessibilityInfoText)
+        layout.addView(accessibilityText)
+        layout.addView(accessibilityBtn)
+        layout.addView(divider())
 
         val PIPInfoText = TextView(this).apply {
             text = "Youtube와 Instagram의 PIP 권한을 해제해주세요."
@@ -129,7 +160,6 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
-
         val YoutubePIPBtn = Button(this).apply {
             text = "Youtube PIP 권한 해제"
             setOnClickListener { openPipSettingsForApp(it.context, "com.google.android.youtube") }
@@ -139,14 +169,6 @@ class MainActivity : ComponentActivity() {
             setOnClickListener { openPipSettingsForApp(it.context, "com.instagram.android") }
         }
 
-
-        layout.addView(overlayInfoText)
-        layout.addView(overlayBtn)
-        layout.addView(divider())
-        layout.addView(accessibilityInfoText)
-        layout.addView(accessibilityText)
-        layout.addView(accessibilityBtn)
-        layout.addView(divider())
         layout.addView(PIPInfoText)
         layout.addView(YoutubePIPBtn)
         layout.addView(InstagramPIPBtn)
@@ -230,5 +252,69 @@ class MainActivity : ComponentActivity() {
         } else {
             Toast.makeText(context, "PIP는 Android 8.0 이상에서만 지원됩니다.", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun renderNameInput() {
+        nameSection.removeAllViews()
+
+        val title = TextView(this).apply {
+            text = "연구 참여자 이름(닉네임) 입력"
+            textSize = 18f
+            setPadding(0, 0, 0, 16)
+            gravity = Gravity.CENTER
+        }
+
+        val input = android.widget.EditText(this).apply {
+            hint = "이름 또는 닉네임"
+            textSize = 16f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 12 }
+        }
+
+        val saveBtn = Button(this).apply {
+            text = "이름 저장"
+            setOnClickListener {
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) {
+                    Toast.makeText(this@MainActivity, "이름을 입력해주세요.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                userRepo.setUserName(name) { ok ->
+                    runOnUiThread {
+                        if (ok) {
+                            Toast.makeText(this@MainActivity, "✅ 이름이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                            renderNameDisplay(name) // 저장 성공 시, 입력/버튼 제거하고 이름만 표시
+                        } else {
+                            Toast.makeText(this@MainActivity, "❌ 저장 실패 (네트워크 확인)", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
+
+        nameSection.addView(title)
+        nameSection.addView(input)
+        nameSection.addView(saveBtn)
+    }
+    private fun renderNameDisplay(name: String) {
+        nameSection.removeAllViews()
+
+        val label = TextView(this).apply {
+            text = "참여자 이름"
+            textSize = 14f
+            setPadding(0, 0, 0, 6)
+            gravity = Gravity.CENTER
+        }
+        val nameView = TextView(this).apply {
+            text = name
+            textSize = 20f
+            setPadding(0, 0, 0, 6)
+            gravity = Gravity.CENTER
+        }
+
+        nameSection.addView(label)
+        nameSection.addView(nameView)
     }
 }
