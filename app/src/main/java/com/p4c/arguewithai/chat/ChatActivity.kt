@@ -19,6 +19,7 @@ import com.p4c.arguewithai.R
 import com.p4c.arguewithai.firebase.ChatMessage
 import com.p4c.arguewithai.firebase.FirestoreChatRepository
 import com.p4c.arguewithai.firebase.Sender
+import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -61,6 +62,7 @@ class ChatActivity: ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_chat)
+        Logger.d("ChatActivity started.")
 
         recycler  = requireViewByIdSafe(R.id.recyclerMessages, "recyclerMessages")
         etMessage = requireViewByIdSafe(R.id.etMessage, "etMessage")
