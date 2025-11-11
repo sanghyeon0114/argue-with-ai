@@ -2,7 +2,6 @@ package com.p4c.arguewithai
 
 
 import android.accessibilityservice.AccessibilityService
-import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
@@ -60,7 +59,7 @@ class MyAccessibilityService (
         super.onServiceConnected()
         Logger.d("[AccessibilityService] 연결됨")
 
-        prefs = getSharedPreferences("argue_prefs", Context.MODE_PRIVATE).also {
+        prefs = getSharedPreferences("argue_prefs", MODE_PRIVATE).also {
             interventionEnabled = it.getBoolean("intervention_enabled", true)
             it.registerOnSharedPreferenceChangeListener(prefListener)
         }
@@ -99,7 +98,7 @@ class MyAccessibilityService (
 
     private fun isInternetAvailable(): Boolean {
         val connectivityManager =
-            getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&

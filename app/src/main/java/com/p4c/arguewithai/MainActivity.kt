@@ -1,12 +1,9 @@
 package com.p4c.arguewithai
 
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Binder
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -14,7 +11,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -26,7 +22,12 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.p4c.arguewithai.firebase.FirestoreInterventionRepository
 import com.p4c.arguewithai.firebase.FirestoreUserRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private lateinit var accessibilityText: TextView
@@ -37,11 +38,12 @@ class MainActivity : ComponentActivity() {
     private val accKey = "last_accessibility_enabled"
     private val accessRepo = FirestoreAccessibilityRepository()
     private val userRepo = FirestoreUserRepository()
+    private val interventionRepo = FirestoreInterventionRepository()
+    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         setView()
 
         Logger.enabled = true
@@ -60,7 +62,23 @@ class MainActivity : ComponentActivity() {
         }
 
         FirebaseAuth.getInstance().signInAnonymously()
-            .addOnSuccessListener { Logger.d("✅[Firebase] Logged in: ${it.user?.uid}") }
+            .addOnSuccessListener {
+                Logger.d("✅[Firebase] Logged in: ${it.user?.uid}")
+
+                uiScope.launch(Dispatchers.IO) {
+                    runCatching {
+                        interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
+                    }.onSuccess {
+                        launch(Dispatchers.Main) {
+                            if (::interventionText.isInitialized) {
+                                interventionText.text = getInterventionText()
+                            }
+                        }
+                    }.onFailure { e ->
+                        Logger.e("Intervention remote sync failed", e)
+                    }
+                }
+            }
             .addOnFailureListener { Logger.e("❌[Firebase] Login failed", it) }
     }
 
@@ -187,6 +205,12 @@ class MainActivity : ComponentActivity() {
             setOnClickListener {
                 val nowEnabled = InterventionPrefs.toggle(this@MainActivity)
                 interventionText.text = getInterventionText()
+
+                uiScope.launch(Dispatchers.IO) {
+                    runCatching { interventionRepo.setEnabled(nowEnabled) }
+                        .onFailure { e -> Logger.e("Failed to save intervention to Firestore", e) }
+                }
+
                 Toast.makeText(
                     this@MainActivity,
                     if (nowEnabled) "개입이 켜졌습니다." else "개입이 꺼졌습니다.",
@@ -266,7 +290,7 @@ class MainActivity : ComponentActivity() {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 val fallback = Intent(
                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     "package:$packageName".toUri()
