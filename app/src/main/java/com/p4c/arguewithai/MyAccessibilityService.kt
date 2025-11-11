@@ -4,6 +4,7 @@ package com.p4c.arguewithai
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
@@ -32,7 +33,15 @@ import kotlinx.coroutines.sync.withLock
 class MyAccessibilityService (
     private val time: TimeProvider = SystemTimeProvider()
 ) : AccessibilityService() {
-
+    private var interventionEnabled: Boolean = true
+    private lateinit var prefs: SharedPreferences
+    private val prefListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "intervention_enabled") {
+                interventionEnabled = InterventionPrefs.isEnabled(this)
+                Logger.d("🟢 Intervention enabled = $interventionEnabled")
+            }
+        }
     private val repo: SessionRepository = FirestoreSessionRepository()
     private var sessionId: SessionId? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
@@ -50,6 +59,11 @@ class MyAccessibilityService (
     override fun onServiceConnected() {
         super.onServiceConnected()
         Logger.d("[AccessibilityService] 연결됨")
+
+        prefs = getSharedPreferences("argue_prefs", Context.MODE_PRIVATE).also {
+            interventionEnabled = it.getBoolean("intervention_enabled", true)
+            it.registerOnSharedPreferenceChangeListener(prefListener)
+        }
 
         FirebaseApp.initializeApp(this)
         if (FirebaseAuth.getInstance().currentUser == null) {
@@ -79,7 +93,7 @@ class MyAccessibilityService (
         if (now - lastEventTime < eventInterval) return
         lastEventTime = now
 
-        interventionOnShortForm(now)
+        if(interventionEnabled) interventionOnShortForm(now)
         getShortFormTIme(pkg, root)
     }
 
@@ -135,6 +149,9 @@ class MyAccessibilityService (
 
     override fun onDestroy() {
         super.onDestroy()
+        if (::prefs.isInitialized) {
+            prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
+        }
         serviceScope.launch { sessionId = null }
         serviceScope.cancel()
     }

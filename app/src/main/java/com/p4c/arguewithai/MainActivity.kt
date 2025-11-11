@@ -30,12 +30,13 @@ import com.p4c.arguewithai.firebase.FirestoreUserRepository
 
 class MainActivity : ComponentActivity() {
     private lateinit var accessibilityText: TextView
+    private lateinit var nameSection: LinearLayout
+    private lateinit var interventionText: TextView
 
     private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
     private val accKey = "last_accessibility_enabled"
     private val accessRepo = FirestoreAccessibilityRepository()
     private val userRepo = FirestoreUserRepository()
-    private lateinit var nameSection: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -172,6 +173,30 @@ class MainActivity : ComponentActivity() {
         layout.addView(PIPInfoText)
         layout.addView(YoutubePIPBtn)
         layout.addView(InstagramPIPBtn)
+        layout.addView(divider())
+
+        interventionText = TextView(this).apply {
+            text = getInterventionText()
+            textSize = 18f
+            setPadding(0, 0, 0, 32)
+            gravity = Gravity.CENTER
+        }
+
+        val interventionBtn = Button(this).apply {
+            text = "개입 시작/종료"
+            setOnClickListener {
+                val nowEnabled = InterventionPrefs.toggle(this@MainActivity)
+                interventionText.text = getInterventionText()
+                Toast.makeText(
+                    this@MainActivity,
+                    if (nowEnabled) "개입이 켜졌습니다." else "개입이 꺼졌습니다.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        layout.addView(interventionText)
+        layout.addView(interventionBtn)
 
         setContentView(layout)
     }
@@ -316,5 +341,14 @@ class MainActivity : ComponentActivity() {
 
         nameSection.addView(label)
         nameSection.addView(nameView)
+    }
+
+    private fun getInterventionText(): String {
+        val enabled = InterventionPrefs.isEnabled(this)
+        return if (enabled) {
+            "✅ 개입 기능이 활성화되어 있습니다."
+        } else {
+            "❌ 개입 기능이 비활성화되어 있습니다."
+        }
     }
 }
