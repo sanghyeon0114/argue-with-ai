@@ -1,8 +1,13 @@
 package com.p4c.arguewithai
 
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.AppOpsManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Binder
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -118,12 +123,33 @@ class MainActivity : ComponentActivity() {
             setOnClickListener { openAccessibilitySettingsCompat() }
         }
 
+        val PIPInfoText = TextView(this).apply {
+            text = "Youtube와 Instagram의 PIP 권한을 해제해주세요."
+            textSize = 18f
+            setPadding(0, 0, 0, 32)
+            gravity = Gravity.CENTER
+        }
+
+        val YoutubePIPBtn = Button(this).apply {
+            text = "Youtube PIP 권한 해제"
+            setOnClickListener { openPipSettingsForApp(it.context, "com.google.android.youtube") }
+        }
+        val InstagramPIPBtn = Button(this).apply {
+            text = "Instagram PIP 권한 해제"
+            setOnClickListener { openPipSettingsForApp(it.context, "com.instagram.android") }
+        }
+
+
         layout.addView(overlayInfoText)
         layout.addView(overlayBtn)
         layout.addView(divider())
         layout.addView(accessibilityInfoText)
         layout.addView(accessibilityText)
         layout.addView(accessibilityBtn)
+        layout.addView(divider())
+        layout.addView(PIPInfoText)
+        layout.addView(YoutubePIPBtn)
+        layout.addView(InstagramPIPBtn)
 
         setContentView(layout)
     }
@@ -182,6 +208,27 @@ class MainActivity : ComponentActivity() {
                 "package:$packageName".toUri()
             )
             startActivity(intent)
+        }
+    }
+
+    fun openPipSettingsForApp(context: Context, packageName: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val intent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS").apply {
+                    data = "package:$packageName".toUri()
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                val fallback = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    "package:$packageName".toUri()
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(fallback)
+                Toast.makeText(context, "PIP 설정 화면을 열 수 없어 앱 설정으로 이동합니다.", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "PIP는 Android 8.0 이상에서만 지원됩니다.", Toast.LENGTH_SHORT).show()
         }
     }
 }
