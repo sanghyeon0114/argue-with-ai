@@ -25,7 +25,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -45,7 +44,10 @@ class MyAccessibilityService (
     private var isPrompt: Boolean = false
     private var lastEventTime = 0L
     private val eventInterval = 100L
-
+    private val myPkg by lazy { packageName }
+    private var stateSince = 0L
+    private var lastDetectedApp: String? = null
+    private val stableMs = 100L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -62,6 +64,14 @@ class MyAccessibilityService (
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val pkg = event.packageName?.toString() ?: return
+        if (pkg == myPkg) {
+            if(isShorts) {
+                stopShortForm()
+                isShorts = false
+            }
+            return
+        }
+
         val root = rootInActiveWindow ?: return
 
         delayCallback(pkg, root)
@@ -72,8 +82,8 @@ class MyAccessibilityService (
         if (now - lastEventTime < eventInterval) return
         lastEventTime = now
 
+        interventionOnShortForm(now)
         getShortFormTIme(pkg, root)
-        //interventionOnShortForm(now)
     }
 
     private fun isInternetAvailable(): Boolean {
@@ -100,6 +110,14 @@ class MyAccessibilityService (
             "com.ss.android.ugc.trill"   -> if (isTikTokScreen(root)) "TikTok" else null
             else -> null
         }
+
+        val now = System.currentTimeMillis()
+        if (detectedApp != lastDetectedApp) {
+            lastDetectedApp = detectedApp
+            stateSince = now
+            return
+        }
+        if (now - stateSince < stableMs) return
 
         if(detectedApp != null && !isShorts) {
             isShorts = true
