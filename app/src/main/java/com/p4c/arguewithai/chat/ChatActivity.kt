@@ -91,6 +91,10 @@ class ChatActivity: ComponentActivity() {
                 sendCurrentText(); true
             } else false
         }
+
+        etMessage.requestFocus()
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.showSoftInput(etMessage, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
     }
 
 
@@ -109,9 +113,9 @@ class ChatActivity: ComponentActivity() {
             val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
 
             val bottomPadding = if (imeVisible) {
-                ime.bottom + bottomBar.height
+                ime.bottom
             } else {
-                sys.bottom + bottomBar.height
+                sys.bottom
             }
 
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bottomPadding)
@@ -155,8 +159,13 @@ class ChatActivity: ComponentActivity() {
     }
 
     private fun addUser(text: String, index: Int) {
+        val prev = messages.lastIndex
+        if (prev >= 0) adapter.notifyItemChanged(prev)
+
+        // 메시지 추가
         messages.add(Message(text = text, isUser = true))
         adapter.notifyItemInserted(messages.lastIndex)
+
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
 
         uiScope.launch {
@@ -174,8 +183,12 @@ class ChatActivity: ComponentActivity() {
     }
 
     private fun addAi(text: String, index: Int) {
+        val prev = messages.lastIndex
+        if (prev >= 0) adapter.notifyItemChanged(prev)
+
         messages.add(Message(text = text, isUser = false))
         adapter.notifyItemInserted(messages.lastIndex)
+
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
 
         uiScope.launch {

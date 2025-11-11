@@ -1,23 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp"
-    android:gravity="start">
+    android:paddingStart="6dp"
+    android:paddingEnd="@dimen/chat_bubble_right_gap"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
     <LinearLayout
+        android:id="@+id/bubbleIn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_bubble_in"
-        android:padding="12dp">
+        android:padding="12dp"
+        android:orientation="vertical"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <TextView
             android:id="@+id/tvMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxWidth="@dimen/chat_bubble_max_width"
             android:textColor="@android:color/black"
             android:textSize="16sp" />
     </LinearLayout>
 
-</LinearLayout>
+    <TextView
+        android:id="@+id/tvTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:text="@string/time_format"
+        android:textSize="11sp"
+        android:textColor="#99000000"
+        app:layout_constraintStart_toEndOf="@id/bubbleIn"
+        app:layout_constraintBottom_toBottomOf="@id/bubbleIn" />
+</androidx.constraintlayout.widget.ConstraintLayout>

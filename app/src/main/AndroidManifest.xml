@@ -47,7 +47,7 @@
         </service>
         <activity
             android:name=".chat.ChatActivity"
-            android:windowSoftInputMode="stateUnchanged|adjustResize"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize"
             android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity="com.p4c.arguewithai.PROMPT"

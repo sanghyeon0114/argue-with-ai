@@ -1,19 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
-    android:layout_height="match_parent" android:padding="12dp">
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
+
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:background="@drawable/bg_topbar_gradient"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="12dp"
+        android:weightSum="1">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/title"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center_vertical" />
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_arrow_back"
+            android:contentDescription="@string/button_description"
+            android:padding="12dp" />
+    </LinearLayout>
+
+    <!-- 메시지 영역 -->
+
+    <!-- 하단 입력창 -->
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerMessages"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"/>
+        android:layout_weight="1" />
 
     <LinearLayout
         android:id="@+id/bottomBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="8dp">
 
         <EditText
             android:id="@+id/etMessage"
@@ -21,7 +58,7 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             android:imeOptions="actionSend"
-            android:inputType="text"
+            android:inputType="textMultiLine"
             android:hint="@string/hidden_message"
             android:autofillHints="none"
             android:minHeight="48dp"
@@ -33,6 +70,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:contentDescription="@string/button_description"
-            android:src="@drawable/ic_menu_send"/>
+            android:src="@drawable/ic_menu_send" />
     </LinearLayout>
+
 </LinearLayout>

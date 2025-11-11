@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- 둥근 배경 (radius 8dp 느낌) -->
+    <path
+        android:fillColor="#A8DCFF"
+        android:pathData="M8,4h32a4,4 0 0 1 4,4v32a4,4 0 0 1 -4,4H8a4,4 0 0 1 -4,-4V8a4,4 0 0 1 4,-4z" />
+
+    <!-- 화살표 아이콘 -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M31,23H15.83l6.59,-6.59L21,15l-8,8 8,8 1.41,-1.41L15.83,25H31v-2z"/>
+</vector>

@@ -12,4 +12,9 @@
 
     <string name="hidden_message">메시지를 입력하세요</string>
     <string name="button_description">보내기</string>
+
+    <string name="back">뒤로가기</string>
+    <string name="title">Argue With AI</string>
+
+    <string name="time_format">오후 3:21</string>
 </resources>

@@ -1,17 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp">
+    android:paddingStart="@dimen/chat_bubble_left_gap"
+    android:paddingEnd="6dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
     <TextView
         android:id="@+id/tvMessage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="end"
+        android:maxWidth="@dimen/chat_bubble_max_width"
         android:background="@drawable/bg_bubble_out"
         android:padding="12dp"
         android:textColor="@android:color/black"
-        android:textSize="16sp" />
-</FrameLayout>
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tvTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="6dp"
+        android:text="@string/time_format"
+        android:textSize="11sp"
+        android:textColor="#99000000"
+        app:layout_constraintEnd_toStartOf="@id/tvMessage"
+        app:layout_constraintBottom_toBottomOf="@id/tvMessage" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
