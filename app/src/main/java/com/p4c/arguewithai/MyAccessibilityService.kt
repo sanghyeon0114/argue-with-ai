@@ -34,8 +34,6 @@ class MyAccessibilityService (
 ) : AccessibilityService() {
 
     private val repo: SessionRepository = FirestoreSessionRepository()
-
-    private var isShorts: Boolean = false
     private var sessionId: SessionId? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
@@ -65,9 +63,8 @@ class MyAccessibilityService (
         if (event == null) return
         val pkg = event.packageName?.toString() ?: return
         if (pkg == myPkg) {
-            if(isShorts) {
+            if(isShortFormState()) {
                 stopShortForm()
-                isShorts = false
             }
             return
         }
@@ -97,8 +94,7 @@ class MyAccessibilityService (
 
     private fun getShortFormTIme(pkg: String, root: AccessibilityNodeInfo) {
         if(!isInternetAvailable()) {
-            if(isShorts) {
-                isShorts = false
+            if(isShortFormState()) {
                 stopShortForm()
             }
             return
@@ -119,17 +115,15 @@ class MyAccessibilityService (
         }
         if (now - stateSince < stableMs) return
 
-        if(detectedApp != null && !isShorts) {
-            isShorts = true
+        if(detectedApp != null && !isShortFormState()) {
             startShortForm(detectedApp)
-        } else if(detectedApp == null && isShorts) {
-            isShorts = false
+        } else if(detectedApp == null && isShortFormState()) {
             stopShortForm()
         }
     }
 
     private fun interventionOnShortForm(now: Long) {
-        if (isShorts && !isPrompt && lastChatAt < now) {
+        if (isShortFormState() && !isPrompt && lastChatAt < now) {
             startChat()
         }
     }
@@ -147,16 +141,21 @@ class MyAccessibilityService (
 
     private fun startShortForm(appName: String) {
         serviceScope.launch {
-            runCatching { repo.startSession(app = appName) }
-                .onSuccess { sid ->
-                    sessionMutex.withLock { sessionId = sid }
-                    Logger.d("✅ start watching ${appName} Short-Form: ${sid.value}")
-                }
-                .onFailure {
-                    isShorts = false
-                    Logger.e("❌ failed to start", it)
-                }
+            if(sessionId == null) {
+                runCatching { repo.startSession(app = appName) }
+                    .onSuccess { sid ->
+                        sessionMutex.withLock { sessionId = sid }
+                        Logger.d("✅ start watching ${appName} Short-Form: ${sid.value}")
+                    }
+                    .onFailure {
+                        Logger.e("❌ failed to start", it)
+                    }
+            }
         }
+    }
+
+    private fun isShortFormState(): Boolean {
+        return sessionId != null
     }
 
     private fun stopShortForm(appName: String = "") {
@@ -171,7 +170,7 @@ class MyAccessibilityService (
                     .onSuccess { Logger.d("✅${appName} Short-form 시청 종료: ${sid.value}") }
                     .onFailure { Logger.e("❌ 종료 실패", it) }
             } else {
-                Logger.w("⚠️ 종료 시점에 sessionId 없음(이전 시작 실패/중복 이벤트 가능)")
+                Logger.d("⚠️ 종료 시점에 sessionId 없음")
             }
         }
     }

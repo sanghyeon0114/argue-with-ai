@@ -95,6 +95,21 @@ class ChatActivity: ComponentActivity() {
         etMessage.requestFocus()
         val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
         imm.showSoftInput(etMessage, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+
+        btnSend.setOnClickListener { sendCurrentText() }
+
+        val btnBack = requireViewByIdSafe<ImageButton>(R.id.btnBack, "btnBack")
+        btnBack.setOnClickListener {
+            if (aiIndex >= aiMessageList.size) {
+                closePrompt("user_closed")
+            } else {
+                android.widget.Toast.makeText(
+                    this,
+                    "모든 질문에 답변을 마친 후 종료할 수 있습니다.",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 
 
