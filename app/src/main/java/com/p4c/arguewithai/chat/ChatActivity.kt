@@ -58,6 +58,8 @@ class ChatActivity: ComponentActivity() {
         }
     }
 
+    private var hasSentResult = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -195,19 +197,31 @@ class ChatActivity: ComponentActivity() {
         return v ?: error("activity_chat.xml에 id='$name' 뷰가 없습니다.")
     }
 
-    private fun closePrompt(reason: String = "user_closed") {
-        receiver?.send(RESULT_OK, Bundle().apply {
-            putString("reason", reason)
-        })
+    private fun closePrompt(reason: String = "user_closed", resultCode: Int = RESULT_OK) {
+        if (!hasSentResult) {
+            receiver?.send(resultCode, Bundle().apply {
+                putString("reason", reason)
+            })
+            hasSentResult = true
+        }
         finish()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (!isChangingConfigurations) {
-            receiver?.send(RESULT_CANCELED, Bundle().apply {
-                putString("reason", "destroyed")
-            })
+        if (!isChangingConfigurations && !hasSentResult) {
+            closePrompt(reason = "destroyed", resultCode = RESULT_CANCELED)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isFinishing && !isChangingConfigurations && !hasSentResult) {
+            closePrompt("backgrounded_or_home")
         }
     }
 }
