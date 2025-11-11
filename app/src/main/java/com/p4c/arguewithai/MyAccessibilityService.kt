@@ -2,7 +2,10 @@ package com.p4c.arguewithai
 
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -41,7 +44,7 @@ class MyAccessibilityService (
     private val cooltime: Long = 5 * 1000L //10 * 60 * 1000L
     private var isPrompt: Boolean = false
     private var lastEventTime = 0L
-    private val EVENT_INTERVAL = 100L // 100ms
+    private val eventInterval = 100L
 
 
     override fun onServiceConnected() {
@@ -58,13 +61,38 @@ class MyAccessibilityService (
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-
-        val now = System.currentTimeMillis()
-        if (now - lastEventTime < EVENT_INTERVAL) return
-        lastEventTime = now
-
         val pkg = event.packageName?.toString() ?: return
         val root = rootInActiveWindow ?: return
+
+        delayCallback(pkg, root)
+    }
+
+    private fun delayCallback(pkg: String, root: AccessibilityNodeInfo) {
+        val now = System.currentTimeMillis()
+        if (now - lastEventTime < eventInterval) return
+        lastEventTime = now
+
+        getShortFormTIme(pkg, root)
+        //interventionOnShortForm(now)
+    }
+
+    private fun isInternetAvailable(): Boolean {
+        val connectivityManager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun getShortFormTIme(pkg: String, root: AccessibilityNodeInfo) {
+        if(!isInternetAvailable()) {
+            if(isShorts) {
+                isShorts = false
+                stopShortForm()
+            }
+            return
+        }
 
         val detectedApp: String? = when (pkg) {
             "com.google.android.youtube" -> if (isYoutubeShortsScreen(root)) "YouTube" else null
@@ -80,12 +108,14 @@ class MyAccessibilityService (
             isShorts = false
             stopShortForm()
         }
-
-//        if (isShorts && !isPrompt && lastChatAt < now) {
-//            startChat()
-//        }
-
     }
+
+    private fun interventionOnShortForm(now: Long) {
+        if (isShorts && !isPrompt && lastChatAt < now) {
+            startChat()
+        }
+    }
+
 
     override fun onInterrupt() {
         // pass
