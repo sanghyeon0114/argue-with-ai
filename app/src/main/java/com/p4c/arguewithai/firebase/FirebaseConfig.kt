@@ -1,4 +1,4 @@
-package com.example.arguewithai.firebase
+package com.p4c.arguewithai.firebase
 
 object FirebaseConfig {
     const val ROOT_COLLECTION = "users"

@@ -1,4 +1,4 @@
-package com.example.arguewithai
+package com.p4c.arguewithai
 
 import org.junit.Test
 

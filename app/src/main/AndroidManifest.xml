@@ -50,7 +50,7 @@
             android:windowSoftInputMode="stateUnchanged|adjustResize"
             android:exported="false"
             android:launchMode="singleTask"
-            android:taskAffinity="com.example.arguewithai.PROMPT"
+            android:taskAffinity="com.p4c.arguewithai.PROMPT"
             android:excludeFromRecents="true"
             android:theme="@style/Theme.ArgueWithAi">
         </activity>

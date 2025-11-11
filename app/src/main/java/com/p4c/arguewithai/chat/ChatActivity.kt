@@ -1,4 +1,4 @@
-package com.example.arguewithai.chat
+package com.p4c.arguewithai.chat
 
 import android.os.Build
 import android.os.Bundle
@@ -15,10 +15,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.arguewithai.R
-import com.example.arguewithai.firebase.ChatMessage
-import com.example.arguewithai.firebase.FirestoreChatRepository
-import com.example.arguewithai.firebase.Sender
+import com.p4c.arguewithai.R
+import com.p4c.arguewithai.firebase.ChatMessage
+import com.p4c.arguewithai.firebase.FirestoreChatRepository
+import com.p4c.arguewithai.firebase.Sender
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

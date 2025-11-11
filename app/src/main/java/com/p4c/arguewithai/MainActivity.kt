@@ -1,4 +1,4 @@
-package com.example.arguewithai
+package com.p4c.arguewithai
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
@@ -14,8 +14,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
-import com.example.arguewithai.firebase.FirestoreAccessibilityRepository
-import com.example.arguewithai.utils.Logger
+import com.p4c.arguewithai.firebase.FirestoreAccessibilityRepository
+import com.p4c.arguewithai.utils.Logger
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit

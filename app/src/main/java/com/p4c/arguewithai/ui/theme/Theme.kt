@@ -1,4 +1,4 @@
-package com.example.arguewithai.ui.theme
+package com.p4c.arguewithai.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

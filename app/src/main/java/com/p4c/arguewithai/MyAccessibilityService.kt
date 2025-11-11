@@ -1,4 +1,4 @@
-package com.example.arguewithai
+package com.p4c.arguewithai
 
 
 import android.accessibilityservice.AccessibilityService
@@ -9,13 +9,13 @@ import android.os.Looper
 import android.os.ResultReceiver
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.example.arguewithai.chat.ChatActivity
-import com.example.arguewithai.firebase.FirestoreSessionRepository
-import com.example.arguewithai.firebase.SessionId
-import com.example.arguewithai.firebase.SessionRepository
-import com.example.arguewithai.utils.Logger
-import com.example.arguewithai.utils.SystemTimeProvider
-import com.example.arguewithai.utils.TimeProvider
+import com.p4c.arguewithai.chat.ChatActivity
+import com.p4c.arguewithai.firebase.FirestoreSessionRepository
+import com.p4c.arguewithai.firebase.SessionId
+import com.p4c.arguewithai.firebase.SessionRepository
+import com.p4c.arguewithai.utils.Logger
+import com.p4c.arguewithai.utils.SystemTimeProvider
+import com.p4c.arguewithai.utils.TimeProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope

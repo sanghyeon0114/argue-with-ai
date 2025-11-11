@@ -1,4 +1,4 @@
-package com.example.arguewithai.chat
+package com.p4c.arguewithai.chat
 
 import android.view.LayoutInflater
 import android.view.View
@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-import com.example.arguewithai.R
+import com.p4c.arguewithai.R
 
 class ChatAdapter(
     private val items: List<Message>

@@ -1,4 +1,4 @@
-package com.example.arguewithai.utils
+package com.p4c.arguewithai.utils
 
 import android.util.Log
 

@@ -1,4 +1,4 @@
-package com.example.arguewithai.chat
+package com.p4c.arguewithai.chat
 
 data class Message(
     val text: String,

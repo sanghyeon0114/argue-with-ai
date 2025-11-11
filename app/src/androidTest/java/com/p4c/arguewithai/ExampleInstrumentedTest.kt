@@ -1,4 +1,4 @@
-package com.example.arguewithai
+package com.p4c.arguewithai
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

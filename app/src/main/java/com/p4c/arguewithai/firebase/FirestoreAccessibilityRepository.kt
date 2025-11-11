@@ -1,8 +1,8 @@
-package com.example.arguewithai.firebase
+package com.p4c.arguewithai.firebase
 
 import android.os.Build
-import com.example.arguewithai.utils.SystemTimeProvider
-import com.example.arguewithai.utils.TimeProvider
+import com.p4c.arguewithai.utils.SystemTimeProvider
+import com.p4c.arguewithai.utils.TimeProvider
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore

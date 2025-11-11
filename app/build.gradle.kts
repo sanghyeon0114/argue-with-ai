@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.arguewithai"
+    namespace = "com.p4c.arguewithai"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.arguewithai"
+        applicationId = "com.p4c.arguewithai"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
