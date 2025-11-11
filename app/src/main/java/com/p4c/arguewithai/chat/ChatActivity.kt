@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.firebase.ChatMessage
+import com.p4c.arguewithai.firebase.ExitMethod
 import com.p4c.arguewithai.firebase.FirestoreChatRepository
 import com.p4c.arguewithai.firebase.Sender
 import com.p4c.arguewithai.utils.Logger
@@ -226,10 +227,22 @@ class ChatActivity: ComponentActivity() {
     }
 
     private fun closePrompt(reason: String = "user_closed", resultCode: Int = RESULT_OK) {
+        val finished = aiIndex >= aiMessageList.size
+        val method = if (reason == "user_closed") ExitMethod.BUTTON else ExitMethod.NAV_BAR
+
+        uiScope.launch {
+            runCatching {
+                repo.logExit(
+                    sessionId = sessionId,
+                    finished = finished,
+                    method = method,
+                    note = reason
+                )
+            }.onFailure { it.printStackTrace() }
+        }
+
         if (!hasSentResult) {
-            receiver?.send(resultCode, Bundle().apply {
-                putString("reason", reason)
-            })
+            receiver?.send(resultCode, Bundle().apply { putString("reason", reason) })
             hasSentResult = true
         }
         finish()

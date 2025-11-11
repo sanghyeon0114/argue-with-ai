@@ -14,6 +14,8 @@ enum class Sender {
     NONE
 }
 
+enum class ExitMethod { BUTTON, NAV_BAR }
+
 data class ChatMessage(
     val sessionId: String = "",
     val sender: Sender = Sender.NONE,
@@ -33,12 +35,13 @@ class FirestoreChatRepository(
     private fun userRoot() = db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
 
     private fun chatSessionDoc(sessionId: String) =
-        userRoot()
-            .collection(FirebaseConfig.User.CHAT)
-            .document(sessionId)
+        userRoot().collection(FirebaseConfig.User.CHAT).document(sessionId)
 
     private fun chatMessagesCol(sessionId: String) =
         chatSessionDoc(sessionId).collection(FirebaseConfig.User.Chat.MESSAGES)
+
+    private fun chatExitCol(sessionId: String) =
+        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Chat.EXIT)
 
     suspend fun appendMessage(msg: ChatMessage, order: Int) {
         val docId = order.toString()
@@ -49,11 +52,15 @@ class FirestoreChatRepository(
             "updatedAtMs" to time.dayUTC(ms)
         )
 
-        if (msg.sender == Sender.AI) {
-            payload["question"] = msg.text
-            payload["order"] = order
-        } else if (msg.sender == Sender.USER) {
-            payload["answer"] = msg.text
+        when (msg.sender) {
+            Sender.AI -> {
+                payload["question"] = msg.text
+                payload["order"] = order
+            }
+            Sender.USER -> {
+                payload["answer"] = msg.text
+            }
+            else -> Unit
         }
 
         chatMessagesCol(msg.sessionId)
@@ -62,4 +69,22 @@ class FirestoreChatRepository(
             .await()
     }
 
+    suspend fun logExit(
+        sessionId: String,
+        finished: Boolean,
+        method: ExitMethod,
+        lastOrder: Int? = null,
+        note: String? = null
+    ) {
+        val ms = time.nowMs()
+        val data = hashMapOf(
+            "finished" to finished,
+            "method" to method.name,
+            "note" to note,
+            "atMs" to ms,
+            "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+        )
+
+        chatExitCol(sessionId).document(ms.toString()).set(data).await()
+    }
 }

@@ -14,6 +14,7 @@ object FirebaseConfig {
 
         object Chat {
             const val MESSAGES = "messages"
+            const val EXIT = "exit"
         }
     }
 }
