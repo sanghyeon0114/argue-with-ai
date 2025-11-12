@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setView()
 
-        Logger.enabled = true
+        Logger.setLoggerEnabled(true)
         FirebaseApp.initializeApp(this)
 
         val ctx = applicationContext
