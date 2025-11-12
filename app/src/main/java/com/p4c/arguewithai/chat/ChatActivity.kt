@@ -101,15 +101,7 @@ class ChatActivity: ComponentActivity() {
 
         val btnBack = requireViewByIdSafe<ImageButton>(R.id.btnBack, "btnBack")
         btnBack.setOnClickListener {
-            if (aiIndex >= aiMessageList.size) {
-                closePrompt("user_closed")
-            } else {
-                android.widget.Toast.makeText(
-                    this,
-                    "모든 질문에 답변을 마친 후 종료할 수 있습니다.",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            }
+            closePrompt("user_closed")
         }
     }
 
@@ -227,7 +219,7 @@ class ChatActivity: ComponentActivity() {
     }
 
     private fun closePrompt(reason: String = "user_closed", resultCode: Int = RESULT_OK) {
-        val finished = aiIndex >= aiMessageList.size
+        val finished = aiIndex-1 >= aiMessageList.size
         val method = if (reason == "user_closed") ExitMethod.BUTTON else ExitMethod.NAV_BAR
 
         uiScope.launch {

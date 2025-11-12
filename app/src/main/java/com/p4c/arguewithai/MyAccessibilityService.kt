@@ -93,7 +93,7 @@ class MyAccessibilityService (
             }
         },
         stableMs = 150L,
-        exitGraceMs = 150L,
+        exitGraceMs = 500L,
         tickIntervalMs = 100L
     )
 

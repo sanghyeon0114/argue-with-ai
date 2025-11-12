@@ -18,7 +18,7 @@ interface ShortFormCallback {
 class ShortFormListener(
     private val callback: ShortFormCallback,
     private val stableMs: Long = 150L,
-    private val exitGraceMs: Long = 150L,
+    private val exitGraceMs: Long = 500L,
     private val tickIntervalMs: Long = 100L
 ) {
 
