@@ -86,7 +86,7 @@ class MyAccessibilityService (
                 if (isPromptVisible) return
                 val remain = (lastChatAt + cooltimeMs - nowMs).coerceAtLeast(0L)
                 if (remain > 0L) {
-                    Logger.d(remain.toString())
+                    //Logger.d(remain.toString())
                     return
                 }
                 showPrompt()
@@ -102,6 +102,7 @@ class MyAccessibilityService (
             val reason = resultData?.getString("reason") ?: "unknown"
             Logger.d("ChatActivity closed. reason=$reason, resultCode=$resultCode")
             reloadCooltime()
+            isPromptVisible = false
         }
     }
 
@@ -143,6 +144,13 @@ class MyAccessibilityService (
     }
 
     private fun showPrompt() {
+        if (isPromptVisible) {
+            Logger.d("❌ showPrompt: already visible, skip")
+            return
+        }
+        isPromptVisible = true
+        lastChatAt = time.nowMs()
+
         val i = Intent(this, ChatActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("receiver", promptResultReceiver)
