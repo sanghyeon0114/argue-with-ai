@@ -3,6 +3,7 @@ package com.p4c.arguewithai.chat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.p4c.arguewithai.R
@@ -24,8 +25,10 @@ class ChatAdapter(
         isLenient = false
     }
 
-    override fun getItemViewType(position: Int): Int =
-        if (items[position].isUser) TYPE_OUT else TYPE_IN
+    override fun getItemViewType(position: Int): Int {
+        val msg = items[position]
+        return if (msg.isUser) TYPE_OUT else TYPE_IN
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -40,8 +43,17 @@ class ChatAdapter(
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val msg = items[position]
+
+        if (msg.isTyping) {
+            when (holder) {
+                is OutVH -> holder.bindTyping()
+                is InVH  -> holder.bindTyping()
+            }
+            return
+        }
+
         val timeText = timeFormat.format(Date(msg.timestamp))
-        val showTime = shouldShowTime(position) // ← tail 기준
+        val showTime = shouldShowTime(position)
 
         when (holder) {
             is OutVH -> holder.bind(msg.text, timeText, showTime)
@@ -53,26 +65,40 @@ class ChatAdapter(
 
     private class OutVH(v: View) : RecyclerView.ViewHolder(v) {
         private val tvMessage: TextView = v.findViewById(R.id.tvMessage)
-        val tvTime: TextView = v.findViewById(R.id.tvTime)
-
+        private val tvTime: TextView = v.findViewById(R.id.tvTime)
         fun bind(text: String, timeText: String, showTime: Boolean) {
+            tvMessage.visibility = View.VISIBLE
             tvMessage.text = text
             tvTime.text = timeText
             tvTime.visibility = if (showTime) View.VISIBLE else View.GONE
+        }
+
+        fun bindTyping() {
+            tvMessage.text = "..."
+            tvTime.visibility = View.GONE
         }
     }
 
     private class InVH(v: View) : RecyclerView.ViewHolder(v) {
         private val tvMessage: TextView = v.findViewById(R.id.tvMessage)
-        val tvTime: TextView = v.findViewById(R.id.tvTime)
+        private val tvTime: TextView = v.findViewById(R.id.tvTime)
+        private val ivTyping: ImageView = v.findViewById(R.id.ivTyping)
 
         fun bind(text: String, timeText: String, showTime: Boolean) {
+            tvMessage.visibility = View.VISIBLE
+            ivTyping.visibility = View.GONE
+
             tvMessage.text = text
             tvTime.text = timeText
             tvTime.visibility = if (showTime) View.VISIBLE else View.GONE
         }
-    }
 
+        fun bindTyping() {
+            tvMessage.visibility = View.GONE
+            ivTyping.visibility = View.VISIBLE
+            tvTime.visibility = View.GONE
+        }
+    }
 
     private fun shouldShowTime(position: Int): Boolean {
         if (position == items.lastIndex) return true

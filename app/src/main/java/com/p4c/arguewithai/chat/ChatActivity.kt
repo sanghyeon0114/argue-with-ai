@@ -24,6 +24,7 @@ import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class ChatActivity: ComponentActivity() {
@@ -46,7 +47,7 @@ class ChatActivity: ComponentActivity() {
         "안녕하세요! 지금 보고 계신 영상은 어떤 이유로 보시나요?",
         "이 영상을 계속 본다면 나중에 후회할 가능성은 얼마나 될까요?",
         "지금 이 시간이 의미 있는 사용이라고 느껴지시나요?",
-        "답변 감사합니다. 잠시 생각해보는 시간이 되었길 바랍니다.\n뒤로가기를 통해 프롬프트를 종료해주세요."
+        "답변 감사합니다. 잠시 생각해보는 시간이 되었길 바랍니다.\n메세지를 보내시면 대화가 종료됩니다."
     )
     private var aiIndex = 0
 
@@ -60,6 +61,8 @@ class ChatActivity: ComponentActivity() {
     }
 
     private var hasSentResult = false
+    private val aiDelayMs = 800L
+    private var isUserTurn = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,7 +86,7 @@ class ChatActivity: ComponentActivity() {
         val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
         applyInsets(root)
 
-        addAi(aiMessageList[aiIndex], aiIndex)
+        addAiMessage(aiMessageList[aiIndex], aiIndex)
 
         btnSend.setOnClickListener { sendCurrentText() }
 
@@ -155,22 +158,61 @@ class ChatActivity: ComponentActivity() {
     }
 
     private fun sendCurrentText() {
+        if (!isUserTurn) {
+            Logger.d("❌ Not user's turn")
+            return
+        }
+
         val text = etMessage.text?.toString()?.trim().orEmpty()
         if (text.isEmpty()) return
-        addUser(text, aiIndex)
-        aiIndex++
+
+        val indexForAi = aiIndex
+
+        addUserMessage(text, indexForAi)
         etMessage.text?.clear()
 
-        if (aiIndex < aiMessageList.size) {
-            addAi(aiMessageList[aiIndex], aiIndex)
+        isUserTurn = false
+        btnSend.isEnabled = false
+
+        if(isFinishChat()) {
+            uiScope.launch {
+                delay(400)
+                closePrompt("user_closed")
+            }
+            return
         }
+
+        val typingMessage = Message(
+            text = "...",
+            isUser = false,
+            isTyping = true
+        )
+        messages.add(typingMessage)
+        adapter.notifyItemInserted(messages.lastIndex)
+        recycler.post { recycler.scrollToPosition(messages.lastIndex) }
+
+        uiScope.launch {
+            delay(aiDelayMs)
+
+            val idx = messages.indexOf(typingMessage)
+            if (idx >= 0) {
+                messages.removeAt(idx)
+                adapter.notifyItemRemoved(idx)
+            }
+
+            addAiMessage(aiMessageList[indexForAi], indexForAi)
+
+            isUserTurn = true
+            btnSend.isEnabled = true
+        }
+
+        aiIndex++
     }
 
-    private fun addUser(text: String, index: Int) {
+    private fun addUserMessage(text: String, index: Int) {
         val prev = messages.lastIndex
         if (prev >= 0) adapter.notifyItemChanged(prev)
 
-        // 메시지 추가
         messages.add(Message(text = text, isUser = true))
         adapter.notifyItemInserted(messages.lastIndex)
 
@@ -190,7 +232,7 @@ class ChatActivity: ComponentActivity() {
         }
     }
 
-    private fun addAi(text: String, index: Int) {
+    private fun addAiMessage(text: String, index: Int) {
         val prev = messages.lastIndex
         if (prev >= 0) adapter.notifyItemChanged(prev)
 
@@ -211,6 +253,10 @@ class ChatActivity: ComponentActivity() {
                 )
             }.onFailure { it.printStackTrace() }
         }
+    }
+
+    private fun isFinishChat(): Boolean {
+        return aiIndex >= aiMessageList.size
     }
 
     private inline fun <reified T : View> requireViewByIdSafe(id: Int, name: String): T {

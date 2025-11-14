@@ -26,6 +26,14 @@
             android:maxWidth="@dimen/chat_bubble_max_width"
             android:textColor="@android:color/black"
             android:textSize="16sp" />
+
+        <ImageView
+            android:id="@+id/ivTyping"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@drawable/ic_typing"
+            android:padding="6dp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <TextView
