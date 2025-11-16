@@ -21,13 +21,15 @@ import com.p4c.arguewithai.firebase.ExitMethod
 import com.p4c.arguewithai.firebase.FirestoreChatRepository
 import com.p4c.arguewithai.firebase.Sender
 import com.p4c.arguewithai.utils.Logger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
 
-class ChatActivity: ComponentActivity() {
+class ChatActivity : ComponentActivity() {
     private lateinit var recycler: RecyclerView
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
@@ -36,7 +38,6 @@ class ChatActivity: ComponentActivity() {
     private val messages = mutableListOf<Message>()
 
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
     private val repo = FirestoreChatRepository()
 
     private val sessionId: String by lazy {
@@ -44,12 +45,17 @@ class ChatActivity: ComponentActivity() {
     }
 
     private val aiMessageList = listOf(
-        "안녕하세요! 지금 보고 계신 영상은 어떤 이유로 보시나요?",
-        "이 영상을 계속 본다면 나중에 후회할 가능성은 얼마나 될까요?",
-        "지금 이 시간이 의미 있는 사용이라고 느껴지시나요?",
-        "답변 감사합니다. 잠시 생각해보는 시간이 되었길 바랍니다.\n메세지를 보내시면 대화가 종료됩니다."
+        "안녕하세요! 혹시 현재 할 일을 미루고 영상을 시청하고 계시지 않으신가요?",
+        "왜 숏폼 앱을 실행하셨나요?",
+        "어떠한 목적으로 숏폼 영상을 시청하고 계신가요?",
+        "현재 보내고 계신 시간이 얼마나 의미가 있다고 생각하시나요?"
     )
     private var aiIndex = 0
+    private val userAnswers = mutableListOf<String>()
+    private var finalMessageShown = false
+    private val finalScore: Int by lazy {
+        intent.getIntExtra("final_score", 0)
+    }
 
     private val receiver by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -63,6 +69,8 @@ class ChatActivity: ComponentActivity() {
     private var hasSentResult = false
     private val aiDelayMs = 800L
     private var isUserTurn = true
+    private val serverUri = "http://127.0.0.1"
+    private val httpClient = OkHttpClient()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,9 +78,9 @@ class ChatActivity: ComponentActivity() {
         setContentView(R.layout.activity_chat)
         Logger.d("ChatActivity started.")
 
-        recycler  = requireViewByIdSafe(R.id.recyclerMessages, "recyclerMessages")
+        recycler = requireViewByIdSafe(R.id.recyclerMessages, "recyclerMessages")
         etMessage = requireViewByIdSafe(R.id.etMessage, "etMessage")
-        btnSend   = requireViewByIdSafe(R.id.btnSend, "btnSend")
+        btnSend = requireViewByIdSafe(R.id.btnSend, "btnSend")
         bottomBar = requireViewByIdSafe(R.id.bottomBar, "bottomBar")
 
         val lm = LinearLayoutManager(this).apply { stackFromEnd = true }
@@ -86,7 +94,7 @@ class ChatActivity: ComponentActivity() {
         val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
         applyInsets(root)
 
-        addAiMessage(aiMessageList[aiIndex], aiIndex)
+        showNextAiMessage()
 
         btnSend.setOnClickListener { sendCurrentText() }
 
@@ -100,14 +108,11 @@ class ChatActivity: ComponentActivity() {
         val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
         imm.showSoftInput(etMessage, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
 
-        btnSend.setOnClickListener { sendCurrentText() }
-
         val btnBack = requireViewByIdSafe<ImageButton>(R.id.btnBack, "btnBack")
         btnBack.setOnClickListener {
             closePrompt("user_closed")
         }
     }
-
 
     private fun applyInsets(root: View) {
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
@@ -158,55 +163,65 @@ class ChatActivity: ComponentActivity() {
     }
 
     private fun sendCurrentText() {
+        val text = etMessage.text?.toString()?.trim().orEmpty()
+        if (text.isEmpty()) return
+
+        if (finalMessageShown) {
+            closePrompt("final_ack")
+            return
+        }
+
         if (!isUserTurn) {
             Logger.d("❌ Not user's turn")
             return
         }
 
-        val text = etMessage.text?.toString()?.trim().orEmpty()
-        if (text.isEmpty()) return
+        val questionIndex = (aiIndex - 1).coerceAtLeast(0)
 
-        val indexForAi = aiIndex
-
-        addUserMessage(text, indexForAi)
+        addUserMessage(text, questionIndex)
+        userAnswers.add(text)
         etMessage.text?.clear()
 
         isUserTurn = false
         btnSend.isEnabled = false
 
-        if(isFinishChat()) {
+        if (isFinishChat()) {
+            val typingMessage = addTypingBubble()
+
             uiScope.launch {
-                delay(400)
-                closePrompt("user_closed")
+                val finalText = runCatching {
+                    fetchFinalMessageFromServer()
+                }.getOrElse {
+                    it.printStackTrace()
+                    "답변 감사해요. 지금까지의 생각들을 잠깐 정리해 보는 데 이 대화가 조금이나마 도움이 되었기를 바랍니다."
+                }
+
+                removeTypingBubble(typingMessage)
+                addAiMessage(finalText, aiMessageList.size)
+
+                finalMessageShown = true
+                isUserTurn = true
+                btnSend.isEnabled = true
             }
             return
         }
 
-        val typingMessage = Message(
-            text = "...",
-            isUser = false,
-            isTyping = true
-        )
-        messages.add(typingMessage)
-        adapter.notifyItemInserted(messages.lastIndex)
-        recycler.post { recycler.scrollToPosition(messages.lastIndex) }
+        val typingMessage = addTypingBubble()
 
         uiScope.launch {
             delay(aiDelayMs)
-
-            val idx = messages.indexOf(typingMessage)
-            if (idx >= 0) {
-                messages.removeAt(idx)
-                adapter.notifyItemRemoved(idx)
-            }
-
-            addAiMessage(aiMessageList[indexForAi], indexForAi)
-
-            isUserTurn = true
-            btnSend.isEnabled = true
+            removeTypingBubble(typingMessage)
+            showNextAiMessage()
         }
+    }
 
+    private fun showNextAiMessage() {
+        if (aiIndex >= aiMessageList.size) return
+        val text = aiMessageList[aiIndex]
+        addAiMessage(text, aiIndex)
         aiIndex++
+        isUserTurn = true
+        btnSend.isEnabled = true
     }
 
     private fun addUserMessage(text: String, index: Int) {
@@ -259,13 +274,68 @@ class ChatActivity: ComponentActivity() {
         return aiIndex >= aiMessageList.size
     }
 
+    private fun addTypingBubble(): Message {
+        val typing = Message(
+            text = "...",
+            isUser = false,
+            isTyping = true
+        )
+        messages.add(typing)
+        adapter.notifyItemInserted(messages.lastIndex)
+        recycler.post { recycler.scrollToPosition(messages.lastIndex) }
+        return typing
+    }
+
+    private fun removeTypingBubble(typing: Message) {
+        val idx = messages.indexOf(typing)
+        if (idx >= 0) {
+            messages.removeAt(idx)
+            adapter.notifyItemRemoved(idx)
+        }
+    }
+
     private inline fun <reified T : View> requireViewByIdSafe(id: Int, name: String): T {
         val v = findViewById<T>(id)
         return v ?: error("activity_chat.xml에 id='$name' 뷰가 없습니다.")
     }
 
+    private suspend fun fetchFinalMessageFromServer(): String = withContext(Dispatchers.IO) {
+        val url = "${serverUri}/final_message"
+
+        val bodyJson = JSONObject().apply {
+            put("answers", JSONArray(userAnswers))
+            put("score", finalScore)
+        }.toString()
+
+        val requestBody = bodyJson.toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        httpClient.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("HTTP ${resp.code}")
+            }
+            val responseBody = resp.body?.string().orEmpty()
+
+            val rawMessage = try {
+                JSONObject(responseBody).optString("message", responseBody)
+            } catch (e: Exception) {
+                responseBody
+            }
+
+            rawMessage
+                .ifBlank {
+                    "답변 감사해요. 지금까지의 생각들을 정리해 보는 데 이 대화가 조금이나마 도움이 되었기를 바랍니다."
+                }
+                .substringBefore('\n')
+        }
+    }
+
     private fun closePrompt(reason: String = "user_closed", resultCode: Int = RESULT_OK) {
-        val finished = aiIndex-1 >= aiMessageList.size
+        val finished = finalMessageShown || isFinishChat()
         val method = if (reason == "user_closed") ExitMethod.BUTTON else ExitMethod.NAV_BAR
 
         uiScope.launch {
@@ -291,10 +361,6 @@ class ChatActivity: ComponentActivity() {
         if (!isChangingConfigurations && !hasSentResult) {
             closePrompt(reason = "destroyed", resultCode = RESULT_CANCELED)
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
     }
 
     override fun onStop() {
