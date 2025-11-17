@@ -17,4 +17,9 @@
     <string name="title">Argue With AI</string>
 
     <string name="time_format">오후 3:21</string>
+
+
+    <string name="pip_permission_message">Youtube와 Instagram의 PIP 권한을 해제해주세요.</string>
+    <string name="youtube_pip_permission_message">Youtube PIP 권한 해제</string>
+    <string name="instagram_pip_permission_message">Instagram PIP 권한 해제</string>
 </resources>

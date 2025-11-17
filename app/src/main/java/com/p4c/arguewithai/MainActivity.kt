@@ -36,18 +36,15 @@ class MainActivity : ComponentActivity() {
 
     private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
     private val accKey = "last_accessibility_enabled"
-    private val accessRepo = FirestoreAccessibilityRepository()
-    private val userRepo = FirestoreUserRepository()
-    private val interventionRepo = FirestoreInterventionRepository()
+    private val accessRepo by lazy { FirestoreAccessibilityRepository() }
+    private val userRepo by lazy { FirestoreUserRepository() }
+    private val interventionRepo by lazy { FirestoreInterventionRepository() }
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setView()
-
         Logger.setLoggerEnabled(true)
-        FirebaseApp.initializeApp(this)
 
         val ctx = applicationContext
         Logger.d("pkg = ${ctx.packageName}")
@@ -65,6 +62,8 @@ class MainActivity : ComponentActivity() {
             .addOnSuccessListener {
                 Logger.d("✅[Firebase] Logged in: ${it.user?.uid}")
 
+                setView()
+
                 uiScope.launch(Dispatchers.IO) {
                     runCatching {
                         interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
@@ -79,15 +78,22 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            .addOnFailureListener { Logger.e("❌[Firebase] Login failed", it) }
+            .addOnFailureListener {
+                Logger.e("❌[Firebase] Login failed", it)
+                setView()
+            }
     }
 
     override fun onResume() {
         super.onResume()
-        accessibilityText.text = serviceStatusText()
+
+        if (::accessibilityText.isInitialized) {
+            accessibilityText.text = serviceStatusText()
+        }
 
         val enabled = isMyAccessibilityServiceEnabled()
         val last = prefs.getBoolean(accKey, false)
+
         if (last != enabled) {
             accessRepo.setAccessibilityEnabled(enabled) { ok ->
                 if (ok) prefs.edit {
@@ -173,24 +179,24 @@ class MainActivity : ComponentActivity() {
         layout.addView(accessibilityBtn)
         layout.addView(divider())
 
-        val PIPInfoText = TextView(this).apply {
-            text = "Youtube와 Instagram의 PIP 권한을 해제해주세요."
+        val pipInfoText = TextView(this).apply {
+            text = getString(R.string.pip_permission_message)
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
-        val YoutubePIPBtn = Button(this).apply {
-            text = "Youtube PIP 권한 해제"
+        val youtubePIPBtn = Button(this).apply {
+            text = getString(R.string.youtube_pip_permission_message)
             setOnClickListener { openPipSettingsForApp(it.context, "com.google.android.youtube") }
         }
-        val InstagramPIPBtn = Button(this).apply {
-            text = "Instagram PIP 권한 해제"
+        val instagramPIPBtn = Button(this).apply {
+            text = getString(R.string.instagram_pip_permission_message)
             setOnClickListener { openPipSettingsForApp(it.context, "com.instagram.android") }
         }
 
-        layout.addView(PIPInfoText)
-        layout.addView(YoutubePIPBtn)
-        layout.addView(InstagramPIPBtn)
+        layout.addView(pipInfoText)
+        layout.addView(youtubePIPBtn)
+        layout.addView(instagramPIPBtn)
         layout.addView(divider())
 
         interventionText = TextView(this).apply {

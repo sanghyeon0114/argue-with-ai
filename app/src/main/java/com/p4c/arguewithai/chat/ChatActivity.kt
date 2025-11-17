@@ -322,7 +322,7 @@ class ChatActivity : ComponentActivity() {
 
             val rawMessage = try {
                 JSONObject(responseBody).optString("message", responseBody)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 responseBody
             }
 

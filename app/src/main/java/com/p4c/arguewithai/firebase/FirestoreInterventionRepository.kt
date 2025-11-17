@@ -1,6 +1,5 @@
 package com.p4c.arguewithai.firebase
 
-import android.os.Build
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -12,7 +11,6 @@ import com.google.firebase.firestore.Source
 import kotlinx.coroutines.tasks.await
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
-import com.p4c.arguewithai.InterventionPrefs
 
 class FirestoreInterventionRepository(
     private val time: TimeProvider = SystemTimeProvider()
@@ -60,7 +58,7 @@ class FirestoreInterventionRepository(
                     docRef.get(Source.SERVER).await()
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
         }
     }
 }

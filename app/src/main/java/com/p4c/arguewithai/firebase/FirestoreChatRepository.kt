@@ -73,7 +73,6 @@ class FirestoreChatRepository(
         sessionId: String,
         finished: Boolean,
         method: ExitMethod,
-        lastOrder: Int? = null,
         note: String? = null
     ) {
         val ms = time.nowMs()
