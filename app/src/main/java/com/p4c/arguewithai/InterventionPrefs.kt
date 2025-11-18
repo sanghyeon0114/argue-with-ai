@@ -9,17 +9,17 @@ object InterventionPrefs {
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY,true)
+            .getBoolean(KEY, false)
 
-    fun setEnabled(context: Context, enabled: Boolean) {
+    fun enable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-            putBoolean(KEY, enabled)
+            putBoolean(KEY, true)
         }
     }
 
-    fun toggle(context: Context): Boolean {
-        val now = !isEnabled(context)
-        setEnabled(context, now)
-        return now
+    fun disable(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putBoolean(KEY, false)
+        }
     }
 }
