@@ -33,7 +33,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var accessibilityText: TextView
     private lateinit var nameSection: LinearLayout
     private lateinit var interventionText: TextView
-
     private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
     private val accKey = "last_accessibility_enabled"
     private val accessRepo by lazy { FirestoreAccessibilityRepository() }
@@ -226,13 +225,15 @@ class MainActivity : ComponentActivity() {
                     if (code == "stop") { // code to off intervention
                         InterventionPrefs.disable(this@MainActivity)
                         uiScope.launch(Dispatchers.IO) {
-                            runCatching { interventionRepo.setEnabled(false) }
+                            runCatching {
+                                interventionRepo.setEnabled(false)
+                            }
                                 .onFailure { e -> Logger.e("Failed to save intervention to Firestore", e) }
                         }
                         interventionText.text = getInterventionText()
                         Toast.makeText(
                             this@MainActivity,
-                            if (nowEnabled) "개입이 켜졌습니다." else "개입이 꺼졌습니다.",
+                            "개입이 꺼졌습니다.",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -240,13 +241,15 @@ class MainActivity : ComponentActivity() {
                     if (code == "startpain2025") { // code to on intervention
                         InterventionPrefs.enable(this@MainActivity)
                         uiScope.launch(Dispatchers.IO) {
-                            runCatching { interventionRepo.setEnabled(true) }
+                            runCatching {
+                                interventionRepo.setEnabled(true)
+                            }
                                 .onFailure { e -> Logger.e("Failed to save intervention to Firestore", e) }
                         }
                         interventionText.text = getInterventionText()
                         Toast.makeText(
                             this@MainActivity,
-                            if (nowEnabled) "개입이 켜졌습니다." else "개입이 꺼졌습니다.",
+                            "개입이 켜졌습니다.",
                             Toast.LENGTH_SHORT
                         ).show()
                     }

@@ -51,7 +51,6 @@ class FirestoreInterventionRepository(
         val docRef = db.collection("YOUR_COLLECTION").document("YOUR_DOC")
 
         try {
-
             if (context.isOnline()) {
                 runCatching { db.enableNetwork().await() }
                 runCatching {
