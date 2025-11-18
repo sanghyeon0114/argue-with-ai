@@ -27,14 +27,27 @@ class FirestoreInterventionRepository(
             .collection(FirebaseConfig.User.CLIENT)
             .document("intervention")
 
+    private fun interventionHistoryCollection() =
+        interventionDoc().collection("history")
+
     suspend fun setEnabled(enabled: Boolean) {
         val ms = time.nowMs()
+        val ts = Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+
         val data = hashMapOf(
             "enabled" to enabled,
-            "updatedAt" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt()),
+            "updatedAt" to ts,
             "updatedAtMs" to ms
         )
+
         interventionDoc().set(data, SetOptions.merge()).await()
+
+        val historyData = hashMapOf(
+            "enabled" to enabled,
+            "updatedAt" to ts,
+            "updatedAtMs" to ms
+        )
+        interventionHistoryCollection().add(historyData).await()
     }
     suspend fun getEnabledOrNull(): Boolean? {
         val snap = interventionDoc().get().await()

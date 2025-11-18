@@ -66,6 +66,15 @@ class MainActivity : ComponentActivity() {
                 uiScope.launch(Dispatchers.IO) {
                     runCatching {
                         interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
+                        interventionRepo.setEnabled(false)
+                        val remoteValue = interventionRepo.getEnabledOrNull()
+                        if (remoteValue != null) {
+                            if (remoteValue) {
+                                InterventionPrefs.enable(this@MainActivity)
+                            } else {
+                                InterventionPrefs.disable(this@MainActivity)
+                            }
+                        }
                     }.onSuccess {
                         launch(Dispatchers.Main) {
                             if (::interventionText.isInitialized) {
@@ -163,7 +172,7 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER
         }
         accessibilityText = TextView(this).apply {
-            text = serviceStatusText() // ex: "접근성 서비스: OFF"
+            text = serviceStatusText()
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
@@ -221,14 +230,15 @@ class MainActivity : ComponentActivity() {
                 val code = inputCode.text.toString().trim()
                 val nowEnabled = InterventionPrefs.isEnabled(this@MainActivity)
 
-                if(nowEnabled) {
+                if (nowEnabled) {
                     if (code == "stop") { // code to off intervention
                         InterventionPrefs.disable(this@MainActivity)
                         uiScope.launch(Dispatchers.IO) {
                             runCatching {
                                 interventionRepo.setEnabled(false)
+                            }.onFailure { e ->
+                                Logger.e("Failed to save intervention to Firestore", e)
                             }
-                                .onFailure { e -> Logger.e("Failed to save intervention to Firestore", e) }
                         }
                         interventionText.text = getInterventionText()
                         Toast.makeText(
@@ -243,8 +253,9 @@ class MainActivity : ComponentActivity() {
                         uiScope.launch(Dispatchers.IO) {
                             runCatching {
                                 interventionRepo.setEnabled(true)
+                            }.onFailure { e ->
+                                Logger.e("Failed to save intervention to Firestore", e)
                             }
-                                .onFailure { e -> Logger.e("Failed to save intervention to Firestore", e) }
                         }
                         interventionText.text = getInterventionText()
                         Toast.makeText(
@@ -373,7 +384,7 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         if (ok) {
                             Toast.makeText(this@MainActivity, "✅ 이름이 저장되었습니다.", Toast.LENGTH_SHORT).show()
-                            renderNameDisplay(name) // 저장 성공 시, 입력/버튼 제거하고 이름만 표시
+                            renderNameDisplay(name)
                         } else {
                             Toast.makeText(this@MainActivity, "❌ 저장 실패 (네트워크 확인)", Toast.LENGTH_SHORT).show()
                         }
