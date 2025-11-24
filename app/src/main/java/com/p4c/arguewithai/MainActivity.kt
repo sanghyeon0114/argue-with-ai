@@ -66,14 +66,20 @@ class MainActivity : ComponentActivity() {
                 uiScope.launch(Dispatchers.IO) {
                     runCatching {
                         interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
-                        interventionRepo.setEnabled(false)
+
                         val remoteValue = interventionRepo.getEnabledOrNull()
-                        if (remoteValue != null) {
-                            if (remoteValue) {
-                                InterventionPrefs.enable(this@MainActivity)
-                            } else {
-                                InterventionPrefs.disable(this@MainActivity)
-                            }
+                        val localValue = InterventionPrefs.isEnabled(this@MainActivity)
+
+                        val finalEnabled = remoteValue ?: localValue
+
+                        if (remoteValue == null) {
+                            interventionRepo.setEnabled(finalEnabled)
+                        }
+
+                        if (finalEnabled) {
+                            InterventionPrefs.enable(this@MainActivity)
+                        } else {
+                            InterventionPrefs.disable(this@MainActivity)
                         }
                     }.onSuccess {
                         launch(Dispatchers.Main) {
@@ -83,12 +89,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }.onFailure { e ->
                         Logger.e("Intervention remote sync failed", e)
+                        launch(Dispatchers.Main) {
+                            if (::interventionText.isInitialized) {
+                                interventionText.text = getInterventionText()
+                            }
+                        }
                     }
                 }
             }
             .addOnFailureListener {
                 Logger.e("❌[Firebase] Login failed", it)
                 setView()
+                if (::interventionText.isInitialized) {
+                    interventionText.text = getInterventionText()
+                }
             }
     }
 

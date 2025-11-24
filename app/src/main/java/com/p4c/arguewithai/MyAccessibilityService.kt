@@ -18,6 +18,12 @@ import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.p4c.arguewithai.listener.SessionApp
+import com.p4c.arguewithai.listener.SessionViewCallback
+import com.p4c.arguewithai.listener.SessionViewListener
+import com.p4c.arguewithai.listener.ShortFormApp
+import com.p4c.arguewithai.listener.ShortFormCallback
+import com.p4c.arguewithai.listener.ShortFormListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,8 +49,10 @@ class MyAccessibilityService (
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private var lastChatAt: Long = 0L
-    private val cooltimeMs: Long = 15 * 60 * 1000L
+    private val cooltimeMs: Long = 5 * 1000L
     @Volatile private var isPromptVisible = false
+    private var lastTotalScore: Int = 0
+    @Volatile private var suppressUntilSessionExit: Boolean = false
 
     private val watcher = ShortFormListener(
         object : ShortFormCallback {
@@ -81,12 +89,22 @@ class MyAccessibilityService (
                 isPromptVisible = false
             }
 
-            override fun onWatchingTick(app: ShortFormApp, enteredAtMs: Long, nowMs: Long, elapsedMs: Long) {
+            override fun onWatchingTick(
+                app: ShortFormApp,
+                enteredAtMs: Long,
+                nowMs: Long,
+                elapsedMs: Long
+            ) {
                 if (!interventionEnabled) return
                 if (isPromptVisible) return
+
+                if (suppressUntilSessionExit) {
+                    return
+                }
+
                 val remain = (lastChatAt + cooltimeMs - nowMs).coerceAtLeast(0L)
                 if (remain > 0L) {
-                    //Logger.d(remain.toString())
+                    Logger.d(remain.toString())
                     return
                 }
                 showPrompt()
@@ -97,10 +115,39 @@ class MyAccessibilityService (
         tickIntervalMs = 100L
     )
 
+    private val watcher2 = SessionViewListener(
+        object : SessionViewCallback {
+            override fun onEnter(app: SessionApp, sinceMs: Long) {
+                Logger.d("▶️▶️▶️▶️ Enter Session View: ${app.label}, sinceMs=$sinceMs")
+            }
+
+            override fun onExit(app: SessionApp, enteredAtMs: Long, exitedAtMs: Long) {
+                Logger.d("▶️▶️▶️▶️ Exit Session View: ${app.label}, enteredAt=$enteredAtMs, exitedAt=$exitedAtMs")
+
+                suppressUntilSessionExit = false
+                lastTotalScore = 0
+            }
+
+            override fun onWatchingTick(
+                app: SessionApp,
+                enteredAtMs: Long,
+                nowMs: Long,
+                elapsedMs: Long
+            ) {
+                // None
+            }
+        }
+    )
+
+
     private val promptResultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
         override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
             val reason = resultData?.getString("reason") ?: "unknown"
-            Logger.d("ChatActivity closed. reason=$reason, resultCode=$resultCode")
+            val score = resultData?.getInt("totalScore", 0) ?: 0
+            lastTotalScore = score
+            suppressUntilSessionExit = (score > 0)
+
+            Logger.d("ChatActivity closed. reason=$reason, resultCode=$resultCode, totalScore=$score")
             reloadCooltime()
             isPromptVisible = false
         }
@@ -127,6 +174,7 @@ class MyAccessibilityService (
         if (event == null) return
         val root = rootInActiveWindow ?: return
         watcher.onEvent(event, root, time.nowMs())
+        watcher2.onEvent(event, root, time.nowMs())
     }
 
 
@@ -154,7 +202,7 @@ class MyAccessibilityService (
         val i = Intent(this, ChatActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("receiver", promptResultReceiver)
-            putExtra("sessionId", sessionId?.value ?: "")
+            putExtra("session_id", sessionId?.value ?: "")
         }
         startActivity(i)
     }

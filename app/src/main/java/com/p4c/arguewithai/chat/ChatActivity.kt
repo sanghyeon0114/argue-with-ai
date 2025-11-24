@@ -29,6 +29,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 
+object ChatActivityStatus {
+    @Volatile
+    var isOpen: Boolean = false
+}
+
 class ChatActivity : ComponentActivity() {
     private lateinit var recycler: RecyclerView
     private lateinit var etMessage: EditText
@@ -45,7 +50,7 @@ class ChatActivity : ComponentActivity() {
     }
 
     private val aiMessageList = listOf(
-        "안녕하세요! 혹시 현재 할 일을 미루고 영상을 시청하고 계시지 않으신가요?",
+        "안녕하세요! 지금 보고 계신 숏폼이 얼마나 여가에 가까운 시간이라고 느껴지는지 말씀해주실 수 있을까요?",
         "왜 숏폼 앱을 실행하셨나요?",
         "현재 보내고 계신 시간이 얼마나 의미가 있다고 생각하시나요?"
     )
@@ -68,7 +73,7 @@ class ChatActivity : ComponentActivity() {
     private var hasSentResult = false
     private val aiDelayMs = 300L
     private var isUserTurn = true
-    private val serverUri = "http://x:7001"
+    private val serverUri = "http://"
     private val httpClient = OkHttpClient()
     private var totalScore: Int = 0
     private val questionEndpoints = mapOf(
@@ -79,6 +84,7 @@ class ChatActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ChatActivityStatus.isOpen = true
         enableEdgeToEdge()
         setContentView(R.layout.activity_chat)
         Logger.d("ChatActivity started.")
@@ -216,12 +222,7 @@ class ChatActivity : ComponentActivity() {
 
             if (isFinishChat()) {
 
-                val finalText = runCatching {
-                    fetchFinalMessageFromServer()
-                }.getOrElse {
-                    it.printStackTrace()
-                    "답변 감사해요. 지금까지의 생각들을 잠깐 정리해 보는 데 이 대화가 조금이나마 도움이 되었기를 바랍니다."
-                }
+                val finalText = "\"답변 감사해요. 지금까지의 생각들을 잠깐 정리해 보는 데 이 대화가 조금이나마 도움이 되었기를 바랍니다.\""
 
                 removeTypingBubble(typingMessage)
                 addAiMessage(finalText, aiMessageList.size)
@@ -362,41 +363,6 @@ class ChatActivity : ComponentActivity() {
         return v ?: error("activity_chat.xml에 id='$name' 뷰가 없습니다.")
     }
 
-    private suspend fun fetchFinalMessageFromServer(): String = withContext(Dispatchers.IO) {
-        val url = "${serverUri}/final_message"
-
-        val bodyJson = JSONObject().apply {
-            put("answers", JSONArray(userAnswers))
-            put("score", finalScore)
-        }.toString()
-
-        val requestBody = bodyJson.toRequestBody("application/json".toMediaType())
-
-        val request = Request.Builder()
-            .url(url)
-            .post(requestBody)
-            .build()
-
-        httpClient.newCall(request).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                throw IllegalStateException("HTTP ${resp.code}")
-            }
-            val responseBody = resp.body?.string().orEmpty()
-
-            val rawMessage = try {
-                JSONObject(responseBody).optString("message", responseBody)
-            } catch (_: Exception) {
-                responseBody
-            }
-
-            rawMessage
-                .ifBlank {
-                    "답변 감사해요. 지금까지의 생각들을 정리해 보는 데 이 대화가 조금이나마 도움이 되었기를 바랍니다."
-                }
-                .substringBefore('\n')
-        }
-    }
-
     private fun closePrompt(reason: String = "user_closed", resultCode: Int = RESULT_OK) {
         val finished = finalMessageShown || isFinishChat()
         val method = if (reason == "user_closed") ExitMethod.BUTTON else ExitMethod.NAV_BAR
@@ -413,7 +379,10 @@ class ChatActivity : ComponentActivity() {
         }
 
         if (!hasSentResult) {
-            receiver?.send(resultCode, Bundle().apply { putString("reason", reason) })
+            receiver?.send(resultCode, Bundle().apply {
+                putString("reason", reason)
+                putInt("totalScore", totalScore)
+            })
             hasSentResult = true
         }
         finish()
@@ -430,6 +399,10 @@ class ChatActivity : ComponentActivity() {
         super.onStop()
         if (!isFinishing && !isChangingConfigurations && !hasSentResult) {
             closePrompt("backgrounded_or_home")
+        }
+
+        if (isFinishing) {
+            ChatActivityStatus.isOpen = false
         }
     }
 }
