@@ -49,7 +49,7 @@ class MyAccessibilityService (
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private var lastChatAt: Long = 0L
-    private val cooltimeMs: Long = 5 * 1000L
+    private val cooltimeMs: Long = 15 * 60 * 1000L
     @Volatile private var isPromptVisible = false
     private var lastTotalScore: Int = 0
     @Volatile private var suppressUntilSessionExit: Boolean = false

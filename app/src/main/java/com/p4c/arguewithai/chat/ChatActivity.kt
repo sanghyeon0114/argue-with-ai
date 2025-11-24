@@ -73,7 +73,7 @@ class ChatActivity : ComponentActivity() {
     private var hasSentResult = false
     private val aiDelayMs = 300L
     private var isUserTurn = true
-    private val serverUri = "http://"
+    private val serverUri = "http://x"
     private val httpClient = OkHttpClient()
     private var totalScore: Int = 0
     private val questionEndpoints = mapOf(
@@ -222,7 +222,7 @@ class ChatActivity : ComponentActivity() {
 
             if (isFinishChat()) {
 
-                val finalText = "\"답변 감사해요. 지금까지의 생각들을 잠깐 정리해 보는 데 이 대화가 조금이나마 도움이 되었기를 바랍니다.\""
+                val finalText = getFinalMessage(totalScore)
 
                 removeTypingBubble(typingMessage)
                 addAiMessage(finalText, aiMessageList.size)
@@ -236,6 +236,19 @@ class ChatActivity : ComponentActivity() {
             delay(aiDelayMs)
             removeTypingBubble(typingMessage)
             showNextAiMessage()
+        }
+    }
+
+    private fun getFinalMessage(score: Int): String {
+        return when {
+            score > 0 -> {
+                "답변 감사해요. 지금까지 이야기해 주신 걸 보면, 지금의 숏폼 시청이 어느 정도는 여가이자 의미 있는 시간으로 느껴지는 것 같아요. " +
+                        "이 흐름을 잘 유지하되, 너무 길어지지만 않도록 스스로 한 번 더 조절해 보셔도 좋을 것 같아요."
+            }
+            else -> {
+                "답변 감사해요. 대화를 들어보면, 지금 보고 있는 숏폼이 꼭 만족스럽거나 의미 있는 시간만은 아닐 수도 있겠다는 생각이 들어요. " +
+                        "혹시 지금 잠깐 멈추고, 원래 하려고 했던 일이나 하고 싶었던 다른 활동을 한 번 떠올려 보는 건 어떨까요?"
+            }
         }
     }
 
