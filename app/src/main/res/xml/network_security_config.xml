@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 개발용: 모든 도메인에 대해 HTTP 허용 -->
+    <base-config cleartextTrafficPermitted="true" />
+
+    <!-- 또는 특정 IP만 허용하고 싶으면 이렇게 -->
+    <!--
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.11.71.49</domain>
+    </domain-config>
+    -->
+</network-security-config>

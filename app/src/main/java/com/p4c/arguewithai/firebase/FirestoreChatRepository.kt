@@ -86,4 +86,23 @@ class FirestoreChatRepository(
 
         chatExitCol(sessionId).document(ms.toString()).set(data).await()
     }
+
+    suspend fun updateScore(
+        sessionId: String,
+        order: Int,
+        deltaScore: Int,
+        totalScore: Int
+    ) {
+        val ms = time.nowMs()
+
+        val data = hashMapOf(
+            "scoreDelta" to deltaScore,
+            "totalScore" to totalScore
+        )
+
+        chatMessagesCol(sessionId)
+            .document(order.toString())
+            .set(data, SetOptions.merge())
+            .await()
+    }
 }

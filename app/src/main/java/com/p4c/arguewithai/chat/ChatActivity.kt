@@ -47,7 +47,6 @@ class ChatActivity : ComponentActivity() {
     private val aiMessageList = listOf(
         "안녕하세요! 혹시 현재 할 일을 미루고 영상을 시청하고 계시지 않으신가요?",
         "왜 숏폼 앱을 실행하셨나요?",
-        "어떠한 목적으로 숏폼 영상을 시청하고 계신가요?",
         "현재 보내고 계신 시간이 얼마나 의미가 있다고 생각하시나요?"
     )
     private var aiIndex = 0
@@ -67,10 +66,16 @@ class ChatActivity : ComponentActivity() {
     }
 
     private var hasSentResult = false
-    private val aiDelayMs = 800L
+    private val aiDelayMs = 300L
     private var isUserTurn = true
-    private val serverUri = "http://127.0.0.1"
+    private val serverUri = "http://x:7001"
     private val httpClient = OkHttpClient()
+    private var totalScore: Int = 0
+    private val questionEndpoints = mapOf(
+        0 to "todo",
+        1 to "motivation",
+        2 to "meaning"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -185,10 +190,32 @@ class ChatActivity : ComponentActivity() {
         isUserTurn = false
         btnSend.isEnabled = false
 
-        if (isFinishChat()) {
+        uiScope.launch {
             val typingMessage = addTypingBubble()
 
-            uiScope.launch {
+            val delta: Int = runCatching {
+                scoreAnswerFromServer(questionIndex, text)
+            }.getOrElse { e ->
+                Logger.e("Scoring failed", e)
+                0
+            }
+
+            totalScore += delta
+            Logger.d("Question $questionIndex delta=$delta, totalScore=$totalScore")
+
+            runCatching {
+                repo.updateScore(
+                    sessionId = sessionId,
+                    order = questionIndex,
+                    deltaScore = delta,
+                    totalScore = totalScore
+                )
+            }.onFailure { e ->
+                Logger.e("Failed to save score to Firestore", e)
+            }
+
+            if (isFinishChat()) {
+
                 val finalText = runCatching {
                     fetchFinalMessageFromServer()
                 }.getOrElse {
@@ -202,16 +229,52 @@ class ChatActivity : ComponentActivity() {
                 finalMessageShown = true
                 isUserTurn = true
                 btnSend.isEnabled = true
+                return@launch
             }
-            return
-        }
 
-        val typingMessage = addTypingBubble()
-
-        uiScope.launch {
             delay(aiDelayMs)
             removeTypingBubble(typingMessage)
             showNextAiMessage()
+        }
+    }
+
+    private suspend fun scoreAnswerFromServer(questionIndex: Int, answer: String): Int = withContext(Dispatchers.IO) {
+        val endpoint = questionEndpoints[questionIndex] ?: return@withContext 0
+        val url = "$serverUri/$endpoint"
+
+        val mediaType = "text/plain; charset=utf-8".toMediaType()
+        val requestBody = answer.toRequestBody(mediaType)
+
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        httpClient.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("HTTP ${resp.code}")
+            }
+            val body = resp.body?.string().orEmpty()
+            val json = JSONObject(body)
+
+            return@use when (endpoint) {
+                "todo" -> {
+                    val s = json.optInt("score", 0)
+                    if (s >= 0) -1 else 1
+                }
+
+                "motivation" -> {
+                    val bin = json.optString("binary", "")
+                    if (bin == "GOAL") 1 else -1
+                }
+
+                "meaning" -> {
+                    val s = json.optInt("score", 0)
+                    if (s > 0) 1 else -1
+                }
+
+                else -> 0
+            }
         }
     }
 

@@ -43,7 +43,7 @@ class MyAccessibilityService (
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private var lastChatAt: Long = 0L
-    private val cooltimeMs: Long = 10 * 60 * 1000L
+    private val cooltimeMs: Long = 15 * 60 * 1000L
     @Volatile private var isPromptVisible = false
 
     private val watcher = ShortFormListener(
