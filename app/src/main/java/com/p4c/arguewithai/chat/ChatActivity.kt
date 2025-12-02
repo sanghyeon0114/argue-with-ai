@@ -9,9 +9,11 @@ import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.ImageButton
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -89,6 +91,17 @@ class ChatActivity : ComponentActivity() {
         setContentView(R.layout.activity_chat)
         Logger.d("ChatActivity started.")
 
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    Logger.d("🚫 System back (navigation bar / gesture) is disabled in ChatActivity")
+                }
+            }
+        )
+
+        hideNavigationBar()
+
         recycler = requireViewByIdSafe(R.id.recyclerMessages, "recyclerMessages")
         etMessage = requireViewByIdSafe(R.id.etMessage, "etMessage")
         btnSend = requireViewByIdSafe(R.id.btnSend, "btnSend")
@@ -122,6 +135,24 @@ class ChatActivity : ComponentActivity() {
         val btnBack = requireViewByIdSafe<ImageButton>(R.id.btnBack, "btnBack")
         btnBack.setOnClickListener {
             closePrompt("user_closed")
+        }
+    }
+
+    private fun hideNavigationBar() {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        controller.hide(
+            WindowInsetsCompat.Type.navigationBars()
+        )
+
+        window.decorView.setOnApplyWindowInsetsListener { v, insets ->
+            controller.hide(
+                WindowInsetsCompat.Type.navigationBars()
+            )
+            insets
         }
     }
 
@@ -176,6 +207,15 @@ class ChatActivity : ComponentActivity() {
     private fun sendCurrentText() {
         val text = etMessage.text?.toString()?.trim().orEmpty()
         if (text.isEmpty()) return
+
+        if (text == "그만할래") {
+            val questionIndex = (aiIndex - 1).coerceAtLeast(0)
+            addUserMessage(text, questionIndex)
+            etMessage.text?.clear()
+
+            closePrompt("user_stop_keyword")
+            return
+        }
 
         if (finalMessageShown) {
             closePrompt("final_ack")
