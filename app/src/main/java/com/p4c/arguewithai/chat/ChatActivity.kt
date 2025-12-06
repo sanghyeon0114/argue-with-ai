@@ -277,12 +277,13 @@ class ChatActivity : ComponentActivity() {
         uiScope.launch {
             val typingMessage = addTypingBubble()
 
-            val delta: Int = runCatching {
-                scoreAnswerFromServer(questionIndex, text)
-            }.getOrElse { e ->
-                Logger.e("Scoring failed", e)
-                0
-            }
+//            val delta: Int = runCatching {
+//                scoreAnswerFromServer(questionIndex, text)
+//            }.getOrElse { e ->
+//                Logger.e("Scoring failed", e)
+//                0
+//            }
+            val delta: Int = 0 // todo
 
             totalScore += delta
             Logger.d("Question $questionIndex delta=$delta, totalScore=$totalScore")

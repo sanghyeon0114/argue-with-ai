@@ -49,10 +49,11 @@ class MyAccessibilityService (
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private var lastChatAt: Long = 0L
-    private val cooltimeMs: Long = 5 * 1000L
+    private val cooltimeMs: Long = 10 * 60 * 1000L
     @Volatile private var isPromptVisible = false
     private var lastTotalScore: Int = 0
     @Volatile private var suppressUntilSessionExit: Boolean = false
+    private var skipFirstPromptAfterCooldown: Boolean = true
 
     private val watcher = ShortFormListener(
         object : ShortFormCallback {
@@ -107,6 +108,15 @@ class MyAccessibilityService (
                     Logger.d(remain.toString())
                     return
                 }
+
+                // ✅ 첫 번째로 쿨타임이 끝났을 때는 한 번만 개입을 무시
+                if (skipFirstPromptAfterCooldown) {
+                    Logger.d("⏳ 첫 쿨타임 종료: 한 번 개입을 건너뜀")
+                    skipFirstPromptAfterCooldown = false
+                    reloadCooltime()   // 다시 쿨타임 시작
+                    return
+                }
+
                 showPrompt()
             }
         },
@@ -126,6 +136,9 @@ class MyAccessibilityService (
 
                 suppressUntilSessionExit = false
                 lastTotalScore = 0
+
+                skipFirstPromptAfterCooldown = true
+                lastChatAt = 0
             }
 
             override fun onWatchingTick(
