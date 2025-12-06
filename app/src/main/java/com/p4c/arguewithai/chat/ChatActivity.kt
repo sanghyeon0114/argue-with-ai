@@ -50,12 +50,8 @@ class ChatActivity : ComponentActivity() {
     private val sessionId: String by lazy {
         intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
     }
+    private lateinit var aiMessageList: List<String>
 
-    private val aiMessageList = listOf(
-        "안녕하세요! 지금 보고 계신 숏폼이 얼마나 여가에 가까운 시간이라고 느껴지는지 말씀해주실 수 있을까요?",
-        "왜 숏폼 앱을 실행하셨나요?",
-        "현재 보내고 계신 시간이 얼마나 의미가 있다고 생각하시나요?"
-    )
     private var aiIndex = 0
     private val userAnswers = mutableListOf<String>()
     private var finalMessageShown = false
@@ -78,11 +74,14 @@ class ChatActivity : ComponentActivity() {
     private val serverUri = "http://x"
     private val httpClient = OkHttpClient()
     private var totalScore: Int = 0
+
     private val questionEndpoints = mapOf(
         0 to "todo",
         1 to "motivation",
         2 to "meaning"
     )
+
+    private val questionFileCount = 6
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,6 +117,18 @@ class ChatActivity : ComponentActivity() {
         val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
         applyInsets(root)
 
+        aiMessageList = loadRandomQuestionsFromAssets().ifEmpty {
+            listOf(
+                "조금 전 숏폼 시청 시간이 여유롭고 편안한 여가처럼 느껴졌나요?",
+                "이번에 숏폼 앱을 켜신 특별한 이유가 있나요?",
+                "지금 보내고 있는 시간이 당신에게 얼마나 의미 있다고 느껴지나요?",
+                "방금 숏폼을 시청한 시간이 얼마나 후회된다고 느끼시나요?",
+                "그렇게 느끼신 데에는 이유가 있을 것 같아요. 어떤 상황이나 생각 때문에 그런 감정을 느끼셨나요?",
+                "지금 영상을 계속 시청하게 되는 이유가 무엇이라고 느끼시나요?"
+            )
+        }
+        Logger.d("Loaded AI messages from assets: $aiMessageList")
+
         showNextAiMessage()
 
         btnSend.setOnClickListener { sendCurrentText() }
@@ -136,6 +147,33 @@ class ChatActivity : ComponentActivity() {
         btnBack.setOnClickListener {
             closePrompt("user_closed")
         }
+    }
+
+    private fun loadRandomQuestionsFromAssets(): List<String> {
+        val result = mutableListOf<String>()
+
+        for (i in 1..questionFileCount) {
+            val fileName = "q$i.json"
+            try {
+                val jsonStr = assets.open(fileName).bufferedReader().use { it.readText() }
+                val json = JSONObject(jsonStr)
+                val messagesArray: JSONArray = json.optJSONArray("messages") ?: continue
+                if (messagesArray.length() == 0) continue
+
+                val randomIndex = (0 until messagesArray.length()).random()
+                val msg = messagesArray.optString(randomIndex, "").trim()
+
+                if (msg.isNotEmpty()) {
+                    result.add(msg)
+                } else {
+                    Logger.e("Empty message in $fileName at index $randomIndex", null)
+                }
+            } catch (e: Exception) {
+                Logger.e("Failed to load or parse $fileName", e)
+            }
+        }
+
+        return result
     }
 
     private fun hideNavigationBar() {

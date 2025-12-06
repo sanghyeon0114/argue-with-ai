@@ -1,6 +1,5 @@
 package com.p4c.arguewithai
 
-
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.content.SharedPreferences
@@ -32,9 +31,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class MyAccessibilityService (
+class MyAccessibilityService(
     private val time: TimeProvider = SystemTimeProvider()
 ) : AccessibilityService() {
+
     private var interventionEnabled: Boolean = true
     private lateinit var prefs: SharedPreferences
     private val prefListener =
@@ -44,15 +44,22 @@ class MyAccessibilityService (
                 Logger.d("🟢 Intervention enabled = $interventionEnabled")
             }
         }
+
     private val repo: SessionRepository = FirestoreSessionRepository()
     private var sessionId: SessionId? = null
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private val serviceScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
-    private var lastChatAt: Long = 0L
     private val cooltimeMs: Long = 10 * 60 * 1000L
-    @Volatile private var isPromptVisible = false
+
+    @Volatile
+    private var nextPromptAtMs: Long = 0L
+
+    @Volatile
+    private var isPromptVisible = false
     private var lastTotalScore: Int = 0
-    @Volatile private var suppressUntilSessionExit: Boolean = false
+    @Volatile
+    private var suppressUntilSessionExit: Boolean = false
 
     private val watcher = ShortFormListener(
         object : ShortFormCallback {
@@ -63,6 +70,7 @@ class MyAccessibilityService (
                         if (sessionId == null) {
                             try {
                                 sessionId = repo.startSession(app.label)
+                                nextPromptAtMs = time.nowMs() + cooltimeMs
                             } catch (e: Exception) {
                                 Logger.e("startSession failed", e)
                             }
@@ -86,7 +94,10 @@ class MyAccessibilityService (
                         }
                     }
                 }
+
                 isPromptVisible = false
+                nextPromptAtMs = 0L
+                Logger.d("🧹 Session exit: nextPromptAtMs reset to 0")
             }
 
             override fun onWatchingTick(
@@ -97,16 +108,19 @@ class MyAccessibilityService (
             ) {
                 if (!interventionEnabled) return
                 if (isPromptVisible) return
+                if (suppressUntilSessionExit) return
 
-                if (suppressUntilSessionExit) {
+                val target = nextPromptAtMs
+                if (target <= 0L) {
                     return
                 }
 
-                val remain = (lastChatAt + cooltimeMs - nowMs).coerceAtLeast(0L)
+                val remain = (target - nowMs).coerceAtLeast(0L)
                 if (remain > 0L) {
-                    Logger.d(remain.toString())
+                    Logger.d("⏳ remain to next prompt = $remain ms")
                     return
                 }
+
                 showPrompt()
             }
         },
@@ -123,7 +137,6 @@ class MyAccessibilityService (
 
             override fun onExit(app: SessionApp, enteredAtMs: Long, exitedAtMs: Long) {
                 Logger.d("▶️▶️▶️▶️ Exit Session View: ${app.label}, enteredAt=$enteredAtMs, exitedAt=$exitedAtMs")
-
                 suppressUntilSessionExit = false
                 lastTotalScore = 0
             }
@@ -139,7 +152,6 @@ class MyAccessibilityService (
         }
     )
 
-
     private val promptResultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
         override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
             val reason = resultData?.getString("reason") ?: "unknown"
@@ -149,6 +161,7 @@ class MyAccessibilityService (
 
             Logger.d("ChatActivity closed. reason=$reason, resultCode=$resultCode, totalScore=$score")
             reloadCooltime()
+
             isPromptVisible = false
         }
     }
@@ -173,10 +186,10 @@ class MyAccessibilityService (
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val root = rootInActiveWindow ?: return
-        watcher.onEvent(event, root, time.nowMs())
-        watcher2.onEvent(event, root, time.nowMs())
+        val now = time.nowMs()
+        watcher.onEvent(event, root, now)
+        watcher2.onEvent(event, root, now)
     }
-
 
     override fun onInterrupt() {
         // pass
@@ -197,7 +210,6 @@ class MyAccessibilityService (
             return
         }
         isPromptVisible = true
-        lastChatAt = time.nowMs()
 
         val i = Intent(this, ChatActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -208,6 +220,8 @@ class MyAccessibilityService (
     }
 
     private fun reloadCooltime() {
-        lastChatAt = time.nowMs()
+        val now = time.nowMs()
+        nextPromptAtMs = now + cooltimeMs
+        Logger.d("🔁 Cooltime reloaded: nextPromptAtMs = $nextPromptAtMs")
     }
 }
