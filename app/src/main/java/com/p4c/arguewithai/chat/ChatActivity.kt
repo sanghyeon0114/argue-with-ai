@@ -18,10 +18,10 @@ import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.p4c.arguewithai.R
-import com.p4c.arguewithai.firebase.ChatMessage
-import com.p4c.arguewithai.firebase.ExitMethod
-import com.p4c.arguewithai.firebase.FirestoreChatRepository
-import com.p4c.arguewithai.firebase.Sender
+import com.p4c.arguewithai.repository.ChatMessage
+import com.p4c.arguewithai.repository.ExitMethod
+import com.p4c.arguewithai.repository.FirestoreChatRepository
+import com.p4c.arguewithai.repository.Sender
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaType

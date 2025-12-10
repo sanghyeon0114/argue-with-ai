@@ -10,9 +10,9 @@ import android.os.Looper
 import android.os.ResultReceiver
 import android.view.accessibility.AccessibilityEvent
 import com.p4c.arguewithai.chat.ChatActivity
-import com.p4c.arguewithai.firebase.FirestoreSessionRepository
-import com.p4c.arguewithai.firebase.SessionId
-import com.p4c.arguewithai.firebase.SessionRepository
+import com.p4c.arguewithai.repository.FirestoreSessionRepository
+import com.p4c.arguewithai.repository.SessionId
+import com.p4c.arguewithai.repository.SessionRepository
 import com.p4c.arguewithai.utils.Logger
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
@@ -49,7 +49,7 @@ class MyAccessibilityService (
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private var lastChatAt: Long = 0L
-    private val cooltimeMs: Long = 10 * 60 * 1000L
+    private val cooltimeMs: Long = 5 * 1000L
     @Volatile private var isPromptVisible = false
     private var lastTotalScore: Int = 0
     @Volatile private var suppressUntilSessionExit: Boolean = false

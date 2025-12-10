@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.firebase
+package com.p4c.arguewithai.repository
 
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth

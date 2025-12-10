@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.firebase
+package com.p4c.arguewithai.repository
 
 import android.content.Context
 import android.net.ConnectivityManager

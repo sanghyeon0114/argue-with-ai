@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.firebase
+package com.p4c.arguewithai.repository
 
 import com.p4c.arguewithai.utils.TimeProvider
 import com.p4c.arguewithai.utils.SystemTimeProvider
