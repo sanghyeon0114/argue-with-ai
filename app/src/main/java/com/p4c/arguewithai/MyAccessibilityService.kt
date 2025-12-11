@@ -65,6 +65,9 @@ class MyAccessibilityService (
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val root = rootInActiveWindow ?: return
+
+        //Logger.d("${event.packageName}")
+
         watcherManager.shortFormTimeCounter.onEvent(event, root, time.nowMs())
         watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
     }

@@ -3,11 +3,14 @@ package com.p4c.arguewithai.listener
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
-enum class SessionApp(val pkg: String, val label: String) {
+enum class SessionApp(val pkg: String?, val label: String) {
     YOUTUBE("com.google.android.youtube", "YouTube"),
     INSTAGRAM("com.instagram.android", "Instagram"),
     TIKTOK("com.ss.android.ugc.trill", "TikTok"),
-    MYAPP("com.p4c.arguewithai", "ArgueWithAi")
+    MYAPP("com.p4c.arguewithai", "ArgueWithAi"),
+    SYSTEM("com.android.systemui", "SYSTEM"),
+    KEYBOARD("com.samsung.android.honeyboard", "KEYBOARD"),
+    NULL(null, "NULL")
 }
 
 interface SessionViewCallback {
@@ -19,7 +22,7 @@ interface SessionViewCallback {
 class SessionViewListener(
     private val callback: SessionViewCallback,
     private val stableMs: Long = 300L,
-    private val exitGraceMs: Long = 20*1000L,
+    private val exitGraceMs: Long = 500L,
     private val tickIntervalMs: Long = 500L
 ) {
 
@@ -37,18 +40,38 @@ class SessionViewListener(
         root: AccessibilityNodeInfo?,
         nowMs: Long = System.currentTimeMillis()
     ) {
-        if (event == null || root == null) {
+        if (event == null) {
             maybeExitOnInvisibility(nowMs)
             return
         }
 
         val pkg = event.packageName?.toString()
-        val detected = detectApp(pkg, root)
 
-        if (detected != null) {
+        if (!isAllowedPackage(pkg)) {
+            currentApp?.let { app ->
+                callback.onExit(app, enteredAt, nowMs)
+            }
+            resetState()
+            return
+        }
+
+        if (root == null) {
+            maybeExitOnInvisibility(nowMs)
+            return
+        }
+
+        val enterApp = detectEnter(pkg, root)
+
+        if (enterApp != null) {
             lastSeenAppAt = nowMs
-            handleDetected(detected, nowMs)
+            handleDetected(enterApp, nowMs)
             maybeWatchingTick(nowMs)
+            return
+        }
+
+        val exitApp = detectExit(pkg, root)
+        if (exitApp != null) {
+            maybeExitOnInvisibility(nowMs)
         } else {
             maybeExitOnInvisibility(nowMs)
         }
@@ -89,129 +112,55 @@ class SessionViewListener(
 
         if (nowMs - lastSeenAppAt >= exitGraceMs) {
             callback.onExit(app, enteredAt, nowMs)
-            currentApp = null
-            pendingApp = null
-            pendingSince = 0L
-            lastSeenAppAt = 0L
-            lastTickAt = 0L
+            resetState()
         }
     }
 
-    private fun detectApp(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
+    private fun isAllowedPackage(pkg: String?): Boolean {
         return when (pkg) {
-            SessionApp.YOUTUBE.pkg ->
-                if (isYoutubeShortsScreen(root)) SessionApp.YOUTUBE else null
+            SessionApp.YOUTUBE.pkg,
+            SessionApp.INSTAGRAM.pkg,
+            SessionApp.TIKTOK.pkg,
+            SessionApp.MYAPP.pkg,
+            SessionApp.SYSTEM.pkg,
+            SessionApp.KEYBOARD.pkg,
+            null -> true
+            else -> false
+        }
+    }
 
-            SessionApp.INSTAGRAM.pkg ->
-                if (isInstagramReelsScreen(root)) SessionApp.INSTAGRAM else null
+    private fun resetState() {
+        currentApp = null
+        enteredAt = 0L
+        pendingApp = null
+        pendingSince = 0L
+        lastSeenAppAt = 0L
+        lastTickAt = 0L
+    }
 
-            SessionApp.TIKTOK.pkg ->
-                if (isTikTokScreen(root)) SessionApp.TIKTOK else null
-
-            SessionApp.MYAPP.pkg ->
-                if (isChatActivity()) SessionApp.MYAPP else null
-
+    private fun detectEnter(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
+        return when (pkg) {
+            SessionApp.YOUTUBE.pkg -> SessionApp.YOUTUBE
+            SessionApp.INSTAGRAM.pkg -> SessionApp.INSTAGRAM
+            SessionApp.TIKTOK.pkg -> SessionApp.TIKTOK
             else -> null
         }
     }
 
-    private fun isYoutubeShortsScreen(root: AccessibilityNodeInfo): Boolean {
-        var found = 0
-
-        root.walkNodes { node ->
-            if (node.className == "android.view.View" &&
-                node.viewIdResourceName?.endsWith("reel_progress_bar") == true
-            ) found++
-
-            if (node.className == "android.widget.FrameLayout" &&
-                node.viewIdResourceName?.endsWith("reel_player_page_container") == true
-            ) found++
-
-            if (node.className == "android.view.ViewGroup" &&
-                node.viewIdResourceName?.endsWith("reel_time_bar") == true
-            ) found++
+    private fun detectExit(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
+        return when (pkg) {
+            SessionApp.YOUTUBE.pkg -> SessionApp.YOUTUBE
+            SessionApp.INSTAGRAM.pkg -> SessionApp.INSTAGRAM
+            SessionApp.TIKTOK.pkg -> SessionApp.TIKTOK
+            SessionApp.MYAPP.pkg -> if (isChatActivity()) SessionApp.MYAPP else null
+            SessionApp.SYSTEM.pkg -> SessionApp.SYSTEM
+            SessionApp.KEYBOARD.pkg -> SessionApp.KEYBOARD
+            SessionApp.NULL.pkg -> SessionApp.NULL
+            else -> null
         }
-
-        return found >= 2
     }
 
-    private fun isInstagramReelsScreen(root: AccessibilityNodeInfo): Boolean {
-        var found = 0
-
-        root.walkNodes { node ->
-            if (node.className == "android.view.ViewGroup" &&
-                node.viewIdResourceName == "com.instagram.android:id/clips_author_info_component"
-            ) {
-                found++
-            }
-
-            if (node.className == "android.widget.Button" &&
-                node.viewIdResourceName == "com.instagram.android:id/clips_author_username"
-            ) {
-                found++
-            }
-
-            if (node.className == "android.view.ViewGroup" &&
-                node.viewIdResourceName == "com.instagram.android:id/clips_caption_component"
-            ) {
-                found++
-            }
-
-            if (node.className == "android.widget.ImageView" &&
-                node.viewIdResourceName == "com.instagram.android:id/like_button"
-            ) {
-                found++
-            }
-
-            if (node.className == "android.widget.ImageView" &&
-                node.viewIdResourceName == "com.instagram.android:id/direct_share_button"
-            ) {
-                found++
-            }
-
-            if (node.className == "android.widget.ImageView" &&
-                node.viewIdResourceName == "com.instagram.android:id/clips_ufi_more_button_component"
-            ) {
-                found++
-            }
-        }
-        return found >= 5
-    }
-
-    private fun isTikTokScreen(root: AccessibilityNodeInfo): Boolean {
-        var found = 0
-
-        root.walkNodes { node ->
-            if (node.className == "android.widget.Button" &&
-                node.viewIdResourceName == "com.ss.android.ugc.trill:id/ew0"
-            ) found++
-
-            if (node.className == "android.widget.Button" &&
-                node.viewIdResourceName == "com.ss.android.ugc.trill:id/dnl"
-            ) found++
-
-            if (node.className == "android.widget.Button" &&
-                node.viewIdResourceName == "com.ss.android.ugc.trill:id/ggg"
-            ) found++
-        }
-
-        return found >= 3
-    }
     private fun isChatActivity(): Boolean {
         return com.p4c.arguewithai.chat.ChatActivityStatus.isOpen
-    }
-
-    private inline fun AccessibilityNodeInfo.walkNodes(visit: (AccessibilityNodeInfo) -> Unit) {
-        val stack = ArrayDeque<AccessibilityNodeInfo>()
-        stack.add(this)
-
-        while (stack.isNotEmpty()) {
-            val node = stack.removeLast()
-            visit(node)
-
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { stack.add(it) }
-            }
-        }
     }
 }
