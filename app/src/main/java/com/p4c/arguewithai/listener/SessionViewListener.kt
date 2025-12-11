@@ -2,7 +2,6 @@ package com.p4c.arguewithai.listener
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.p4c.arguewithai.utils.Logger
 
 enum class SessionApp(val pkg: String, val label: String) {
     YOUTUBE("com.google.android.youtube", "YouTube"),
@@ -29,8 +28,6 @@ class SessionViewListener(
 
     private var pendingApp: SessionApp? = null
     private var pendingSince: Long = 0L
-
-    private var lastSeenShortFormAt: Long = 0L
     private var lastSeenAppAt: Long = 0L
 
     private var lastTickAt: Long = 0L
@@ -112,7 +109,7 @@ class SessionViewListener(
                 if (isTikTokScreen(root)) SessionApp.TIKTOK else null
 
             SessionApp.MYAPP.pkg ->
-                if (isChatActivity(root)) SessionApp.MYAPP else null
+                if (isChatActivity()) SessionApp.MYAPP else null
 
             else -> null
         }
@@ -200,7 +197,7 @@ class SessionViewListener(
 
         return found >= 3
     }
-    private fun isChatActivity(root: AccessibilityNodeInfo): Boolean {
+    private fun isChatActivity(): Boolean {
         return com.p4c.arguewithai.chat.ChatActivityStatus.isOpen
     }
 

@@ -3,7 +3,6 @@ package com.p4c.arguewithai.repository
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.p4c.arguewithai.utils.Logger
 import java.util.*
 
 class FirestoreUserRepository {

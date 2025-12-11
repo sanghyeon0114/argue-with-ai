@@ -61,7 +61,8 @@ class FirestoreInterventionRepository(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
     suspend fun syncLocalFromRemoteIfExists(context: Context) {
-        val docRef = db.collection("YOUR_COLLECTION").document("YOUR_DOC")
+        val user = FirebaseAuth.getInstance().currentUser ?: return
+        val docRef = db.collection("users").document(user.uid)
 
         try {
             if (context.isOnline()) {

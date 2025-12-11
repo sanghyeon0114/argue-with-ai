@@ -66,7 +66,6 @@ class MainActivity : ComponentActivity() {
                 uiScope.launch(Dispatchers.IO) {
                     runCatching {
                         interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
-
                         val remoteValue = interventionRepo.getEnabledOrNull()
                         val localValue = InterventionPrefs.isEnabled(this@MainActivity)
 

@@ -93,8 +93,6 @@ class FirestoreChatRepository(
         deltaScore: Int,
         totalScore: Int
     ) {
-        val ms = time.nowMs()
-
         val data = hashMapOf(
             "scoreDelta" to deltaScore,
             "totalScore" to totalScore

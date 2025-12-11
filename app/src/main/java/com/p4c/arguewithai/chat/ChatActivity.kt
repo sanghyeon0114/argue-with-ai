@@ -71,7 +71,7 @@ class ChatActivity : ComponentActivity() {
     private var hasSentResult = false
     private val aiDelayMs = 300L
     private var isUserTurn = true
-    private val serverUri = "http://10.11.71.49:7001"
+    private val serverUri = "http://x"
     private val httpClient = OkHttpClient()
     private var totalScore: Int = 0
 
