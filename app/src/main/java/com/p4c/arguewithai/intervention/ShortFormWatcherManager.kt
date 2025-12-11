@@ -32,9 +32,9 @@ class ShortFormWatcherManager(
     var interventionEnabled: Boolean = true
     var suppressUntilSessionExit: Boolean = false
     var lastTotalScore: Int = 0
-    var cooltimeMs: Long = 10 * 60 * 1000L
+    var cooltimeMs: Long = 5 * 1000L
     var currentWatchTime: Long = 0
-    var watchTimeinOneSession: Long = 0
+    var watchTimeOnOneSession: Long = 0
 
     val shortFormTimeCounter = ShortFormListener(
         object : ShortFormCallback {
@@ -70,7 +70,7 @@ class ShortFormWatcherManager(
                 }
                 isPromptVisible = false
 
-                watchTimeinOneSession += currentWatchTime
+                watchTimeOnOneSession += currentWatchTime
                 currentWatchTime = 0
             }
 
@@ -97,7 +97,7 @@ class ShortFormWatcherManager(
                 suppressUntilSessionExit = false
                 lastTotalScore = 0
 
-                watchTimeinOneSession = 0
+                watchTimeOnOneSession = 0
             }
 
             override fun onWatchingTick(
@@ -114,7 +114,7 @@ class ShortFormWatcherManager(
                 var totalWatchTime = currentTotalWatchTime()
 
                 if(totalWatchTime >= cooltimeMs) {
-                    watchTimeinOneSession = 0
+                    watchTimeOnOneSession = 0
                     currentWatchTime = 0
                     showPrompt()
                 }
@@ -123,7 +123,7 @@ class ShortFormWatcherManager(
     )
 
     private fun currentTotalWatchTime(): Long {
-        return watchTimeinOneSession + currentWatchTime
+        return watchTimeOnOneSession + currentWatchTime
     }
 
     private val promptResultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {

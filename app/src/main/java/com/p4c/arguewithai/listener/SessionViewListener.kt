@@ -48,14 +48,14 @@ class SessionViewListener(
         val pkg = event.packageName?.toString()
 
         if (currentApp == null) {
-            val detected = detectEnter(pkg, root)
+            val detected = detectEnter(pkg)
             if (detected != null) {
                 lastSeenAppAt = nowMs
                 handleDetected(detected, nowMs)
                 maybeWatchingTick(nowMs)
             }
         } else {
-            val detectedApp = detectApp(pkg, root)
+            val detectedApp = detectApp(pkg)
 
             if (detectedApp != null) {
                 lastSeenAppAt = nowMs
@@ -111,7 +111,7 @@ class SessionViewListener(
         }
     }
 
-    private fun detectEnter(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
+    private fun detectEnter(pkg: String?): SessionApp? {
         return when (pkg) {
             SessionApp.YOUTUBE.pkg -> SessionApp.YOUTUBE
             SessionApp.INSTAGRAM.pkg -> SessionApp.INSTAGRAM
@@ -121,7 +121,7 @@ class SessionViewListener(
         }
     }
 
-    private fun detectApp(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
+    private fun detectApp(pkg: String?): SessionApp? {
         return when (pkg) {
             SessionApp.YOUTUBE.pkg -> SessionApp.YOUTUBE
             SessionApp.INSTAGRAM.pkg -> SessionApp.INSTAGRAM

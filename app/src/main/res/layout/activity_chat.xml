@@ -24,15 +24,6 @@
             android:textSize="18sp"
             android:textStyle="bold"
             android:gravity="center_vertical" />
-
-        <ImageButton
-            android:id="@+id/btnBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@android:color/transparent"
-            android:src="@drawable/ic_arrow_back"
-            android:contentDescription="@string/button_description"
-            android:padding="12dp" />
     </LinearLayout>
 
     <!-- 메시지 영역 -->

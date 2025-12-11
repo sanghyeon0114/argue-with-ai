@@ -142,11 +142,6 @@ class ChatActivity : ComponentActivity() {
         etMessage.requestFocus()
         val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
         imm.showSoftInput(etMessage, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-
-        val btnBack = requireViewByIdSafe<ImageButton>(R.id.btnBack, "btnBack")
-        btnBack.setOnClickListener {
-            closePrompt("user_closed")
-        }
     }
 
     private fun loadRandomQuestionsFromAssets(): List<String> {
