@@ -22,7 +22,7 @@ interface SessionViewCallback {
 class SessionViewListener(
     private val callback: SessionViewCallback,
     private val stableMs: Long = 300L,
-    private val exitGraceMs: Long = 5 * 1000L,
+    private val exitGraceMs: Long = 1000L,
     private val tickIntervalMs: Long = 500L
 ) {
 
