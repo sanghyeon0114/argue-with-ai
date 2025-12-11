@@ -2,11 +2,13 @@ package com.p4c.arguewithai.listener
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.p4c.arguewithai.utils.Logger
 
 enum class ShortFormApp(val pkg: String, val label: String) {
     YOUTUBE("com.google.android.youtube", "YouTube"),
     INSTAGRAM("com.instagram.android", "Instagram"),
-    TIKTOK("com.ss.android.ugc.trill", "TikTok")
+    TIKTOK("com.ss.android.ugc.trill", "TikTok"),
+    SYSTEM("com.android.systemui", "system")
 }
 
 interface ShortFormCallback {
@@ -98,6 +100,7 @@ class ShortFormListener(
             ShortFormApp.YOUTUBE.pkg -> if (isYoutubeShortsScreen(root)) ShortFormApp.YOUTUBE else null
             ShortFormApp.INSTAGRAM.pkg -> if (isInstagramReelsScreen(root)) ShortFormApp.INSTAGRAM else null
             ShortFormApp.TIKTOK.pkg -> if (isTikTokScreen(root)) ShortFormApp.TIKTOK else null
+            ShortFormApp.SYSTEM.pkg -> ShortFormApp.SYSTEM
             else -> null
         }
     }
