@@ -261,6 +261,7 @@ class MainActivity : ComponentActivity() {
                         ).show()
                     }
                 } else {
+
                     if (code == "startpain2025") { // code to on intervention
                         InterventionPrefs.enable(this@MainActivity)
                         uiScope.launch(Dispatchers.IO) {

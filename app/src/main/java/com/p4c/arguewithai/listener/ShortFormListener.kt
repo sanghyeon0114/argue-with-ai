@@ -31,7 +31,6 @@ class ShortFormListener(
     private var pendingSince: Long = 0L
 
     private var lastSeenShortFormAt: Long = 0L
-
     private var lastTickAt: Long = 0L
 
     fun onEvent(
@@ -45,7 +44,12 @@ class ShortFormListener(
         }
 
         val pkg = event.packageName?.toString()
-        val detected = detectApp(pkg, root)
+
+        val detected: ShortFormApp? = if (currentApp == null) {
+            detectEnter(pkg, root)
+        } else {
+            detectApp(pkg, root)
+        }
 
         if (detected != null) {
             lastSeenShortFormAt = nowMs
@@ -92,6 +96,15 @@ class ShortFormListener(
             currentApp = null
             pendingApp = null
             lastTickAt = 0L
+        }
+    }
+
+    private fun detectEnter(pkg: String?, root: AccessibilityNodeInfo): ShortFormApp? {
+        return when (pkg) {
+            ShortFormApp.YOUTUBE.pkg -> if (isYoutubeShortsScreen(root)) ShortFormApp.YOUTUBE else null
+            ShortFormApp.INSTAGRAM.pkg -> if (isInstagramReelsScreen(root)) ShortFormApp.INSTAGRAM else null
+            ShortFormApp.TIKTOK.pkg -> if (isTikTokScreen(root)) ShortFormApp.TIKTOK else null
+            else -> null
         }
     }
 
