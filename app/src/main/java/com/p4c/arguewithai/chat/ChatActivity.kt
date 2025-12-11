@@ -30,6 +30,8 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import android.text.Editable
+import android.text.TextWatcher
 
 object ChatActivityStatus {
     @Volatile
@@ -128,6 +130,17 @@ class ChatActivity : ComponentActivity() {
             )
         }
         Logger.d("Loaded AI messages from assets: $aiMessageList")
+
+        btnSend.isEnabled = false
+
+        etMessage.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun afterTextChanged(s: Editable?) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateSendButtonState()
+            }
+        })
 
         showNextAiMessage()
 
@@ -255,6 +268,10 @@ class ChatActivity : ComponentActivity() {
             return
         }
 
+        if (text.length < 10) {
+            return
+        }
+
         if (!isUserTurn) {
             Logger.d("❌ Not user's turn")
             return
@@ -303,7 +320,7 @@ class ChatActivity : ComponentActivity() {
 
                 finalMessageShown = true
                 isUserTurn = true
-                btnSend.isEnabled = true
+                updateSendButtonState()
                 return@launch
             }
 
@@ -372,7 +389,7 @@ class ChatActivity : ComponentActivity() {
         addAiMessage(text, aiIndex)
         aiIndex++
         isUserTurn = true
-        btnSend.isEnabled = true
+        updateSendButtonState()
     }
 
     private fun addUserMessage(text: String, index: Int) {
@@ -490,6 +507,20 @@ class ChatActivity : ComponentActivity() {
 
         if (isFinishing) {
             ChatActivityStatus.isOpen = false
+        }
+    }
+
+    private fun updateSendButtonState() {
+        val text = etMessage.text?.toString()?.trim().orEmpty()
+
+        btnSend.isEnabled = when {
+            !isUserTurn -> false
+
+            text == "그만할래" -> true
+
+            finalMessageShown -> text.isNotEmpty()
+
+            else -> text.length >= 10
         }
     }
 }
