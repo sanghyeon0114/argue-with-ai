@@ -22,7 +22,7 @@ interface SessionViewCallback {
 class SessionViewListener(
     private val callback: SessionViewCallback,
     private val stableMs: Long = 300L,
-    private val exitGraceMs: Long = 500L,
+    private val exitGraceMs: Long = 5 * 1000L,
     private val tickIntervalMs: Long = 500L
 ) {
 
@@ -40,48 +40,34 @@ class SessionViewListener(
         root: AccessibilityNodeInfo?,
         nowMs: Long = System.currentTimeMillis()
     ) {
-        if (event == null) {
+        if (event == null || root == null) {
             maybeExitOnInvisibility(nowMs)
             return
         }
 
         val pkg = event.packageName?.toString()
 
-        if (!isAllowedPackage(pkg)) {
-            currentApp?.let { app ->
-                callback.onExit(app, enteredAt, nowMs)
+        if (currentApp == null) {
+            val detected = detectEnter(pkg, root)
+            if (detected != null) {
+                lastSeenAppAt = nowMs
+                handleDetected(detected, nowMs)
+                maybeWatchingTick(nowMs)
             }
-            resetState()
-            return
-        }
-
-        if (root == null) {
-            maybeExitOnInvisibility(nowMs)
-            return
-        }
-
-        val enterApp = detectEnter(pkg, root)
-
-        if (enterApp != null) {
-            lastSeenAppAt = nowMs
-            handleDetected(enterApp, nowMs)
-            maybeWatchingTick(nowMs)
-            return
-        }
-
-        val exitApp = detectExit(pkg, root)
-        if (exitApp != null) {
-            maybeExitOnInvisibility(nowMs)
         } else {
-            maybeExitOnInvisibility(nowMs)
+            val detectedApp = detectApp(pkg, root)
+
+            if (detectedApp != null) {
+                lastSeenAppAt = nowMs
+                maybeWatchingTick(nowMs)
+            } else {
+                maybeExitOnInvisibility(nowMs)
+            }
         }
     }
 
     private fun handleDetected(app: SessionApp, nowMs: Long) {
-        if (currentApp != null) {
-            currentApp = app
-            return
-        }
+        if (currentApp != null) return
 
         if (pendingApp != app) {
             pendingApp = app
@@ -99,6 +85,11 @@ class SessionViewListener(
 
     private fun maybeWatchingTick(nowMs: Long) {
         val app = currentApp ?: return
+        if (lastTickAt == 0L) {
+            lastTickAt = nowMs
+            return
+        }
+
         if (nowMs - lastTickAt >= tickIntervalMs) {
             val elapsed = nowMs - enteredAt
             callback.onWatchingTick(app, enteredAt, nowMs, elapsed)
@@ -112,30 +103,12 @@ class SessionViewListener(
 
         if (nowMs - lastSeenAppAt >= exitGraceMs) {
             callback.onExit(app, enteredAt, nowMs)
-            resetState()
+            currentApp = null
+            pendingApp = null
+            pendingSince = 0L
+            lastSeenAppAt = 0L
+            lastTickAt = 0L
         }
-    }
-
-    private fun isAllowedPackage(pkg: String?): Boolean {
-        return when (pkg) {
-            SessionApp.YOUTUBE.pkg,
-            SessionApp.INSTAGRAM.pkg,
-            SessionApp.TIKTOK.pkg,
-            SessionApp.MYAPP.pkg,
-            SessionApp.SYSTEM.pkg,
-            SessionApp.KEYBOARD.pkg,
-            null -> true
-            else -> false
-        }
-    }
-
-    private fun resetState() {
-        currentApp = null
-        enteredAt = 0L
-        pendingApp = null
-        pendingSince = 0L
-        lastSeenAppAt = 0L
-        lastTickAt = 0L
     }
 
     private fun detectEnter(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
@@ -143,11 +116,12 @@ class SessionViewListener(
             SessionApp.YOUTUBE.pkg -> SessionApp.YOUTUBE
             SessionApp.INSTAGRAM.pkg -> SessionApp.INSTAGRAM
             SessionApp.TIKTOK.pkg -> SessionApp.TIKTOK
+            SessionApp.MYAPP.pkg -> if (isChatActivity()) SessionApp.MYAPP else null
             else -> null
         }
     }
 
-    private fun detectExit(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
+    private fun detectApp(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
         return when (pkg) {
             SessionApp.YOUTUBE.pkg -> SessionApp.YOUTUBE
             SessionApp.INSTAGRAM.pkg -> SessionApp.INSTAGRAM
