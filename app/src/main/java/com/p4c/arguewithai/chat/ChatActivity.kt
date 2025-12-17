@@ -20,6 +20,8 @@ import androidx.core.view.doOnLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.ai.type.Content
+import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.ai.FirebaseAiClient
 import com.p4c.arguewithai.repository.ChatMessage
@@ -43,7 +45,7 @@ private data class ChatState(
 )
 
 // todo : totalScore 관련 코드 추가
-// todo : 종료 조건이 firebase에 제대로 저장되는지 확인
+// todo : 만약 Chatbot 작동이 이루어지지 않으면, 저장된 질문을 뽑는 방식 사용
 
 class ChatActivity : ComponentActivity() {
 
@@ -54,6 +56,8 @@ class ChatActivity : ComponentActivity() {
     private lateinit var adapter: ChatAdapter
 
     private val messages = mutableListOf<Message>()
+    private val messageList = mutableListOf<Content>()
+
     private val repo = FirestoreChatRepository()
 
     private var state = ChatState()
@@ -70,19 +74,107 @@ class ChatActivity : ComponentActivity() {
     }
     private val aiClient = FirebaseAiClient()
 
+    private val stepIntents: List<String> = listOf(
+        "방금 숏폼 시청 시간이 여가처럼 느껴졌는지 스스로 인식하도록 돕는 질문",
+        "숏폼 앱을 실행한 동기나 계기를 돌아보게 하는 질문",
+        "현재 보내고 있는 시간이 의미 있는지 가치 판단을 유도하는 질문",
+        "숏폼 시청에 대한 후회 감정의 정도를 성찰하게 하는 질문",
+        "그 감정을 만들었던 상황, 생각, 맥락을 구체화하도록 돕는 질문",
+        "지금 이 순간에도 계속 영상을 보게 되는 이유를 메타적으로 인식하게 하는 질문"
+    )
+    private var intentCount: Int = 0
+
+    private val finalMessage: String = "개입 종료를 알리고, 사용자 입력을 종료 트리거로 사용하는 안내 메시지"
+    private var pendingFinal: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ChatActivityStatus.isOpen = true
         setupUI()
-        sendAiMessage(makeAifirstMessage())
+        sendAiMessage(makePersonaMessage())
     }
 
 
     // ---------------------------
-    // Ai
+    // AI
     // ---------------------------
-    private fun makeAifirstMessage(): String {
-        return "안녕하세요!"
+    private fun makePersonaMessage(): String {
+        val intent = stepIntents[intentCount++]
+        val systemPersona = """
+            당신은 숏폼 시청 중인 사용자가 스스로의 상태를 성찰하도록 돕는 '친근한 코치'입니다.
+            현재 사용자는 10분 연속으로 숏폼을 시청한 상황입니다.
+            
+            역할:
+            - 판단하거나 설득하지 않는다
+            - 사용자의 선택을 바꾸려 하지 않는다
+            - 오직 인식과 성찰만 돕는다
+            
+            출력 규칙:
+            - 반드시 두 문장만 출력한다
+            - 첫 문장: 사용자의 현재 상태를 부드럽게 공감하는 문장
+            - 두 번째 문장: 열린 질문 하나
+            - 설명, 분석, 해석, 평가, 명령 금지
+            - 왜냐하면/그래서 같은 인과 설명 금지
+            - 한국어로 작성
+            
+            톤:
+            - 차분하고 짧으며 압박감이 없어야 한다
+            - 치료사나 훈계자가 아니라, 곁에서 묻는 코치처럼 말한다
+            
+           현재 단계 목표:
+            - $intent
+            
+            첫 번째 문장은 친절하고 밝게 인사하세요
+            두 번째 문장은 지금 단계에 맞는 질문을 하나 생성하세요
+    """.trimIndent()
+        addMessageInList(Sender.USER, systemPersona)
+        return systemPersona
+    }
+
+    private fun buildPrompt(userAnswer: String): String {
+        val intent = stepIntents[intentCount++]
+
+        return """
+            현재 단계 목표:
+            - $intent
+            
+            사용자의 직전 답변:
+            "$userAnswer"
+        
+            지금 단계에 맞는 질문을 하나 생성하세요
+            """.trimIndent()
+    }
+
+    private fun sendAiMessage(prompt: String) {
+        val typing = addTypingBubble()
+
+        lifecycleScope.launch {
+            try {
+                val aiReply = aiClient.generateText(prompt, messageList)
+
+                // todo: use Q1 ~ Q6 json
+                removeTypingBubble(typing)
+                appendMessage(Sender.AI, aiReply)
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                removeTypingBubble(typing)
+                appendMessage(Sender.AI, "null") // todo: use Q1 ~ Q6 json
+            } finally {
+                if (pendingFinal) {
+                    state = state.copy(
+                        isUserTurn = true,
+                        finalMessageShown = true
+                    )
+                    pendingFinal = false
+                    updateSendButtonState()
+                    return@launch
+                }
+
+                state = state.copy(isUserTurn = true)
+                updateSendButtonState()
+            }
+        }
     }
 
     // ---------------------------
@@ -105,37 +197,28 @@ class ChatActivity : ComponentActivity() {
             InputDecision.Accept -> {
                 etMessage.setText("")
                 updateSendButtonState()
-                sendleUserMessage(text)
+                sendUserMessage(text)
             }
         }
     }
 
-    private fun sendleUserMessage(text: String) {
+    private fun sendUserMessage(text: String) {
         if (!state.isUserTurn) return
         appendMessage(Sender.USER, text)
 
+        val stepCount = stepIntents.size
         state = state.copy(isUserTurn = false)
-        sendAiMessage(text)
-    }
 
-    private fun sendAiMessage(text: String) {
-        val typing = addTypingBubble()
+        val isFinal = (intentCount >= stepCount)
+        pendingFinal = isFinal
 
-        lifecycleScope.launch {
-            try {
-                val aiReply = aiClient.generateText(text).ifBlank { "null" } // todo: use Q1 ~ Q6 json
-                removeTypingBubble(typing)
-                appendMessage(Sender.AI, aiReply)
-
-            } catch (e: Exception) {
-                e.printStackTrace()
-                removeTypingBubble(typing)
-                appendMessage(Sender.AI, "null") // todo: use Q1 ~ Q6 json
-            } finally {
-                state = state.copy(isUserTurn = true)
-                updateSendButtonState()
+        val prompt: String =
+            if (isFinal) {
+                finalMessage
+            } else {
+                buildPrompt(text)
             }
-        }
+        sendAiMessage(prompt)
     }
 
     private fun appendMessage(sender: Sender, text: String) {
@@ -144,11 +227,17 @@ class ChatActivity : ComponentActivity() {
 
         val isUser = (sender == Sender.USER)
         messages.add(Message(text = text, isUser = isUser))
+
+        addMessageInList(sender, text)
         adapter.notifyItemInserted(messages.lastIndex)
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
 
         val index = (messages.size - 1) / 2
         saveChatInFirebase(sender, text, index)
+    }
+    private fun addMessageInList(sender: Sender, text: String) {
+        val role = if (sender == Sender.USER) "user" else "model"
+        messageList.add(content(role = role) { text(text) })
     }
 
     private fun saveChatInFirebase(sender: Sender, text: String, index: Int) {

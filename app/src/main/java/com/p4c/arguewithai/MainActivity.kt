@@ -53,18 +53,6 @@ class MainActivity : ComponentActivity() {
         val ctx = applicationContext
         Logger.d("pkg = ${ctx.packageName}")
 
-        val model = Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel("gemini-2.5-flash")
-        val prompt = "안녕"
-        lifecycleScope.launch {
-            try {
-                val response: GenerateContentResponse = model.generateContent(prompt)
-                Logger.d("response.text = ${response.text}")
-            } catch (e: Exception) {
-                Logger.d("generateContent failed: ${e::class.java.simpleName} / ${e.message}")
-                e.printStackTrace()
-            }
-        }
-
         try {
             val opts = FirebaseApp.getInstance().options
             Logger.d("projectId = ${opts.projectId}")
