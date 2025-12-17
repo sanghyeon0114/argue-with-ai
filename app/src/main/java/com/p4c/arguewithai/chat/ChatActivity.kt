@@ -31,6 +31,7 @@ import com.p4c.arguewithai.repository.Sender
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 object ChatActivityStatus {
     @Volatile var isOpen: Boolean = false
@@ -45,7 +46,6 @@ private data class ChatState(
 )
 
 // todo : totalScore 관련 코드 추가
-// todo : 만약 Chatbot 작동이 이루어지지 않으면, 저장된 질문을 뽑는 방식 사용
 
 class ChatActivity : ComponentActivity() {
 
@@ -80,26 +80,57 @@ class ChatActivity : ComponentActivity() {
         "현재 보내고 있는 시간이 의미 있는지 가치 판단을 유도하는 질문",
         "숏폼 시청에 대한 후회 감정의 정도를 성찰하게 하는 질문",
         "그 감정을 만들었던 상황, 생각, 맥락을 구체화하도록 돕는 질문",
-        "지금 이 순간에도 계속 영상을 보게 되는 이유를 메타적으로 인식하게 하는 질문"
+        "지금 이 순간에도 계속 영상을 보게 되는 이유를 메타적으로 인식하게 하는 질문",
+        "종료"
     )
     private var intentCount: Int = 0
 
-    private val finalMessage: String = "개입 종료를 알리고, 사용자 입력을 종료 트리거로 사용하는 안내 메시지"
-    private var pendingFinal: Boolean = false
+    private var localQuestionsCache: MutableList<String> = mutableListOf(
+        "조금 전 숏폼 시청 시간이 여유롭고 편안한 여가처럼 느껴졌나요?",
+        "이번에 숏폼 앱을 켜신 특별한 이유가 있나요?",
+        "지금 보내고 있는 시간이 당신에게 얼마나 의미 있다고 느껴지나요?",
+        "방금 숏폼을 시청한 시간이 얼마나 후회된다고 느끼시나요?",
+        "그렇게 느끼신 데에는 이유가 있을 것 같아요. 어떤 상황이나 생각 때문에 그런 감정을 느끼셨나요?",
+        "지금 영상을 계속 시청하게 되는 이유가 무엇이라고 느끼시나요?",
+        "답변 감사합니다. 대화는 여기서 마치겠습니다."
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ChatActivityStatus.isOpen = true
+        preloadLocalQuestions()
         setupUI()
         sendAiMessage(makePersonaMessage())
     }
 
+    // ---------------------------
+    // load Local Question
+    // ---------------------------
+    private fun preloadLocalQuestions() {
+        for (stepIdx in 0 until stepIntents.size) {
+            runCatching {
+                val fileName = "q${stepIdx + 1}.json"
+                val jsonText = assets.open(fileName)
+                    .bufferedReader(Charsets.UTF_8)
+                    .use { it.readText() }
+
+                val obj = JSONObject(jsonText)
+                val arr = obj.getJSONArray("messages")
+                if (arr.length() > 0) {
+                    val picked = arr.getString((0 until arr.length()).random())
+                    localQuestionsCache[stepIdx] = picked
+                }
+            }.onFailure {
+                it.printStackTrace()
+            }
+        }
+    }
 
     // ---------------------------
     // AI
     // ---------------------------
     private fun makePersonaMessage(): String {
-        val intent = stepIntents[intentCount++]
+        val intent = stepIntents[intentCount]
         val systemPersona = """
             당신은 숏폼 시청 중인 사용자가 스스로의 상태를 성찰하도록 돕는 '친근한 코치'입니다.
             현재 사용자는 10분 연속으로 숏폼을 시청한 상황입니다.
@@ -132,7 +163,7 @@ class ChatActivity : ComponentActivity() {
     }
 
     private fun buildPrompt(userAnswer: String): String {
-        val intent = stepIntents[intentCount++]
+        val intent = stepIntents[intentCount]
 
         return """
             현재 단계 목표:
@@ -150,31 +181,49 @@ class ChatActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             try {
-                val aiReply = aiClient.generateText(prompt, messageList)
+                val lastIdx = localQuestionsCache.lastIndex // 6
+                val currentIdx = intentCount.coerceIn(0, lastIdx)
 
-                // todo: use Q1 ~ Q6 json
+                val isFinal = currentIdx >= lastIdx
+                val aiReply: String =
+                    if (isFinal) {
+                        localQuestionsCache[currentIdx]
+                    } else {
+                        getAiMessage(prompt)
+                    }
+
                 removeTypingBubble(typing)
                 appendMessage(Sender.AI, aiReply)
+
+                if (isFinal) {
+                    state = state.copy(finalMessageShown = true)
+                }
 
             } catch (e: Exception) {
                 e.printStackTrace()
                 removeTypingBubble(typing)
-                appendMessage(Sender.AI, "null") // todo: use Q1 ~ Q6 json
-            } finally {
-                if (pendingFinal) {
-                    state = state.copy(
-                        isUserTurn = true,
-                        finalMessageShown = true
-                    )
-                    pendingFinal = false
-                    updateSendButtonState()
-                    return@launch
+
+                val idx = intentCount.coerceIn(0, localQuestionsCache.lastIndex)
+                appendMessage(Sender.AI, localQuestionsCache[idx])
+
+                if (idx == localQuestionsCache.lastIndex) {
+                    state = state.copy(finalMessageShown = true)
                 }
 
+                intentCount = (intentCount + 1).coerceAtMost(localQuestionsCache.lastIndex + 1)
+
+            } finally {
                 state = state.copy(isUserTurn = true)
                 updateSendButtonState()
             }
         }
+    }
+
+
+    private suspend fun getAiMessage(prompt: String): String {
+        val aiReply: String = aiClient.generateText(prompt, messageList).ifBlank { localQuestionsCache[intentCount] }
+        intentCount++
+        return aiReply
     }
 
     // ---------------------------
@@ -206,18 +255,8 @@ class ChatActivity : ComponentActivity() {
         if (!state.isUserTurn) return
         appendMessage(Sender.USER, text)
 
-        val stepCount = stepIntents.size
         state = state.copy(isUserTurn = false)
-
-        val isFinal = (intentCount >= stepCount)
-        pendingFinal = isFinal
-
-        val prompt: String =
-            if (isFinal) {
-                finalMessage
-            } else {
-                buildPrompt(text)
-            }
+        val prompt: String = buildPrompt(text)
         sendAiMessage(prompt)
     }
 
