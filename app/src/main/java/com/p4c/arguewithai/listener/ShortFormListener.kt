@@ -186,16 +186,13 @@ class ShortFormListener(
 
         root.walkNodes { node ->
             if (node.className == "android.widget.Button" &&
-                node.viewIdResourceName == "com.ss.android.ugc.trill:id/ew0"
-            ) found++
+                node.viewIdResourceName == "com.ss.android.ugc.trill:id/ew0") found++
 
             if (node.className == "android.widget.Button" &&
-                node.viewIdResourceName == "com.ss.android.ugc.trill:id/dnl"
-            ) found++
+                node.viewIdResourceName == "com.ss.android.ugc.trill:id/dnl") found++
 
             if (node.className == "android.widget.Button" &&
-                node.viewIdResourceName == "com.ss.android.ugc.trill:id/ggg"
-            ) found++
+                node.viewIdResourceName == "com.ss.android.ugc.trill:id/ggg") found++
         }
 
         return found >= 3

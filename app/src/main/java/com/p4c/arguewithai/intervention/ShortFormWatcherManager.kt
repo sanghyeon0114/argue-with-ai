@@ -32,7 +32,7 @@ class ShortFormWatcherManager(
     var interventionEnabled: Boolean = true
     var suppressUntilSessionExit: Boolean = false
     var lastTotalScore: Int = 0
-    var cooltimeMs: Long = 10 * 60 * 1000L
+    var cooltimeMs: Long = 1 * 1000L
     var currentWatchTime: Long = 0
     var watchTimeOnOneSession: Long = 0
 

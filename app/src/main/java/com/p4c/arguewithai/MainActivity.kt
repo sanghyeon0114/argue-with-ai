@@ -22,6 +22,11 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
+import com.google.firebase.Firebase
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.GenerateContentResponse
+import com.google.firebase.ai.type.GenerativeBackend
 import com.p4c.arguewithai.repository.FirestoreInterventionRepository
 import com.p4c.arguewithai.repository.FirestoreUserRepository
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +52,18 @@ class MainActivity : ComponentActivity() {
 
         val ctx = applicationContext
         Logger.d("pkg = ${ctx.packageName}")
+
+        val model = Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel("gemini-2.5-flash")
+        val prompt = "안녕"
+        lifecycleScope.launch {
+            try {
+                val response: GenerateContentResponse = model.generateContent(prompt)
+                Logger.d("response.text = ${response.text}")
+            } catch (e: Exception) {
+                Logger.d("generateContent failed: ${e::class.java.simpleName} / ${e.message}")
+                e.printStackTrace()
+            }
+        }
 
         try {
             val opts = FirebaseApp.getInstance().options
