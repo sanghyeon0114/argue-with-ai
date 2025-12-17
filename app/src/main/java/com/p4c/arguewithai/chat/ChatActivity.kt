@@ -45,7 +45,9 @@ private data class ChatState(
     val step: Int = 0
 )
 
-// todo : totalScore 관련 코드 추가
+// todo : totalScore 관련 코드 추가 ( JSON 형식 반환 )
+// https://firebase.google.com/docs/ai-logic/generate-structured-output?hl=ko&api=dev
+// todo : Prompt 더 다듬기
 
 class ChatActivity : ComponentActivity() {
 
@@ -181,10 +183,10 @@ class ChatActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             try {
-                val lastIdx = localQuestionsCache.lastIndex // 6
+                val lastIdx = localQuestionsCache.lastIndex
                 val currentIdx = intentCount.coerceIn(0, lastIdx)
-
                 val isFinal = currentIdx >= lastIdx
+
                 val aiReply: String =
                     if (isFinal) {
                         localQuestionsCache[currentIdx]
