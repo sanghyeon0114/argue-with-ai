@@ -1,18 +1,18 @@
-package com.p4c.arguewithai
-
+package com.p4c.arguewithai.platform.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences
 import android.view.accessibility.AccessibilityEvent
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+import com.p4c.arguewithai.app.InterventionPrefs
+import com.p4c.arguewithai.intervention.ShortFormWatcherManager
 import com.p4c.arguewithai.repository.FirestoreSessionRepository
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.repository.SessionRepository
 import com.p4c.arguewithai.utils.Logger
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
-import com.google.firebase.FirebaseApp
-import com.google.firebase.auth.FirebaseAuth
-import com.p4c.arguewithai.intervention.ShortFormWatcherManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,7 +34,8 @@ class MyAccessibilityService (
         }
     private val repo: SessionRepository = FirestoreSessionRepository()
     private var sessionId: SessionId? = null
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private val serviceScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private val watcherManager by lazy {
         ShortFormWatcherManager(

@@ -7,12 +7,12 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
 import com.p4c.arguewithai.chat.ChatActivity
-import com.p4c.arguewithai.listener.SessionApp
-import com.p4c.arguewithai.listener.SessionViewCallback
-import com.p4c.arguewithai.listener.SessionViewListener
-import com.p4c.arguewithai.listener.ShortFormApp
-import com.p4c.arguewithai.listener.ShortFormCallback
-import com.p4c.arguewithai.listener.ShortFormListener
+import com.p4c.arguewithai.intervention.listener.SessionApp
+import com.p4c.arguewithai.intervention.listener.SessionViewCallback
+import com.p4c.arguewithai.intervention.listener.SessionViewListener
+import com.p4c.arguewithai.intervention.listener.ShortFormApp
+import com.p4c.arguewithai.intervention.listener.ShortFormCallback
+import com.p4c.arguewithai.intervention.listener.ShortFormListener
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.repository.SessionRepository
 import com.p4c.arguewithai.utils.Logger
@@ -32,7 +32,7 @@ class ShortFormWatcherManager(
     var interventionEnabled: Boolean = true
     var suppressUntilSessionExit: Boolean = false
     var lastTotalScore: Int = 0
-    var cooltimeMs: Long = 10 * 60 * 1000L
+    var cooltimeMs: Long = 1 * 1000L
     var currentWatchTime: Long = 0
     var watchTimeOnOneSession: Long = 0
 

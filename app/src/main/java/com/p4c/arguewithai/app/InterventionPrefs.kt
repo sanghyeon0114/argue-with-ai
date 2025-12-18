@@ -1,4 +1,4 @@
-package com.p4c.arguewithai
+package com.p4c.arguewithai.app
 
 import android.content.Context
 import androidx.core.content.edit

@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.ai
+package com.p4c.arguewithai.platform.ai
 
 import com.google.firebase.Firebase
 import com.google.firebase.ai.GenerativeModel
@@ -16,6 +16,8 @@ class FirebaseAiClient(
     private val generationConfig = generationConfig {
         thinkingConfig = thinkingConfig { thinkingBudget = 0 }
         maxOutputTokens = 50
+        responseMimeType = "application/json"
+        responseSchema = Schema.chatSchema
     }
     private val model: GenerativeModel by lazy {
         Firebase.ai(backend = backend).generativeModel(

@@ -23,7 +23,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
-import com.p4c.arguewithai.ai.FirebaseAiClient
+import com.p4c.arguewithai.platform.ai.FirebaseAiClient
 import com.p4c.arguewithai.repository.ChatMessage
 import com.p4c.arguewithai.repository.ExitMethod
 import com.p4c.arguewithai.repository.FirestoreChatRepository
@@ -442,7 +442,7 @@ class ChatActivity : ComponentActivity() {
             Logger.d("❌ Not user's turn")
             return null
         }
-         if (text.length < 3) return null
+        if (text.length < 3) return null
 
         return InputDecision.Accept
     }

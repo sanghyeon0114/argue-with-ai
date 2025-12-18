@@ -1,5 +1,6 @@
-package com.p4c.arguewithai
+package com.p4c.arguewithai.app
 
+import android.R
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
@@ -11,6 +12,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -22,11 +24,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
 import androidx.core.net.toUri
-import androidx.lifecycle.lifecycleScope
-import com.google.firebase.Firebase
-import com.google.firebase.ai.ai
-import com.google.firebase.ai.type.GenerateContentResponse
-import com.google.firebase.ai.type.GenerativeBackend
+import com.p4c.arguewithai.platform.accessibility.MyAccessibilityService
 import com.p4c.arguewithai.repository.FirestoreInterventionRepository
 import com.p4c.arguewithai.repository.FirestoreUserRepository
 import kotlinx.coroutines.CoroutineScope
@@ -144,7 +142,7 @@ class MainActivity : ComponentActivity() {
                 topMargin = 32
                 bottomMargin = 32
             }
-            setBackgroundColor(getColor(android.R.color.darker_gray))
+            setBackgroundColor(getColor(R.color.darker_gray))
         }
 
         nameSection = LinearLayout(this).apply {
@@ -206,17 +204,17 @@ class MainActivity : ComponentActivity() {
         layout.addView(divider())
 
         val pipInfoText = TextView(this).apply {
-            text = getString(R.string.pip_permission_message)
+            text = getString(com.p4c.arguewithai.R.string.pip_permission_message)
             textSize = 18f
             setPadding(0, 0, 0, 32)
             gravity = Gravity.CENTER
         }
         val youtubePIPBtn = Button(this).apply {
-            text = getString(R.string.youtube_pip_permission_message)
+            text = getString(com.p4c.arguewithai.R.string.youtube_pip_permission_message)
             setOnClickListener { openPipSettingsForApp(it.context, "com.google.android.youtube") }
         }
         val instagramPIPBtn = Button(this).apply {
-            text = getString(R.string.instagram_pip_permission_message)
+            text = getString(com.p4c.arguewithai.R.string.instagram_pip_permission_message)
             setOnClickListener { openPipSettingsForApp(it.context, "com.instagram.android") }
         }
 
@@ -232,7 +230,7 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER
         }
 
-        val inputCode = android.widget.EditText(this).apply {
+        val inputCode = EditText(this).apply {
             hint = "인증 코드"
             textSize = 16f
             layoutParams = LinearLayout.LayoutParams(
@@ -321,7 +319,7 @@ class MainActivity : ComponentActivity() {
         when {
             tryStart(generalIntent) -> Unit
             else -> {
-                Toast.makeText(this, R.string.accessibility_error, Toast.LENGTH_LONG).show()
+                Toast.makeText(this, com.p4c.arguewithai.R.string.accessibility_error, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -382,7 +380,7 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.CENTER
         }
 
-        val input = android.widget.EditText(this).apply {
+        val input = EditText(this).apply {
             hint = "이름 또는 닉네임"
             textSize = 16f
             layoutParams = LinearLayout.LayoutParams(

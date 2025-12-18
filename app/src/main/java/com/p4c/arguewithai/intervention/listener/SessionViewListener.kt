@@ -1,7 +1,8 @@
-package com.p4c.arguewithai.listener
+package com.p4c.arguewithai.intervention.listener
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.p4c.arguewithai.chat.ChatActivityStatus
 
 enum class SessionApp(val pkg: String?, val label: String) {
     YOUTUBE("com.google.android.youtube", "YouTube"),
@@ -135,6 +136,6 @@ class SessionViewListener(
     }
 
     private fun isChatActivity(): Boolean {
-        return com.p4c.arguewithai.chat.ChatActivityStatus.isOpen
+        return ChatActivityStatus.isOpen
     }
 }
