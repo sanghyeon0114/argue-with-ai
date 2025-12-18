@@ -4,7 +4,7 @@ import android.util.Log
 
 object Logger {
     var enabled = true
-    private const val TAG = "MyService"
+    private const val TAG = "Loggers"
 
     fun setLoggerEnabled(enabled: Boolean) {
         this.enabled = enabled

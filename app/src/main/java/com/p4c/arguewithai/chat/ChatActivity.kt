@@ -3,26 +3,17 @@ package com.p4c.arguewithai.chat
 import android.os.Build
 import android.os.Bundle
 import android.os.ResultReceiver
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.View
-import android.view.ViewGroup
-import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.ImageButton
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
-import androidx.core.view.doOnLayout
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
+import com.p4c.arguewithai.chat.ui.*
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
 import com.p4c.arguewithai.repository.ChatMessage
 import com.p4c.arguewithai.repository.ExitMethod
@@ -50,7 +41,7 @@ private data class ChatState(
 // todo : Prompt 더 다듬기
 
 class ChatActivity : ComponentActivity() {
-
+    private lateinit var ui: ChatUiRefs
     private lateinit var recycler: RecyclerView
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
@@ -317,112 +308,31 @@ class ChatActivity : ComponentActivity() {
     private fun setupUI() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_chat)
-        Logger.d("ChatActivity started.")
 
-        disableSystemBack()
-        hideNavigationBar()
+        disableSystemBackForChat()
+        hideNavigationBarForChat()
 
-        recycler = requireViewByIdSafe(R.id.recyclerMessages, "recyclerMessages")
-        etMessage = requireViewByIdSafe(R.id.etMessage, "etMessage")
-        btnSend = requireViewByIdSafe(R.id.btnSend, "btnSend")
-        bottomBar = requireViewByIdSafe(R.id.bottomBar, "bottomBar")
+        ui = bindChatUi()
+        recycler = ui.recycler
+        etMessage = ui.etMessage
+        btnSend = ui.btnSend
+        bottomBar = ui.bottomBar
 
-        setupRecycler()
-        applyInsets((findViewById<ViewGroup>(android.R.id.content)).getChildAt(0))
+        adapter = ChatAdapter(messages)
+        ui.recycler.setupChatRecycler(adapter)
 
-        btnSend.setOnClickListener { sendUserText() }
-        etMessage.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEND) { sendUserText(); true } else false
+        ui.applyInsetsForChat {
+            if (messages.isNotEmpty()) recycler.post { recycler.scrollToPosition(messages.lastIndex) }
         }
 
-        etMessage.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun afterTextChanged(s: Editable?) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                updateSendButtonState()
-            }
-        })
+        ui.bindSendActions { sendUserText() }
+
+        etMessage.addTextChangedListener(ChatTextWatcher { updateSendButtonState() })
 
         etMessage.requestFocus()
-        showKeyboard()
+        showKeyboardFor(etMessage)
         updateSendButtonState()
     }
-
-    private fun setupRecycler() {
-        val lm = LinearLayoutManager(this).apply { stackFromEnd = true }
-        adapter = ChatAdapter(messages)
-        recycler.layoutManager = lm
-        recycler.adapter = adapter
-        recycler.itemAnimator = null
-        recycler.clipToPadding = false
-    }
-
-    private fun disableSystemBack() {
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                Logger.d("🚫 System back is disabled in ChatActivity")
-            }
-        })
-    }
-
-    private fun showKeyboard() {
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-        imm.showSoftInput(etMessage, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-    }
-
-    private fun hideNavigationBar() {
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
-
-        window.decorView.setOnApplyWindowInsetsListener { _, insets ->
-            controller.hide(WindowInsetsCompat.Type.navigationBars())
-            insets
-        }
-    }
-
-    private fun applyInsets(root: View) {
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val sys = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            v.setPadding(v.paddingLeft, sys.top, v.paddingRight, 0)
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(recycler) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-
-            val bottomPadding = if (imeVisible) ime.bottom else sys.bottom
-            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bottomPadding)
-
-            if (imeVisible && messages.isNotEmpty()) {
-                recycler.post { recycler.scrollToPosition(messages.lastIndex) }
-            }
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(bottomBar) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-
-            if (imeVisible) {
-                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, 0)
-                v.translationY = -ime.bottom.toFloat()
-            } else {
-                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, sys.bottom)
-                v.translationY = 0f
-            }
-            insets
-        }
-
-        bottomBar.doOnLayout { ViewCompat.requestApplyInsets(root) }
-    }
-
     // ---------------------------
     // Input validation & button state
     // ---------------------------
@@ -504,10 +414,5 @@ class ChatActivity : ComponentActivity() {
             closePrompt("backgrounded_or_home")
         }
         if (isFinishing) ChatActivityStatus.isOpen = false
-    }
-
-    private inline fun <reified T : View> requireViewByIdSafe(id: Int, name: String): T {
-        val v = findViewById<T>(id)
-        return v ?: error("activity_chat.xml에 id='$name' 뷰가 없습니다.")
     }
 }
