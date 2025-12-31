@@ -1,4 +1,3 @@
-// ChatUi.kt
 package com.p4c.arguewithai.chat.ui
 
 import android.app.Activity
@@ -58,7 +57,7 @@ internal fun ComponentActivity.disableSystemBackForChat() {
 }
 
 internal fun Activity.hideNavigationBarForChat() {
-    val controller = WindowInsetsControllerCompat((this as Activity).window, window.decorView)
+    val controller = WindowInsetsControllerCompat((this).window, window.decorView)
     controller.systemBarsBehavior =
         WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     controller.hide(WindowInsetsCompat.Type.navigationBars())

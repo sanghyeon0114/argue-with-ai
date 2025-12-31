@@ -36,8 +36,6 @@ private data class ChatState(
     val step: Int = 0
 )
 
-// todo : totalScore 관련 코드 추가 ( JSON 형식 반환 )
-// https://firebase.google.com/docs/ai-logic/generate-structured-output?hl=ko&api=dev
 // todo : Prompt 더 다듬기
 
 class ChatActivity : ComponentActivity() {
