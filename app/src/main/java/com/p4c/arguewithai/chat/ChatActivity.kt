@@ -30,11 +30,10 @@ object ChatActivityStatus {
 }
 
 private data class ChatState(
-    val isUserTurn: Boolean = false,
-    val finalMessageShown: Boolean = false,
-    val hasSentResult: Boolean = false,
-    val totalScore: Int = 0,
-    val step: Int = 0
+    var isUserTurn: Boolean = false,
+    var finalMessageShown: Boolean = false,
+    var hasSentResult: Boolean = false,
+    var totalScore: Int = 0
 )
 
 // todo : Prompt 더 다듬기
@@ -86,8 +85,6 @@ class ChatActivity : ComponentActivity() {
         "지금 영상을 계속 시청하게 되는 이유가 무엇이라고 느끼시나요?",
         "답변 감사합니다. 대화는 여기서 마치겠습니다."
     )
-
-    private var totalScore: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -191,8 +188,8 @@ class ChatActivity : ComponentActivity() {
                     }
 
                 if(currentIdx != 0) {
-                    totalScore += score
-                    Logger.d("add score : ${score} / total Score : ${totalScore}")
+                    state.totalScore += score
+                    Logger.d("add score : ${score} / total Score : ${state.totalScore}")
                 }
 
 
@@ -201,7 +198,7 @@ class ChatActivity : ComponentActivity() {
                 appendMessage(Sender.AI, aiReply)
 
                 if (isFinal) {
-                    state = state.copy(finalMessageShown = true)
+                    state.finalMessageShown = true
                 }
 
             } catch (e: Exception) {
@@ -212,13 +209,13 @@ class ChatActivity : ComponentActivity() {
                 appendMessage(Sender.AI, localQuestionsCache[idx])
 
                 if (idx == localQuestionsCache.lastIndex) {
-                    state = state.copy(finalMessageShown = true)
+                    state.finalMessageShown = true
                 }
 
                 intentCount = (intentCount + 1).coerceAtMost(localQuestionsCache.lastIndex + 1)
 
             } finally {
-                state = state.copy(isUserTurn = true)
+                state.isUserTurn = true
                 updateSendButtonState()
             }
         }
@@ -268,7 +265,7 @@ class ChatActivity : ComponentActivity() {
         if (!state.isUserTurn) return
         appendMessage(Sender.USER, text)
 
-        state = state.copy(isUserTurn = false)
+        state.isUserTurn =  true
         val prompt: String = buildPrompt(text)
         sendAiMessage(prompt)
     }
@@ -416,7 +413,7 @@ class ChatActivity : ComponentActivity() {
                 putString("reason", reason)
                 putInt("totalScore", state.totalScore)
             })
-            state = state.copy(hasSentResult = true)
+            state.hasSentResult = true
         }
         finish()
     }
