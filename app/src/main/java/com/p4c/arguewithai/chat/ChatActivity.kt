@@ -14,6 +14,7 @@ import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ui.*
+import com.p4c.arguewithai.platform.ai.ChatContract
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
 import com.p4c.arguewithai.repository.ChatMessage
 import com.p4c.arguewithai.repository.ExitMethod
@@ -85,6 +86,8 @@ class ChatActivity : ComponentActivity() {
         "지금 영상을 계속 시청하게 되는 이유가 무엇이라고 느끼시나요?",
         "답변 감사합니다. 대화는 여기서 마치겠습니다."
     )
+
+    private var totalScore: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -176,12 +179,23 @@ class ChatActivity : ComponentActivity() {
                 val currentIdx = intentCount.coerceIn(0, lastIdx)
                 val isFinal = currentIdx >= lastIdx
 
+                val messageJson : JSONObject = getAiMessage(prompt)
+                val message : String = messageJson.getString("text")
+                val score : Int = messageJson.getInt("score")
+
                 val aiReply: String =
                     if (isFinal) {
                         localQuestionsCache[currentIdx]
                     } else {
-                        getAiMessage(prompt)
+                        message
                     }
+
+                if(currentIdx != 0) {
+                    totalScore += score
+                    Logger.d("add score : ${score} / total Score : ${totalScore}")
+                }
+
+
 
                 removeTypingBubble(typing)
                 appendMessage(Sender.AI, aiReply)
@@ -211,10 +225,18 @@ class ChatActivity : ComponentActivity() {
     }
 
 
-    private suspend fun getAiMessage(prompt: String): String {
-        val aiReply: String = aiClient.generateText(prompt, messageList).ifBlank { localQuestionsCache[intentCount] }
+    private suspend fun getAiMessage(prompt: String): JSONObject {
+        val aiReply: ChatContract.Type = aiClient.generateMessageJson(prompt, messageList)
+
+        val message : String = aiReply.text.ifBlank { localQuestionsCache[intentCount] }
+        val score : Int = aiReply.score
+
         intentCount++
-        return aiReply
+
+        return JSONObject().apply {
+            put("text", message)
+            put("score", score)
+        }
     }
 
     // ---------------------------
