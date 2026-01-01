@@ -111,34 +111,19 @@ class ChatActivity : ComponentActivity() {
     // ---------------------------
     private fun sendAIMessage(prevUserMessage: String) {
         val typing = addTypingBubble()
-
+        val currentIdx = state.index.coerceIn(0, maxIndex)
+        var message : String = localQuestionsCache[currentIdx]
         lifecycleScope.launch {
             try {
-                val currentIdx = state.index.coerceIn(0, maxIndex)
-                val message : String = getAIText(currentIdx, prevUserMessage)
-
-                removeTypingBubble(typing)
-                appendMessage(Sender.AI, message)
-
-                val isFinal = currentIdx >= maxIndex
-                if (isFinal) {
-                    state.finalMessageShown = true
-                }
-
+                message = getAIText(currentIdx, prevUserMessage)
             } catch (e: Exception) {
                 e.printStackTrace()
+            } finally {
+                appendMessage(Sender.AI, message)
                 removeTypingBubble(typing)
-
-                val idx = state.index.coerceIn(0, maxIndex)
-                appendMessage(Sender.AI, localQuestionsCache[idx])
-
-                if (idx == maxIndex) {
+                if (currentIdx >= maxIndex) {
                     state.finalMessageShown = true
                 }
-
-                state.index = (state.index + 1).coerceAtMost(maxIndex + 1)
-
-            } finally {
                 state.isUserTurn = true
                 updateSendButtonState()
             }
@@ -148,14 +133,17 @@ class ChatActivity : ComponentActivity() {
     private fun sendUserMessage(currentMessage: String) {
         if (!state.isUserTurn) return
         appendMessage(Sender.USER, currentMessage)
-
         state.isUserTurn =  false
         val currentIdx = state.index.coerceIn(0, maxIndex)
 
         lifecycleScope.launch {
-            val currentScore: Int = getAIScore(currentIdx, currentMessage)
-            state.totalScore += currentScore
-            Logger.d("[$currentIdx] current Score : $currentScore / total : ${state.totalScore}")
+            try {
+                val currentScore: Int = getAIScore(currentIdx, currentMessage)
+                state.totalScore += currentScore
+                Logger.d("[$currentIdx] current Score : $currentScore / total : ${state.totalScore}")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
         state.index = (state.index + 1).coerceAtMost(maxIndex)
 
@@ -179,14 +167,14 @@ class ChatActivity : ComponentActivity() {
         return getAITextToLLM(chatPrompt)
     }
     private suspend fun getAIScore(currentIdx: Int, currentMessage: String): Int {
-        val scorePrompt: String = when(currentIdx) {
+        val scorePrompt: String? = when(currentIdx) {
             0 -> ChatPrompts.firstScoringPrompt(currentMessage)
             1 -> ChatPrompts.secondScoringPrompt(currentMessage)
             2 -> ChatPrompts.thirdScoringPrompt(currentMessage)
             3 -> ChatPrompts.forthScoringPrompt(currentMessage)
             4 -> ChatPrompts.fifthScoringPrompt(currentMessage)
             5 -> ChatPrompts.sixthScoringPrompt(currentMessage)
-            else -> ""
+            else -> null
         }
         return getAIScoreToLLM(scorePrompt)
     }
@@ -200,13 +188,16 @@ class ChatActivity : ComponentActivity() {
          }
     }
 
-    private suspend fun getAIScoreToLLM(prompt: String): Int {
-            val response = aiClient.generateScore(prompt)
-            val raw = response.text ?: return 0
-            return runCatching {
-                JSONObject(raw).getInt("score")
-            }.getOrElse {
-                0
+    private suspend fun getAIScoreToLLM(prompt: String?): Int {
+        if(prompt == null){
+            return 0
+        }
+        val response = aiClient.generateScore(prompt)
+        val raw = response.text ?: return 0
+        return runCatching {
+            JSONObject(raw).getInt("score")
+        }.getOrElse {
+            0
         }
     }
 
