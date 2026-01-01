@@ -14,7 +14,6 @@ import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ui.*
-import com.p4c.arguewithai.platform.ai.ChatContract
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
 import com.p4c.arguewithai.repository.ChatMessage
 import com.p4c.arguewithai.repository.ExitMethod
@@ -34,7 +33,8 @@ private data class ChatState(
     var finalMessageShown: Boolean = false,
     var hasSentResult: Boolean = false,
     var totalScore: Int = 0,
-    var index: Int = 0
+    var index: Int = 0,
+    var prevMessage: String? = null
 )
 
 class ChatActivity : ComponentActivity() {
@@ -80,7 +80,7 @@ class ChatActivity : ComponentActivity() {
         ChatActivityStatus.isOpen = true
         preloadLocalQuestions()
         setupUI()
-        sendAiMessage(ChatPrompts.firstStagePrompt())
+        sendAIMessage("")
     }
 
     // ---------------------------
@@ -107,38 +107,20 @@ class ChatActivity : ComponentActivity() {
     }
 
     // ---------------------------
-    // AI
+    // Process Chat Flow
     // ---------------------------
-
-    private fun sendAiMessage(prompt: String) {
+    private fun sendAIMessage(prevUserMessage: String) {
         val typing = addTypingBubble()
 
         lifecycleScope.launch {
             try {
                 val currentIdx = state.index.coerceIn(0, maxIndex)
-                val isFinal = currentIdx >= maxIndex
-
-                val messageJson : JSONObject = getAiMessage(prompt)
-                val message : String = messageJson.getString("text")
-                val score : Int = messageJson.getInt("score")
-
-                val aiReply: String =
-                    if (isFinal) {
-                        localQuestionsCache[currentIdx]
-                    } else {
-                        message
-                    }
-
-                if(currentIdx != 0) {
-                    state.totalScore += score
-                    Logger.d("add score : $score / total Score : ${state.totalScore}")
-                }
-
-
+                val message : String = getAIText(currentIdx, prevUserMessage)
 
                 removeTypingBubble(typing)
-                appendMessage(Sender.AI, aiReply)
+                appendMessage(Sender.AI, message)
 
+                val isFinal = currentIdx >= maxIndex
                 if (isFinal) {
                     state.finalMessageShown = true
                 }
@@ -163,23 +145,73 @@ class ChatActivity : ComponentActivity() {
         }
     }
 
+    private fun sendUserMessage(currentMessage: String) {
+        if (!state.isUserTurn) return
+        appendMessage(Sender.USER, currentMessage)
 
-    private suspend fun getAiMessage(prompt: String): JSONObject {
-        val aiReply: ChatContract.Type = aiClient.generateMessageJson(prompt, messageList)
+        state.isUserTurn =  false
+        val currentIdx = state.index.coerceIn(0, maxIndex)
 
-        val message : String = aiReply.text.ifBlank { localQuestionsCache[state.index] }
-        val score : Int = aiReply.score
+        lifecycleScope.launch {
+            val currentScore: Int = getAIScore(currentIdx, currentMessage)
+            state.totalScore += currentScore
+            Logger.d("[$currentIdx] current Score : $currentScore / total : ${state.totalScore}")
+        }
+        state.index = (state.index + 1).coerceAtMost(maxIndex)
 
-        state.index++
+        sendAIMessage(currentMessage)
+    }
 
-        return JSONObject().apply {
-            put("text", message)
-            put("score", score)
+    // ---------------------------
+    // AI
+    // ---------------------------
+    private suspend fun getAIText(currentIdx: Int, prevMessage: String): String {
+        val chatPrompt: String = when(currentIdx) {
+            0 -> ChatPrompts.firstTextPrompt()
+            1 -> ChatPrompts.secondTextPrompt(prevMessage)
+            2 -> ChatPrompts.thirdTextPrompt(prevMessage)
+            3 -> ChatPrompts.forthTextPrompt(prevMessage)
+            4 -> ChatPrompts.fifthTextPrompt(prevMessage)
+            5 -> ChatPrompts.sixthTextPrompt(prevMessage)
+            else -> ChatPrompts.finalTextPrompt(state.totalScore)
+        }
+
+        return getAITextToLLM(chatPrompt)
+    }
+    private suspend fun getAIScore(currentIdx: Int, currentMessage: String): Int {
+        val scorePrompt: String = when(currentIdx) {
+            0 -> ChatPrompts.firstScoringPrompt(currentMessage)
+            1 -> ChatPrompts.secondScoringPrompt(currentMessage)
+            2 -> ChatPrompts.thirdScoringPrompt(currentMessage)
+            3 -> ChatPrompts.forthScoringPrompt(currentMessage)
+            4 -> ChatPrompts.fifthScoringPrompt(currentMessage)
+            5 -> ChatPrompts.sixthScoringPrompt(currentMessage)
+            else -> ""
+        }
+        return getAIScoreToLLM(scorePrompt)
+    }
+     private suspend fun getAITextToLLM(prompt: String): String {
+        val response = aiClient.generateText(prompt, messageList)
+         val raw = response.text ?: return localQuestionsCache[state.index]
+         return runCatching {
+             JSONObject(raw).getString("text")
+         }.getOrElse {
+             localQuestionsCache[state.index]
+         }
+    }
+
+    private suspend fun getAIScoreToLLM(prompt: String): Int {
+            val response = aiClient.generateScore(prompt)
+            val raw = response.text ?: return 0
+            return runCatching {
+                JSONObject(raw).getInt("score")
+            }.getOrElse {
+                0
         }
     }
 
     // ---------------------------
-    // Chatting
+    // Chatting System
     // ---------------------------
     private fun sendUserText() {
         val raw = etMessage.text?.toString().orEmpty()
@@ -199,25 +231,9 @@ class ChatActivity : ComponentActivity() {
                 etMessage.setText("")
                 updateSendButtonState()
                 sendUserMessage(text)
+                state.prevMessage = text
             }
         }
-    }
-
-    private fun sendUserMessage(text: String) {
-        if (!state.isUserTurn) return
-        appendMessage(Sender.USER, text)
-
-        state.isUserTurn =  false
-        val currentIdx = state.index.coerceIn(0, maxIndex)
-        val prompt: String = when(currentIdx) {
-            1 -> ChatPrompts.secondStagePrompt(text)
-            2 -> ChatPrompts.thirdStagePrompt(text)
-            3 -> ChatPrompts.forthStagePrompt(text)
-            4 -> ChatPrompts.fifthStagePrompt(text)
-            5 -> ChatPrompts.sixthStagePrompt(text)
-            else -> ChatPrompts.finalStagePrompt(state.totalScore)
-        }
-        sendAiMessage(prompt)
     }
 
     private fun appendMessage(sender: Sender, text: String) {

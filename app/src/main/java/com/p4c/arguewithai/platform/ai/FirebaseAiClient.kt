@@ -15,42 +15,38 @@ class FirebaseAiClient(
     private val modelName: String = "gemini-2.5-flash",
     private val backend: GenerativeBackend = GenerativeBackend.googleAI()
 ) {
-    private val generationConfig = generationConfig {
+    private val textPromptConfig = generationConfig {
         thinkingConfig = thinkingConfig { thinkingBudget = 0 }
         maxOutputTokens = 200
         responseMimeType = "application/json"
-        responseSchema = ChatContract.schema
+        responseSchema = ChatContract.textSchema
     }
-    private val model: GenerativeModel by lazy {
+    private val scoringPromptConfig = generationConfig {
+        thinkingConfig = thinkingConfig { thinkingBudget = 0 }
+        maxOutputTokens = 200
+        responseMimeType = "application/json"
+        responseSchema = ChatContract.scoringSchema
+    }
+
+    private val textModel: GenerativeModel by lazy {
         Firebase.ai(backend = backend).generativeModel(
             modelName = modelName,
-            generationConfig = generationConfig
+            generationConfig = textPromptConfig
+        )
+    }
+    private val scoringModel: GenerativeModel by lazy {
+        Firebase.ai(backend = backend).generativeModel(
+            modelName = modelName,
+            generationConfig = scoringPromptConfig
         )
     }
 
-    suspend fun generateContent(prompt: String, history: List<Content>): GenerateContentResponse {
-        val chat = model.startChat(history = history)
+    suspend fun generateText(prompt: String, history: List<Content>): GenerateContentResponse {
+        val chat = textModel.startChat(history = history)
         return chat.sendMessage(prompt)
     }
-
-    suspend fun generateMessageJson(prompt: String, history: List<Content>): ChatContract.Type {
-        return try {
-            val response = generateContent(prompt, history)
-            val raw = response.text ?: ""
-
-            val cleaned = raw
-                .removePrefix("```json")
-                .removeSuffix("```")
-                .trim()
-
-            val json = JSONObject(cleaned)
-
-            val text = json.optString(ChatContract.FIELD_TEXT, cleaned)
-            val score = json.optInt(ChatContract.FIELD_SCORE, 0)
-
-            ChatContract.Type(text = text, score = score)
-        } catch (e: Exception) {
-            ChatContract.Type(text = "", score = 0)
-        }
+    suspend fun generateScore(prompt: String): GenerateContentResponse {
+        val chat = scoringModel.startChat()
+        return chat.sendMessage(prompt)
     }
 }

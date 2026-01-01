@@ -11,9 +11,13 @@ object ChatContract {
         val score: Int
     )
 
-    val schema: FbSchema = FbSchema.obj(
+    val textSchema: FbSchema = FbSchema.obj(
         mapOf(
-            FIELD_TEXT to FbSchema.string(),
+            FIELD_TEXT to FbSchema.string()
+        )
+    )
+    val scoringSchema: FbSchema = FbSchema.obj(
+        mapOf(
             FIELD_SCORE to FbSchema.integer(
                 minimum = -3.0,
                 maximum = 3.0
