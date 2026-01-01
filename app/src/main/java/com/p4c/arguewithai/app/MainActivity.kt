@@ -42,6 +42,8 @@ class MainActivity : ComponentActivity() {
     private val userRepo by lazy { FirestoreUserRepository() }
     private val interventionRepo by lazy { FirestoreInterventionRepository() }
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val startIVCode: String = "start2026"
+    private val stopIVCode: String = "stop"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -247,7 +249,7 @@ class MainActivity : ComponentActivity() {
                 val nowEnabled = InterventionPrefs.isEnabled(this@MainActivity)
 
                 if (nowEnabled) {
-                    if (code == "stop") { // code to off intervention
+                    if (code == stopIVCode) { // code to off intervention
                         InterventionPrefs.disable(this@MainActivity)
                         uiScope.launch(Dispatchers.IO) {
                             runCatching {
@@ -265,7 +267,7 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
 
-                    if (code == "startpain2025") { // code to on intervention
+                    if (code == startIVCode) { // code to on intervention
                         InterventionPrefs.enable(this@MainActivity)
                         uiScope.launch(Dispatchers.IO) {
                             runCatching {
