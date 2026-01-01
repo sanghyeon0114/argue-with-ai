@@ -13,7 +13,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
-import com.p4c.arguewithai.chat.ChatPrompts
 import com.p4c.arguewithai.chat.ui.*
 import com.p4c.arguewithai.platform.ai.ChatContract
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
@@ -34,7 +33,8 @@ private data class ChatState(
     var isUserTurn: Boolean = false,
     var finalMessageShown: Boolean = false,
     var hasSentResult: Boolean = false,
-    var totalScore: Int = 0
+    var totalScore: Int = 0,
+    var index: Int = 0
 )
 
 class ChatActivity : ComponentActivity() {
@@ -64,17 +64,6 @@ class ChatActivity : ComponentActivity() {
     }
     private val aiClient = FirebaseAiClient()
 
-    private val stepIntents: List<String> = listOf(
-        "지금의 숏폼 시청이 ‘여가로서 자율적이고 자기 선택적인 경험인지’ 스스로 인식하도록 돕는다.",
-        "숏폼을 시작하게 만든 구체적인 목적·욕구(정보, 오락, 사회적 연결 등)를 명확히 인식하도록 돕는다.",
-        "현재 시청이 개인의 가치·목표·삶의 맥락과 연결되는지 성찰하도록 돕는다.",
-        "현재 시청이 이후 후회·실망·죄책감 같은 감정을 유발할 가능성을 점검하도록 돕는다.",
-        "지금 이 상황에서 자신을 이런 상태로 만든 맥락(환경·기분·생각)을 명확히 언어화하도록 돕는다.",
-        "지금 이 순간에도 계속 영상을 보게 만드는 힘이 ‘자율적 선택인지, 습관/자동성인지’ 메타적으로 인식하게 돕는다.",
-        "종료"
-    )
-    private var intentCount: Int = 0
-
     private var localQuestionsCache: MutableList<String> = mutableListOf(
         "조금 전 숏폼 시청 시간이 여유롭고 편안한 여가처럼 느껴졌나요?",
         "이번에 숏폼 앱을 켜신 특별한 이유가 있나요?",
@@ -84,20 +73,21 @@ class ChatActivity : ComponentActivity() {
         "지금 영상을 계속 시청하게 되는 이유가 무엇이라고 느끼시나요?",
         "답변 감사합니다. 대화는 여기서 마치겠습니다."
     )
+    private val maxIndex: Int = 7
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ChatActivityStatus.isOpen = true
         preloadLocalQuestions()
         setupUI()
-        sendAiMessage(ChatPrompts.firstStagePrompt(stepIntents[intentCount]))
+        sendAiMessage(ChatPrompts.firstStagePrompt())
     }
 
     // ---------------------------
     // load Local Question
     // ---------------------------
     private fun preloadLocalQuestions() {
-        for (stepIdx in 0 until stepIntents.size) {
+        for (stepIdx in 0 until maxIndex) {
             runCatching {
                 val fileName = "q${stepIdx + 1}.json"
                 val jsonText = assets.open(fileName)
@@ -125,9 +115,8 @@ class ChatActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             try {
-                val lastIdx = localQuestionsCache.lastIndex
-                val currentIdx = intentCount.coerceIn(0, lastIdx)
-                val isFinal = currentIdx >= lastIdx
+                val currentIdx = state.index.coerceIn(0, maxIndex)
+                val isFinal = currentIdx >= maxIndex
 
                 val messageJson : JSONObject = getAiMessage(prompt)
                 val message : String = messageJson.getString("text")
@@ -142,7 +131,7 @@ class ChatActivity : ComponentActivity() {
 
                 if(currentIdx != 0) {
                     state.totalScore += score
-                    Logger.d("add score : ${score} / total Score : ${state.totalScore}")
+                    Logger.d("add score : $score / total Score : ${state.totalScore}")
                 }
 
 
@@ -158,14 +147,14 @@ class ChatActivity : ComponentActivity() {
                 e.printStackTrace()
                 removeTypingBubble(typing)
 
-                val idx = intentCount.coerceIn(0, localQuestionsCache.lastIndex)
+                val idx = state.index.coerceIn(0, maxIndex)
                 appendMessage(Sender.AI, localQuestionsCache[idx])
 
-                if (idx == localQuestionsCache.lastIndex) {
+                if (idx == maxIndex) {
                     state.finalMessageShown = true
                 }
 
-                intentCount = (intentCount + 1).coerceAtMost(localQuestionsCache.lastIndex + 1)
+                state.index = (state.index + 1).coerceAtMost(maxIndex + 1)
 
             } finally {
                 state.isUserTurn = true
@@ -178,10 +167,10 @@ class ChatActivity : ComponentActivity() {
     private suspend fun getAiMessage(prompt: String): JSONObject {
         val aiReply: ChatContract.Type = aiClient.generateMessageJson(prompt, messageList)
 
-        val message : String = aiReply.text.ifBlank { localQuestionsCache[intentCount] }
+        val message : String = aiReply.text.ifBlank { localQuestionsCache[state.index] }
         val score : Int = aiReply.score
 
-        intentCount++
+        state.index++
 
         return JSONObject().apply {
             put("text", message)
@@ -219,7 +208,15 @@ class ChatActivity : ComponentActivity() {
         appendMessage(Sender.USER, text)
 
         state.isUserTurn =  true
-        val prompt: String = ChatPrompts.continuedStagePrompt(stepIntents[intentCount], text)
+        val currentIdx = state.index.coerceIn(0, maxIndex)
+        val prompt: String = when(currentIdx) {
+            1 -> ChatPrompts.secondStagePrompt(text)
+            2 -> ChatPrompts.thirdStagePrompt(text)
+            3 -> ChatPrompts.forthStagePrompt(text)
+            4 -> ChatPrompts.fifthStagePrompt(text)
+            5 -> ChatPrompts.sixthStagePrompt(text)
+            else -> ChatPrompts.finalStagePrompt(state.totalScore)
+        }
         sendAiMessage(prompt)
     }
 
