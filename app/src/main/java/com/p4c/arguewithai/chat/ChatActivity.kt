@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
+import com.p4c.arguewithai.chat.ChatPrompts
 import com.p4c.arguewithai.chat.ui.*
 import com.p4c.arguewithai.platform.ai.ChatContract
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
@@ -35,8 +36,6 @@ private data class ChatState(
     var hasSentResult: Boolean = false,
     var totalScore: Int = 0
 )
-
-// todo : Prompt 더 다듬기
 
 class ChatActivity : ComponentActivity() {
     private lateinit var ui: ChatUiRefs
@@ -66,12 +65,12 @@ class ChatActivity : ComponentActivity() {
     private val aiClient = FirebaseAiClient()
 
     private val stepIntents: List<String> = listOf(
-        "방금 숏폼 시청 시간이 여가처럼 느껴졌는지 스스로 인식하도록 돕는 질문",
-        "숏폼 앱을 실행한 동기나 계기를 돌아보게 하는 질문",
-        "현재 보내고 있는 시간이 의미 있는지 가치 판단을 유도하는 질문",
-        "숏폼 시청에 대한 후회 감정의 정도를 성찰하게 하는 질문",
-        "그 감정을 만들었던 상황, 생각, 맥락을 구체화하도록 돕는 질문",
-        "지금 이 순간에도 계속 영상을 보게 되는 이유를 메타적으로 인식하게 하는 질문",
+        "지금의 숏폼 시청이 ‘여가로서 자율적이고 자기 선택적인 경험인지’ 스스로 인식하도록 돕는다.",
+        "숏폼을 시작하게 만든 구체적인 목적·욕구(정보, 오락, 사회적 연결 등)를 명확히 인식하도록 돕는다.",
+        "현재 시청이 개인의 가치·목표·삶의 맥락과 연결되는지 성찰하도록 돕는다.",
+        "현재 시청이 이후 후회·실망·죄책감 같은 감정을 유발할 가능성을 점검하도록 돕는다.",
+        "지금 이 상황에서 자신을 이런 상태로 만든 맥락(환경·기분·생각)을 명확히 언어화하도록 돕는다.",
+        "지금 이 순간에도 계속 영상을 보게 만드는 힘이 ‘자율적 선택인지, 습관/자동성인지’ 메타적으로 인식하게 돕는다.",
         "종료"
     )
     private var intentCount: Int = 0
@@ -91,7 +90,7 @@ class ChatActivity : ComponentActivity() {
         ChatActivityStatus.isOpen = true
         preloadLocalQuestions()
         setupUI()
-        sendAiMessage(makePersonaMessage())
+        sendAiMessage(ChatPrompts.firstStagePrompt(stepIntents[intentCount]))
     }
 
     // ---------------------------
@@ -120,52 +119,6 @@ class ChatActivity : ComponentActivity() {
     // ---------------------------
     // AI
     // ---------------------------
-    private fun makePersonaMessage(): String {
-        val intent = stepIntents[intentCount]
-        val systemPersona = """
-            당신은 숏폼 시청 중인 사용자가 스스로의 상태를 성찰하도록 돕는 '친근한 코치'입니다.
-            현재 사용자는 10분 연속으로 숏폼을 시청한 상황입니다.
-            
-            역할:
-            - 판단하거나 설득하지 않는다
-            - 사용자의 선택을 바꾸려 하지 않는다
-            - 오직 인식과 성찰만 돕는다
-            
-            출력 규칙:
-            - 반드시 두 문장만 출력한다
-            - 첫 문장: 사용자의 현재 상태를 부드럽게 공감하는 문장
-            - 두 번째 문장: 열린 질문 하나
-            - 설명, 분석, 해석, 평가, 명령 금지
-            - 왜냐하면/그래서 같은 인과 설명 금지
-            - 한국어로 작성
-            
-            톤:
-            - 차분하고 짧으며 압박감이 없어야 한다
-            - 치료사나 훈계자가 아니라, 곁에서 묻는 코치처럼 말한다
-            
-           현재 단계 목표:
-            - $intent
-            
-            첫 번째 문장은 친절하고 밝게 인사하세요
-            두 번째 문장은 지금 단계에 맞는 질문을 하나 생성하세요
-    """.trimIndent()
-        addMessageInList(Sender.USER, systemPersona)
-        return systemPersona
-    }
-
-    private fun buildPrompt(userAnswer: String): String {
-        val intent = stepIntents[intentCount]
-
-        return """
-            현재 단계 목표:
-            - $intent
-            
-            사용자의 직전 답변:
-            "$userAnswer"
-        
-            지금 단계에 맞는 질문을 하나 생성하세요
-            """.trimIndent()
-    }
 
     private fun sendAiMessage(prompt: String) {
         val typing = addTypingBubble()
@@ -266,7 +219,7 @@ class ChatActivity : ComponentActivity() {
         appendMessage(Sender.USER, text)
 
         state.isUserTurn =  true
-        val prompt: String = buildPrompt(text)
+        val prompt: String = ChatPrompts.continuedStagePrompt(stepIntents[intentCount], text)
         sendAiMessage(prompt)
     }
 

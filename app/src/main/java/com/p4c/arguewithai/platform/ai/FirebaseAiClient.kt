@@ -17,7 +17,7 @@ class FirebaseAiClient(
 ) {
     private val generationConfig = generationConfig {
         thinkingConfig = thinkingConfig { thinkingBudget = 0 }
-        maxOutputTokens = 50
+        maxOutputTokens = 200
         responseMimeType = "application/json"
         responseSchema = ChatContract.schema
     }
