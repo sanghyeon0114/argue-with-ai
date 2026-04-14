@@ -116,6 +116,7 @@ class ShortFormWatcherManager(
                 if(totalWatchTime >= cooltimeMs) {
                     watchTimeOnOneSession = 0
                     currentWatchTime = 0
+                    interventionEnabled = false // if this code is deleted, repeat show prompt.
                     showPrompt()
                 }
             }
