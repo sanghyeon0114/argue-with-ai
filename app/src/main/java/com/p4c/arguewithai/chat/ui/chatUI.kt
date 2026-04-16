@@ -70,11 +70,20 @@ internal fun Activity.hideNavigationBarForChat() {
 
 internal fun ChatUiRefs.applyInsetsForChat(onImeShownScrollToBottom: () -> Unit) {
     ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-        val sys = insets.getInsets(
-            WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+        val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+
+        val bottomInset = kotlin.math.max(systemBars.bottom, ime.bottom)
+
+        val extraBottomPx = (4 * v.resources.displayMetrics.density).toInt()
+
+        v.setPadding(
+            v.paddingLeft,
+            systemBars.top,
+            v.paddingRight,
+            bottomInset + extraBottomPx
         )
-        v.setPadding(v.paddingLeft, sys.top, v.paddingRight, 0)
-        insets
+        WindowInsetsCompat.CONSUMED
     }
 
     ViewCompat.setOnApplyWindowInsetsListener(recycler) { v, insets ->
