@@ -141,14 +141,25 @@ class ShortFormWatcherManager(
         }
         isPromptVisible = true
 
-        val i = Intent(context, BlockingActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val interventionType = prefs.getInt("intervention_type", 0)
+
+        val targetActivityClass = when (interventionType) {
+            0 -> BlockingActivity::class.java
+            1 -> RuleBasedChatbotActivity::class.java
+            2 -> LlmChatbotActivity::class.java
+            else -> BlockingActivity::class.java
         }
-//        val i = Intent(context, RuleBasedChatbotActivity::class.java).apply {
-//            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-//            putExtra("receiver", promptResultReceiver)
-//            putExtra("session_id", sessionId?.value ?: "")
-//        }
+
+        val i = Intent(context, targetActivityClass)
+
+        if (interventionType == 1 || interventionType == 2) {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            i.putExtra("receiver", promptResultReceiver)
+            i.putExtra("session_id", sessionId?.value ?: "")
+        } else {
+            i.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
 
         context.startActivity(i)
     }

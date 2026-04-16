@@ -158,6 +158,8 @@ class MainActivity : ComponentActivity() {
         layout.addView(nameSection)
         layout.addView(divider())
 
+
+
         userRepo.getUserName { name ->
             runOnUiThread {
                 if (!name.isNullOrBlank()) {
@@ -223,6 +225,49 @@ class MainActivity : ComponentActivity() {
         layout.addView(pipInfoText)
         layout.addView(youtubePIPBtn)
         layout.addView(instagramPIPBtn)
+        layout.addView(divider())
+
+        val typeTitleText = TextView(this).apply {
+            text = "개입 화면 타입 설정\n(0: Blocking, 1: RuleBased, 2: LLM)"
+            textSize = 18f
+            setPadding(0, 0, 0, 16)
+            gravity = Gravity.CENTER
+        }
+
+        val typeInput = EditText(this).apply {
+            hint = "0, 1, 2 입력 (기본값: 0)"
+            // 숫자 패드만 뜨도록 설정
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+
+            // 기존에 저장된 값 불러오기 (저장된 게 없으면 기본값 0)
+            val currentType = prefs.getInt("intervention_type", 0)
+            setText(currentType.toString())
+
+            textSize = 16f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 12 }
+        }
+
+        val typeSaveBtn = Button(this).apply {
+            text = "액티비티 타입 저장"
+            setOnClickListener {
+                val typeInt = typeInput.text.toString().trim().toIntOrNull()
+
+                // 0, 1, 2 중 하나인지 검증
+                if (typeInt != null && typeInt in 0..2) {
+                    prefs.edit { putInt("intervention_type", typeInt) }
+                    Toast.makeText(this@MainActivity, "✅ 타입이 $typeInt(으)로 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "❌ 0, 1, 2 중 하나만 입력해주세요.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        layout.addView(typeTitleText)
+        layout.addView(typeInput)
+        layout.addView(typeSaveBtn)
         layout.addView(divider())
 
         interventionText = TextView(this).apply {

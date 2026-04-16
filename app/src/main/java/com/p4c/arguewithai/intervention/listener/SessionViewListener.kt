@@ -139,7 +139,7 @@ class SessionViewListener(
     }
 
     private fun isChatActivity(): Boolean {
-        return BlockingActivityStatus.isOpen
+        return BlockingActivityStatus.isOpen || RuleBasedChatbotActivityStatus.isOpen || LlmChatbotActivityStatus.isOpen
     }
 
 
