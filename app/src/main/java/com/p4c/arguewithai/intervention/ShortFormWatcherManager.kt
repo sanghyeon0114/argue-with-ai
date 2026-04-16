@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
+import com.p4c.arguewithai.chat.activity.BlockingActivity
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
 import com.p4c.arguewithai.intervention.listener.SessionApp
@@ -140,11 +141,15 @@ class ShortFormWatcherManager(
         }
         isPromptVisible = true
 
-        val i = Intent(context, RuleBasedChatbotActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra("receiver", promptResultReceiver)
-            putExtra("session_id", sessionId?.value ?: "")
+        val i = Intent(context, BlockingActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
+//        val i = Intent(context, RuleBasedChatbotActivity::class.java).apply {
+//            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+//            putExtra("receiver", promptResultReceiver)
+//            putExtra("session_id", sessionId?.value ?: "")
+//        }
+
         context.startActivity(i)
     }
 }

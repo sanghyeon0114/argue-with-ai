@@ -2,6 +2,8 @@ package com.p4c.arguewithai.intervention.listener
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.p4c.arguewithai.chat.activity.BlockingActivity
+import com.p4c.arguewithai.chat.activity.BlockingActivityStatus
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivityStatus
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivityStatus
 
@@ -137,7 +139,7 @@ class SessionViewListener(
     }
 
     private fun isChatActivity(): Boolean {
-        return RuleBasedChatbotActivityStatus.isOpen
+        return BlockingActivityStatus.isOpen
     }
 
 

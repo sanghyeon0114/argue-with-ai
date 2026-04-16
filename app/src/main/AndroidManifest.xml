@@ -49,6 +49,14 @@
                 android:resource="@xml/accessibility_service_config"/>
         </service>
         <activity
+            android:name=".chat.activity.BlockingActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance"
+            tools:ignore="LockedOrientationActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity
             android:name=".chat.activity.LlmChatbotActivity"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize"
             android:exported="false"
