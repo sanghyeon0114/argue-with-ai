@@ -18,7 +18,8 @@ import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.p4c.arguewithai.R
-import com.p4c.arguewithai.chat.ChatActivity
+import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
+import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
 
 internal data class ChatUiRefs(
     val recycler: RecyclerView,
@@ -32,7 +33,18 @@ internal inline fun <reified T : View> Activity.requireView(id: Int, name: Strin
     return findViewById<T>(id) ?: error("activity_chat.xml에 id='$name' 뷰가 없습니다.")
 }
 
-internal fun ChatActivity.bindChatUi(): ChatUiRefs {
+internal fun RuleBasedChatbotActivity.bindChatUi(): ChatUiRefs {
+    val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
+    return ChatUiRefs(
+        recycler = requireView(R.id.recyclerMessages, "recyclerMessages"),
+        etMessage = requireView(R.id.etMessage, "etMessage"),
+        btnSend = requireView(R.id.btnSend, "btnSend"),
+        bottomBar = requireView(R.id.bottomBar, "bottomBar"),
+        root = root
+    )
+}
+
+internal fun LlmChatbotActivity.bindChatUi(): ChatUiRefs {
     val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
     return ChatUiRefs(
         recycler = requireView(R.id.recyclerMessages, "recyclerMessages"),

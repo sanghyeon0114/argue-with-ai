@@ -1,5 +1,7 @@
-package com.p4c.arguewithai.chat
+package com.p4c.arguewithai.chat.activity
 
+import android.annotation.SuppressLint
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.ResultReceiver
@@ -8,11 +10,15 @@ import android.widget.EditText
 import android.widget.ImageButton
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
+import com.p4c.arguewithai.chat.ChatAdapter
+import com.p4c.arguewithai.chat.Message
+import com.p4c.arguewithai.chat.prompts.JustificationPrompts
 import com.p4c.arguewithai.chat.ui.*
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
 import com.p4c.arguewithai.repository.ChatMessage
@@ -24,20 +30,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-object ChatActivityStatus {
+object LlmChatbotActivityStatus {
     @Volatile var isOpen: Boolean = false
 }
 
-private data class ChatState(
+private data class LlmChatbotState(
     var isUserTurn: Boolean = false,
     var finalMessageShown: Boolean = false,
     var hasSentResult: Boolean = false,
-    var totalScore: Int = 0,
     var index: Int = 0,
     var prevMessage: String? = null
 )
 
-class ChatActivity : ComponentActivity() {
+class LlmChatbotActivity : ComponentActivity() {
     private lateinit var ui: ChatUiRefs
     private lateinit var recycler: RecyclerView
     private lateinit var etMessage: EditText
@@ -50,7 +55,7 @@ class ChatActivity : ComponentActivity() {
 
     private val repo = FirestoreChatRepository()
 
-    private var state = ChatState()
+    private var state = LlmChatbotState()
     private val sessionId: String by lazy {
         intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
     }
@@ -65,23 +70,20 @@ class ChatActivity : ComponentActivity() {
     private val aiClient = FirebaseAiClient()
 
     private var localQuestionsCache: MutableList<String> = mutableListOf(
-        "조금 전 숏폼 시청 시간이 여유롭고 편안한 여가처럼 느껴졌나요?",
-        "이번에 숏폼 앱을 켜신 특별한 이유가 있나요?",
-        "지금 보내고 있는 시간이 당신에게 얼마나 의미 있다고 느껴지나요?",
-        "방금 숏폼을 시청한 시간이 얼마나 후회된다고 느끼시나요?",
-        "그렇게 느끼신 데에는 이유가 있을 것 같아요. 어떤 상황이나 생각 때문에 그런 감정을 느끼셨나요?",
-        "지금 영상을 계속 시청하게 되는 이유가 무엇이라고 느끼시나요?",
-        "답변 감사합니다. 대화는 여기서 마치겠습니다."
+        "지금 이 영상을 보게 된 이유가 떠오르시나요?",
+        "지금 보내고 있는 이 시간이 의미 있다고 느껴지시나요?",
+        "이 선택이 나중에도 괜찮다고 느껴질까요?",
     )
     private val maxIndex: Int = localQuestionsCache.lastIndex
 
+    @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
-        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
-        ChatActivityStatus.isOpen = true
+        LlmChatbotActivityStatus.isOpen = true
         preloadLocalQuestions()
         setupUI()
-        sendAIMessage("")
+        sendChatbotMessage("")
     }
 
     // ---------------------------
@@ -110,7 +112,7 @@ class ChatActivity : ComponentActivity() {
     // ---------------------------
     // Process Chat Flow
     // ---------------------------
-    private fun sendAIMessage(prevUserMessage: String) {
+    private fun sendChatbotMessage(prevUserMessage: String) {
         val typing = addTypingBubble()
         val currentIdx = state.index.coerceIn(0, maxIndex)
         var message : String = localQuestionsCache[currentIdx]
@@ -135,20 +137,9 @@ class ChatActivity : ComponentActivity() {
         if (!state.isUserTurn) return
         appendMessage(Sender.USER, currentMessage)
         state.isUserTurn =  false
-        val currentIdx = state.index.coerceIn(0, maxIndex)
-
-        lifecycleScope.launch {
-            try {
-                val currentScore: Int = getAIScore(currentIdx, currentMessage)
-                state.totalScore += currentScore
-                Logger.d("[$currentIdx] current Score : $currentScore / total : ${state.totalScore}")
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
         state.index = (state.index + 1).coerceAtMost(maxIndex)
 
-        sendAIMessage(currentMessage)
+        sendChatbotMessage(currentMessage)
     }
 
     // ---------------------------
@@ -156,28 +147,12 @@ class ChatActivity : ComponentActivity() {
     // ---------------------------
     private suspend fun getAIText(currentIdx: Int, prevMessage: String): String {
         val chatPrompt: String = when(currentIdx) {
-            0 -> ChatPrompts.firstTextPrompt()
-            1 -> ChatPrompts.secondTextPrompt(prevMessage)
-            2 -> ChatPrompts.thirdTextPrompt(prevMessage)
-            3 -> ChatPrompts.forthTextPrompt(prevMessage)
-            4 -> ChatPrompts.fifthTextPrompt(prevMessage)
-            5 -> ChatPrompts.sixthTextPrompt(prevMessage)
-            else -> ChatPrompts.finalTextPrompt(state.totalScore)
+            0 -> JustificationPrompts.firstTextPrompt()
+            1 -> JustificationPrompts.secondTextPrompt(prevMessage)
+            else -> JustificationPrompts.finalTextPrompt()
         }
 
         return getAITextToLLM(chatPrompt)
-    }
-    private suspend fun getAIScore(currentIdx: Int, currentMessage: String): Int {
-        val scorePrompt: String? = when(currentIdx) {
-            0 -> ChatPrompts.firstScoringPrompt(currentMessage)
-            1 -> ChatPrompts.secondScoringPrompt(currentMessage)
-            2 -> ChatPrompts.thirdScoringPrompt(currentMessage)
-            3 -> ChatPrompts.forthScoringPrompt(currentMessage)
-            4 -> ChatPrompts.fifthScoringPrompt(currentMessage)
-            5 -> ChatPrompts.sixthScoringPrompt(currentMessage)
-            else -> null
-        }
-        return getAIScoreToLLM(scorePrompt)
     }
      private suspend fun getAITextToLLM(prompt: String): String {
         val response = aiClient.generateText(prompt, messageList)
@@ -187,19 +162,6 @@ class ChatActivity : ComponentActivity() {
          }.getOrElse {
              localQuestionsCache[state.index]
          }
-    }
-
-    private suspend fun getAIScoreToLLM(prompt: String?): Int {
-        if(prompt == null){
-            return 0
-        }
-        val response = aiClient.generateScore(prompt)
-        val raw = response.text ?: return 0
-        return runCatching {
-            JSONObject(raw).getInt("score")
-        }.getOrElse {
-            0
-        }
     }
 
     // ---------------------------
@@ -320,7 +282,6 @@ class ChatActivity : ComponentActivity() {
 
     private fun validateInput(text: String): InputDecision? {
         if (text.isEmpty()) return null
-        if (text == "그만할래") return InputDecision.CloseStopKeyword
         if (state.finalMessageShown) return InputDecision.CloseFinalAck
 
         if (!state.isUserTurn) {
@@ -336,9 +297,17 @@ class ChatActivity : ComponentActivity() {
         val text = etMessage.text?.toString()?.trim().orEmpty()
         btnSend.isEnabled = when {
             !state.isUserTurn -> false
-            text == "그만할래" -> true
             state.finalMessageShown -> text.isNotEmpty()
             else -> text.length >= 3
+        }
+        if (btnSend.isEnabled) {
+            btnSend.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.activate_send_button)
+            )
+        } else {
+            btnSend.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.inactivate_send_button)
+            )
         }
     }
 
@@ -369,7 +338,6 @@ class ChatActivity : ComponentActivity() {
         if (!state.hasSentResult) {
             receiver?.send(resultCode, Bundle().apply {
                 putString("reason", reason)
-                putInt("totalScore", state.totalScore)
             })
             state.hasSentResult = true
         }
@@ -388,6 +356,6 @@ class ChatActivity : ComponentActivity() {
         if (!isFinishing && !isChangingConfigurations && !state.hasSentResult) {
             closePrompt("backgrounded_or_home")
         }
-        if (isFinishing) ChatActivityStatus.isOpen = false
+        if (isFinishing) LlmChatbotActivityStatus.isOpen = false
     }
 }

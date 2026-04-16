@@ -4,9 +4,8 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
 
-    <!-- 둥근 화살표 몸체 -->
     <path
-        android:fillColor="#6EA8FF"
+        android:fillColor="#FFFFFF"
         android:pathData="M3,20
             Q3,22 5,21
             L20,13

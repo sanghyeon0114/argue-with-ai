@@ -11,4 +11,7 @@
     <color name="bubble_in">#E6F2FF</color>
     <color name="bubble_out">#EEEEEE</color>
     <color name="send">#2F80ED</color>
+
+    <color name="activate_send_button">#007AFF</color>
+    <color name="inactivate_send_button">#CCCCCC</color>
 </resources>

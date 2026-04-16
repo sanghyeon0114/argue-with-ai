@@ -49,7 +49,17 @@
                 android:resource="@xml/accessibility_service_config"/>
         </service>
         <activity
-            android:name=".chat.ChatActivity"
+            android:name=".chat.activity.LlmChatbotActivity"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.p4c.arguewithai.PROMPT"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.ArgueWithAi"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+        </activity>
+        <activity
+            android:name=".chat.activity.RuleBasedChatbotActivity"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize"
             android:exported="false"
             android:launchMode="singleTask"

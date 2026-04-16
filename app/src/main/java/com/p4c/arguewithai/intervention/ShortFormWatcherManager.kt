@@ -6,7 +6,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
-import com.p4c.arguewithai.chat.ChatActivity
+import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
+import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
 import com.p4c.arguewithai.intervention.listener.SessionApp
 import com.p4c.arguewithai.intervention.listener.SessionViewCallback
 import com.p4c.arguewithai.intervention.listener.SessionViewListener
@@ -30,8 +31,6 @@ class ShortFormWatcherManager(
     var sessionId: SessionId? = null
     var isPromptVisible: Boolean = false
     var interventionEnabled: Boolean = true
-    var suppressUntilSessionExit: Boolean = false
-    var lastTotalScore: Int = 0
     var cooltimeMs: Long = 1 * 1000L
     var currentWatchTime: Long = 0
     var watchTimeOnOneSession: Long = 0
@@ -89,13 +88,13 @@ class ShortFormWatcherManager(
         object : SessionViewCallback {
             override fun onEnter(app: SessionApp, sinceMs: Long) {
                 Logger.d("▶️▶️▶️▶️ Enter Session View: ${app.label}, sinceMs=$sinceMs")
+                interventionEnabled = true
             }
 
             override fun onExit(app: SessionApp, enteredAtMs: Long, exitedAtMs: Long) {
                 Logger.d("▶️▶️▶️▶️ Exit Session View: ${app.label}, enteredAt=$enteredAtMs, exitedAt=$exitedAtMs")
 
-                suppressUntilSessionExit = false
-                lastTotalScore = 0
+                interventionEnabled = false
 
                 watchTimeOnOneSession = 0
             }
@@ -109,14 +108,12 @@ class ShortFormWatcherManager(
                 if (!interventionEnabled) return
                 if (isPromptVisible) return
 
-                if (suppressUntilSessionExit) return
-
                 var totalWatchTime = currentTotalWatchTime()
 
                 if(totalWatchTime >= cooltimeMs) {
+                    interventionEnabled = false
                     watchTimeOnOneSession = 0
                     currentWatchTime = 0
-                    interventionEnabled = false // if this code is deleted, repeat show prompt.
                     showPrompt()
                 }
             }
@@ -130,11 +127,8 @@ class ShortFormWatcherManager(
     private val promptResultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
         override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
             val reason = resultData?.getString("reason") ?: "unknown"
-            val score = resultData?.getInt("totalScore", 0) ?: 0
-            lastTotalScore = score
-            suppressUntilSessionExit = (score > 0)
 
-            Logger.d("ChatActivity closed. reason=$reason, resultCode=$resultCode, totalScore=$score")
+            Logger.d("ChatActivity closed. reason=$reason")
             isPromptVisible = false
         }
     }
@@ -146,7 +140,7 @@ class ShortFormWatcherManager(
         }
         isPromptVisible = true
 
-        val i = Intent(context, ChatActivity::class.java).apply {
+        val i = Intent(context, RuleBasedChatbotActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("receiver", promptResultReceiver)
             putExtra("session_id", sessionId?.value ?: "")
