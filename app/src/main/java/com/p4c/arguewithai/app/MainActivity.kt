@@ -1,6 +1,5 @@
 package com.p4c.arguewithai.app
 
-import android.R
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
@@ -8,7 +7,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.Gravity
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
@@ -18,15 +16,16 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
-import com.p4c.arguewithai.repository.FirestoreAccessibilityRepository
-import com.p4c.arguewithai.utils.Logger
-import com.google.firebase.FirebaseApp
-import com.google.firebase.auth.FirebaseAuth
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+import com.p4c.arguewithai.R
 import com.p4c.arguewithai.platform.accessibility.MyAccessibilityService
+import com.p4c.arguewithai.repository.FirestoreAccessibilityRepository
 import com.p4c.arguewithai.repository.FirestoreInterventionRepository
 import com.p4c.arguewithai.repository.FirestoreUserRepository
+import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,13 +33,15 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private lateinit var accessibilityText: TextView
-    private lateinit var nameSection: LinearLayout
     private lateinit var interventionText: TextView
+
     private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
     private val accKey = "last_accessibility_enabled"
+
     private val accessRepo by lazy { FirestoreAccessibilityRepository() }
     private val userRepo by lazy { FirestoreUserRepository() }
     private val interventionRepo by lazy { FirestoreInterventionRepository() }
+
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val startIVCode: String = "start2026"
     private val stopIVCode: String = "stop"
@@ -48,8 +49,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        Logger.setLoggerEnabled(true)
 
+        // 1. 여기서 우리가 만든 XML 화면을 연결합니다!
+        setContentView(R.layout.activity_settings)
+
+        Logger.setLoggerEnabled(true)
         val ctx = applicationContext
         Logger.d("pkg = ${ctx.packageName}")
 
@@ -66,7 +70,8 @@ class MainActivity : ComponentActivity() {
             .addOnSuccessListener {
                 Logger.d("✅[Firebase] Logged in: ${it.user?.uid}")
 
-                setView()
+                // 2. XML 뷰들을 찾아 클릭 이벤트 등을 연결하는 함수 호출
+                setupViews()
 
                 uiScope.launch(Dispatchers.IO) {
                     runCatching {
@@ -103,7 +108,7 @@ class MainActivity : ComponentActivity() {
             }
             .addOnFailureListener {
                 Logger.e("❌[Firebase] Login failed", it)
-                setView()
+                setupViews()
                 if (::interventionText.isInitialized) {
                     interventionText.text = getInterventionText()
                 }
@@ -129,36 +134,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun setView() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(24, 24, 24, 24)
-        }
-
-        fun divider(): View = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                2
-            ).apply {
-                topMargin = 32
-                bottomMargin = 32
-            }
-            setBackgroundColor(getColor(R.color.darker_gray))
-        }
-
-        nameSection = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        layout.addView(nameSection)
-        layout.addView(divider())
-
-
+    // --- 기존의 복잡했던 setView()를 대체하는 새 함수 ---
+    private fun setupViews() {
+        // [1. 이름 설정]
+        val etNameInput = findViewById<EditText>(R.id.etNameInput)
+        val btnSaveName = findViewById<Button>(R.id.btnSaveName)
 
         userRepo.getUserName { name ->
             runOnUiThread {
@@ -170,175 +150,98 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val overlayInfoText = TextView(this).apply {
-            text = "오버레이 권한을 허용해주세요."
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-        val overlayBtn = Button(this).apply {
-            text = "오버레이 권한 설정"
-            setOnClickListener { requestOverlayPermission() }
-        }
-
-        layout.addView(overlayInfoText)
-        layout.addView(overlayBtn)
-        layout.addView(divider())
-
-        val accessibilityInfoText = TextView(this).apply {
-            text = "숏폼 사용 감지를 위해 접근성 서비스 활성화가 필요합니다."
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-        accessibilityText = TextView(this).apply {
-            text = serviceStatusText()
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-        val accessibilityBtn = Button(this).apply {
-            text = "접근성 서비스 설정"
-            setOnClickListener { openAccessibilitySettingsCompat() }
-        }
-
-        layout.addView(accessibilityInfoText)
-        layout.addView(accessibilityText)
-        layout.addView(accessibilityBtn)
-        layout.addView(divider())
-
-        val pipInfoText = TextView(this).apply {
-            text = getString(com.p4c.arguewithai.R.string.pip_permission_message)
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-        val youtubePIPBtn = Button(this).apply {
-            text = getString(com.p4c.arguewithai.R.string.youtube_pip_permission_message)
-            setOnClickListener { openPipSettingsForApp(it.context, "com.google.android.youtube") }
-        }
-        val instagramPIPBtn = Button(this).apply {
-            text = getString(com.p4c.arguewithai.R.string.instagram_pip_permission_message)
-            setOnClickListener { openPipSettingsForApp(it.context, "com.instagram.android") }
-        }
-
-        layout.addView(pipInfoText)
-        layout.addView(youtubePIPBtn)
-        layout.addView(instagramPIPBtn)
-        layout.addView(divider())
-
-        val typeTitleText = TextView(this).apply {
-            text = "개입 화면 타입 설정\n(0: Blocking, 1: RuleBased, 2: LLM)"
-            textSize = 18f
-            setPadding(0, 0, 0, 16)
-            gravity = Gravity.CENTER
-        }
-
-        val typeInput = EditText(this).apply {
-            hint = "0, 1, 2 입력 (기본값: 0)"
-            // 숫자 패드만 뜨도록 설정
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-
-            // 기존에 저장된 값 불러오기 (저장된 게 없으면 기본값 0)
-            val currentType = prefs.getInt("intervention_type", 0)
-            setText(currentType.toString())
-
-            textSize = 16f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = 12 }
-        }
-
-        val typeSaveBtn = Button(this).apply {
-            text = "액티비티 타입 저장"
-            setOnClickListener {
-                val typeInt = typeInput.text.toString().trim().toIntOrNull()
-
-                // 0, 1, 2 중 하나인지 검증
-                if (typeInt != null && typeInt in 0..2) {
-                    prefs.edit { putInt("intervention_type", typeInt) }
-                    Toast.makeText(this@MainActivity, "✅ 타입이 $typeInt(으)로 저장되었습니다.", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this@MainActivity, "❌ 0, 1, 2 중 하나만 입력해주세요.", Toast.LENGTH_SHORT).show()
-                }
+        btnSaveName.setOnClickListener {
+            val name = etNameInput.text.toString().trim()
+            if (name.isEmpty()) {
+                Toast.makeText(this@MainActivity, "이름을 입력해주세요.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
-        }
-
-        layout.addView(typeTitleText)
-        layout.addView(typeInput)
-        layout.addView(typeSaveBtn)
-        layout.addView(divider())
-
-        interventionText = TextView(this).apply {
-            text = getInterventionText()
-            textSize = 18f
-            setPadding(0, 0, 0, 32)
-            gravity = Gravity.CENTER
-        }
-
-        val inputCode = EditText(this).apply {
-            hint = "인증 코드"
-            textSize = 16f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = 12 }
-        }
-
-        val interventionBtn = Button(this).apply {
-            text = "개입 시작/종료"
-
-            setOnClickListener {
-                val code = inputCode.text.toString().trim()
-                val nowEnabled = InterventionPrefs.isEnabled(this@MainActivity)
-
-                if (nowEnabled) {
-                    if (code == stopIVCode) { // code to off intervention
-                        InterventionPrefs.disable(this@MainActivity)
-                        uiScope.launch(Dispatchers.IO) {
-                            runCatching {
-                                interventionRepo.setEnabled(false)
-                            }.onFailure { e ->
-                                Logger.e("Failed to save intervention to Firestore", e)
-                            }
-                        }
-                        interventionText.text = getInterventionText()
-                        Toast.makeText(
-                            this@MainActivity,
-                            "개입이 꺼졌습니다.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                } else {
-
-                    if (code == startIVCode) { // code to on intervention
-                        InterventionPrefs.enable(this@MainActivity)
-                        uiScope.launch(Dispatchers.IO) {
-                            runCatching {
-                                interventionRepo.setEnabled(true)
-                            }.onFailure { e ->
-                                Logger.e("Failed to save intervention to Firestore", e)
-                            }
-                        }
-                        interventionText.text = getInterventionText()
-                        Toast.makeText(
-                            this@MainActivity,
-                            "개입이 켜졌습니다.",
-                            Toast.LENGTH_SHORT
-                        ).show()
+            userRepo.setUserName(name) { ok ->
+                runOnUiThread {
+                    if (ok) {
+                        Toast.makeText(this@MainActivity, "✅ 이름이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                        renderNameDisplay(name)
+                    } else {
+                        Toast.makeText(this@MainActivity, "❌ 저장 실패 (네트워크 확인)", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         }
 
-        layout.addView(interventionText)
-        layout.addView(inputCode)
-        layout.addView(interventionBtn)
+        // [2. 오버레이 권한]
+        findViewById<Button>(R.id.btnOverlay).setOnClickListener { requestOverlayPermission() }
 
-        setContentView(layout)
+        // [3. 접근성 서비스]
+        accessibilityText = findViewById(R.id.tvAccessibilityStatus)
+        accessibilityText.text = serviceStatusText()
+        findViewById<Button>(R.id.btnAccessibility).setOnClickListener { openAccessibilitySettingsCompat() }
+
+        // [4. PIP 권한]
+        findViewById<Button>(R.id.btnPipYoutube).setOnClickListener { openPipSettingsForApp(this, "com.google.android.youtube") }
+        findViewById<Button>(R.id.btnPipInstagram).setOnClickListener { openPipSettingsForApp(this, "com.instagram.android") }
+
+        // [5. 개입 액티비티 타입 설정]
+        val etTypeInput = findViewById<EditText>(R.id.etTypeInput)
+        val currentType = prefs.getInt("intervention_type", 0)
+        etTypeInput.setText(currentType.toString())
+
+        findViewById<Button>(R.id.btnSaveType).setOnClickListener {
+            val typeInt = etTypeInput.text.toString().trim().toIntOrNull()
+            if (typeInt != null && typeInt in 0..2) {
+                prefs.edit { putInt("intervention_type", typeInt) }
+                Toast.makeText(this@MainActivity, "✅ 타입이 $typeInt(으)로 저장되었습니다.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@MainActivity, "❌ 0, 1, 2 중 하나만 입력해주세요.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // [6. 개입 상태 변경]
+        interventionText = findViewById(R.id.tvInterventionStatus)
+        interventionText.text = getInterventionText()
+
+        val etInterventionCode = findViewById<EditText>(R.id.etInterventionCode)
+        findViewById<Button>(R.id.btnToggleIntervention).setOnClickListener {
+            val code = etInterventionCode.text.toString().trim()
+            val nowEnabled = InterventionPrefs.isEnabled(this@MainActivity)
+
+            if (nowEnabled && code == stopIVCode) {
+                InterventionPrefs.disable(this@MainActivity)
+                updateInterventionState(false)
+            } else if (!nowEnabled && code == startIVCode) {
+                InterventionPrefs.enable(this@MainActivity)
+                updateInterventionState(true)
+            } else {
+                Toast.makeText(this@MainActivity, "코드가 올바르지 않거나 상태가 맞지 않습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
+    // 이름 입력란과 표시란의 Visibility(숨김/보임)를 교체하는 로직
+    private fun renderNameDisplay(name: String) {
+        findViewById<LinearLayout>(R.id.layoutNameInput).visibility = View.GONE
+        findViewById<LinearLayout>(R.id.layoutNameDisplay).visibility = View.VISIBLE
+        findViewById<TextView>(R.id.tvNameDisplay).text = name
+    }
+
+    private fun renderNameInput() {
+        findViewById<LinearLayout>(R.id.layoutNameInput).visibility = View.VISIBLE
+        findViewById<LinearLayout>(R.id.layoutNameDisplay).visibility = View.GONE
+    }
+
+    private fun updateInterventionState(isEnabled: Boolean) {
+        uiScope.launch(Dispatchers.IO) {
+            runCatching {
+                interventionRepo.setEnabled(isEnabled)
+            }.onFailure { e ->
+                Logger.e("Failed to save intervention to Firestore", e)
+            }
+        }
+        interventionText.text = getInterventionText()
+        val msg = if (isEnabled) "개입이 켜졌습니다." else "개입이 꺼졌습니다."
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    // --- 아래는 기존 유틸리티 함수들 (변경 없음) ---
     private fun serviceStatusText(): String {
         return if (isMyAccessibilityServiceEnabled()) {
             "상태: 활성화됨 ✅"
@@ -363,11 +266,8 @@ class MainActivity : ComponentActivity() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        when {
-            tryStart(generalIntent) -> Unit
-            else -> {
-                Toast.makeText(this, com.p4c.arguewithai.R.string.accessibility_error, Toast.LENGTH_LONG).show()
-            }
+        if (!tryStart(generalIntent)) {
+            Toast.makeText(this, R.string.accessibility_error, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -387,13 +287,11 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "이미 오버레이 권한이 허용되어 있습니다.", Toast.LENGTH_SHORT).show()
             return
         }
-        if (!Settings.canDrawOverlays(this)) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                "package:$packageName".toUri()
-            )
-            startActivity(intent)
-        }
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            "package:$packageName".toUri()
+        )
+        startActivity(intent)
     }
 
     fun openPipSettingsForApp(context: Context, packageName: String) {
@@ -417,73 +315,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun renderNameInput() {
-        nameSection.removeAllViews()
-
-        val title = TextView(this).apply {
-            text = "연구 참여자 이름(닉네임) 입력"
-            textSize = 18f
-            setPadding(0, 0, 0, 16)
-            gravity = Gravity.CENTER
-        }
-
-        val input = EditText(this).apply {
-            hint = "이름 또는 닉네임"
-            textSize = 16f
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = 12 }
-        }
-
-        val saveBtn = Button(this).apply {
-            text = "이름 저장"
-            setOnClickListener {
-                val name = input.text.toString().trim()
-                if (name.isEmpty()) {
-                    Toast.makeText(this@MainActivity, "이름을 입력해주세요.", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                userRepo.setUserName(name) { ok ->
-                    runOnUiThread {
-                        if (ok) {
-                            Toast.makeText(this@MainActivity, "✅ 이름이 저장되었습니다.", Toast.LENGTH_SHORT).show()
-                            renderNameDisplay(name)
-                        } else {
-                            Toast.makeText(this@MainActivity, "❌ 저장 실패 (네트워크 확인)", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            }
-        }
-
-        nameSection.addView(title)
-        nameSection.addView(input)
-        nameSection.addView(saveBtn)
-    }
-    private fun renderNameDisplay(name: String) {
-        nameSection.removeAllViews()
-
-        val label = TextView(this).apply {
-            text = "참여자 이름"
-            textSize = 14f
-            setPadding(0, 0, 0, 6)
-            gravity = Gravity.CENTER
-        }
-        val nameView = TextView(this).apply {
-            text = name
-            textSize = 20f
-            setPadding(0, 0, 0, 6)
-            gravity = Gravity.CENTER
-        }
-
-        nameSection.addView(label)
-        nameSection.addView(nameView)
-    }
-
     private fun getInterventionText(): String {
-        val enabled = InterventionPrefs.isEnabled(this)
-        return if (enabled) {
+        return if (InterventionPrefs.isEnabled(this)) {
             "✅ 개입 기능이 활성화되어 있습니다."
         } else {
             "❌ 개입 기능이 비활성화되어 있습니다."

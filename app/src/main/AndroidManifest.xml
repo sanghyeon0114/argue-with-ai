@@ -57,7 +57,15 @@
             tools:ignore="LockedOrientationActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity
-            android:name=".chat.activity.LlmChatbotActivity"
+            android:name=".chat.activity.BlockingActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance"
+            tools:ignore="LockedOrientationActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <activity
+            android:name=".chat.activity.RuleBasedChatbotActivity"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize"
             android:exported="false"
             android:launchMode="singleTask"
@@ -67,7 +75,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden">
         </activity>
         <activity
-            android:name=".chat.activity.RuleBasedChatbotActivity"
+            android:name=".chat.activity.LlmChatbotActivity"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize"
             android:exported="false"
             android:launchMode="singleTask"
