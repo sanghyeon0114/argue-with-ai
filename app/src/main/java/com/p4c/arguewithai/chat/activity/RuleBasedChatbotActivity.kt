@@ -27,6 +27,7 @@ import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.p4c.arguewithai.chat.prompts.AffirmationPrompts
 
 object RuleBasedChatbotActivityStatus {
     @Volatile var isOpen: Boolean = false
@@ -67,14 +68,6 @@ class RuleBasedChatbotActivity : ComponentActivity() {
         }
     }
 
-    private var affirmationPrompts: MutableList<String> = mutableListOf(
-        "자제력, 건강, 질서, 끈기, 자기 인식, 자기 관리, 책임감 중에 하나를 선택해주세요.",
-        "아래 문장을 직접 완성해주세요.\n" + "저는 ______을(를) 중요하게 생각합니다.",
-        "아래 문장을 직접 완성해주세요.\n" + "저는 지금 스마트폰 사용을 멈추고 ______을(를) 하겠습니다.",
-        "감사합니당."
-    )
-    private val maxIndex: Int = affirmationPrompts.lastIndex
-
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -87,24 +80,34 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     // ---------------------------
     // Process Chat Flow
     // ---------------------------
-    private fun sendChatbotMessage() {
+    private suspend fun simulateTypingDelay(duration: Long = 500L) {
         val typing = addTypingBubble()
-        val currentIdx = state.index.coerceIn(0, maxIndex)
-        val message : String = affirmationPrompts[currentIdx]
+        delay(duration)
+        removeTypingBubble(typing)
+    }
+
+    private fun sendChatbotMessage() {
+        val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
+        val message: String = AffirmationPrompts.getPrompt(currentIdx)
+
         lifecycleScope.launch {
-            try {
-                delay(500)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                appendMessage(Sender.AI, message)
-                removeTypingBubble(typing)
-                if (currentIdx >= maxIndex) {
-                    state.finalMessageShown = true
-                }
-                state.isUserTurn = true
-                updateSendButtonState(currentIdx)
-            }
+            simulateTypingDelay()
+            appendMessage(Sender.AI, message)
+            handleTurnTransition(currentIdx)
+        }
+    }
+
+    private suspend fun handleTurnTransition(currentIdx: Int) {
+        if (currentIdx >= AffirmationPrompts.maxIndex) {
+            state.finalMessageShown = true
+            state.isUserTurn = false
+            updateSendButtonState(currentIdx)
+
+            delay(500)
+            closePrompt(reason = "final_ack")
+        } else {
+            state.isUserTurn = true
+            updateSendButtonState(currentIdx)
         }
     }
 
@@ -112,12 +115,12 @@ class RuleBasedChatbotActivity : ComponentActivity() {
         if (!state.isUserTurn) return
         appendMessage(Sender.USER, currentMessage)
         state.isUserTurn =  false
-        state.index = (state.index + 1).coerceAtMost(maxIndex)
+        state.index = (state.index + 1).coerceAtMost(AffirmationPrompts.maxIndex)
 
         if (!state.finalMessageShown) {
             sendChatbotMessage()
         } else {
-            val currentIdx = state.index.coerceIn(0, maxIndex)
+            val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
             updateSendButtonState(currentIdx)
         }
     }
@@ -128,7 +131,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     private fun sendUserText() {
         val raw = etMessage.text?.toString().orEmpty()
         val text = raw.trim()
-        val currentIdx = state.index.coerceIn(0, maxIndex)
+        val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
         val decision = validateInput(currentIdx, text) ?: return
 
         when (decision) {
@@ -223,13 +226,13 @@ class RuleBasedChatbotActivity : ComponentActivity() {
 
         ui.bindSendActions { sendUserText() }
         etMessage.addTextChangedListener(ChatTextWatcher {
-            val currentIdx = state.index.coerceIn(0, maxIndex)
+            val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
             updateSendButtonState(currentIdx)
         })
 
         etMessage.requestFocus()
         showKeyboardFor(etMessage)
-        val currentIdx = state.index.coerceIn(0, maxIndex)
+        val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
         updateSendButtonState(currentIdx)
     }
     // ---------------------------
@@ -241,38 +244,15 @@ class RuleBasedChatbotActivity : ComponentActivity() {
         data object CloseStopKeyword : InputDecision
         data object CloseFinalAck : InputDecision
     }
-    private fun validateAffirmationMessage(index: Int, text: String): Boolean {
-        val cleanText = text.replace("\\s".toRegex(), "")
+    private fun validateMessage(index: Int, text: String): Boolean {
+        val isValid = AffirmationPrompts.isValidMessage(index, text, state.selectedKeyword)
 
-        when (index) {
-            0 -> {
-                val allowedKeywords = listOf("자제력", "건강", "질서", "끈기", "자기인식", "자기관리", "책임감")
-                val selectedKeyword = cleanText.removeSuffix(".")
-
-                if (!allowedKeywords.contains(selectedKeyword)) {
-                    return false
-                }
-                state.selectedKeyword = selectedKeyword
-            }
-            1 -> {
-                val pattern = "^저는.+[을를]중요하게생각합니다\\.?$".toRegex()
-                if (!pattern.matches(cleanText)) {
-                    return false
-                }
-
-                val savedKeyword = state.selectedKeyword
-                if (savedKeyword != null && !cleanText.contains(savedKeyword)) {
-                    return false
-                }
-            }
-            2 -> {
-                val pattern = "^저는지금스마트폰사용을멈추고.+[을를]하겠습니다\\.?$".toRegex()
-                if (!pattern.matches(cleanText)) {
-                    return false
-                }
-            }
+        if (isValid && index == 0) {
+            val cleanText = text.replace("\\s".toRegex(), "")
+            state.selectedKeyword = cleanText.removeSuffix(".")
         }
-        return true
+
+        return isValid
     }
     private fun validateInput(index: Int, text: String): InputDecision? {
         if (text.isEmpty()) return null
@@ -282,7 +262,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
             Logger.d("❌ Not user's turn")
             return null
         }
-        if(!validateAffirmationMessage(index, text)) {
+        if(!validateMessage(index, text)) {
             return null
         }
         return InputDecision.Accept
@@ -292,8 +272,8 @@ class RuleBasedChatbotActivity : ComponentActivity() {
         val text = etMessage.text?.toString()?.trim().orEmpty()
         btnSend.isEnabled = when {
             !state.isUserTurn -> false
-            state.finalMessageShown -> text.isNotEmpty()
-            else -> validateAffirmationMessage(index, text)
+            state.finalMessageShown -> false
+            else -> validateMessage(index, text)
         }
         if (btnSend.isEnabled) {
             btnSend.backgroundTintList = android.content.res.ColorStateList.valueOf(

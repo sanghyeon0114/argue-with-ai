@@ -27,6 +27,7 @@ import com.p4c.arguewithai.repository.FirestoreChatRepository
 import com.p4c.arguewithai.repository.Sender
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -73,6 +74,7 @@ class LlmChatbotActivity : ComponentActivity() {
         "지금 이 영상을 보게 된 이유가 떠오르시나요?",
         "지금 보내고 있는 이 시간이 의미 있다고 느껴지시나요?",
         "이 선택이 나중에도 괜찮다고 느껴질까요?",
+        "답변해주셔서 감사합니다. 앱을 종료하겠습니다."
     )
     private val maxIndex: Int = localQuestionsCache.lastIndex
 
@@ -113,23 +115,39 @@ class LlmChatbotActivity : ComponentActivity() {
     // Process Chat Flow
     // ---------------------------
     private fun sendChatbotMessage(prevUserMessage: String) {
-        val typing = addTypingBubble()
         val currentIdx = state.index.coerceIn(0, maxIndex)
-        var message : String = localQuestionsCache[currentIdx]
         lifecycleScope.launch {
-            try {
-                message = getAIText(currentIdx, prevUserMessage)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                appendMessage(Sender.AI, message)
-                removeTypingBubble(typing)
-                if (currentIdx >= maxIndex) {
-                    state.finalMessageShown = true
+            val message = simulateTypingDelay {
+                try {
+                    getAIText(currentIdx, prevUserMessage)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    localQuestionsCache[currentIdx]
                 }
-                state.isUserTurn = true
-                updateSendButtonState()
             }
+            appendMessage(Sender.AI, message)
+            handleTurnTransition(currentIdx)
+        }
+    }
+
+    private suspend fun simulateTypingDelay(fetchAction: suspend () -> String): String {
+        val typing = addTypingBubble()
+        val result = fetchAction()
+        removeTypingBubble(typing)
+        return result
+    }
+
+    private suspend fun handleTurnTransition(currentIdx: Int) {
+        if (currentIdx >= maxIndex) {
+            state.finalMessageShown = true
+            state.isUserTurn = false
+            updateSendButtonState()
+
+            delay(1000)
+            closePrompt(reason = "final_ack")
+        } else {
+            state.isUserTurn = true
+            updateSendButtonState()
         }
     }
 
@@ -149,6 +167,7 @@ class LlmChatbotActivity : ComponentActivity() {
         val chatPrompt: String = when(currentIdx) {
             0 -> JustificationPrompts.firstTextPrompt()
             1 -> JustificationPrompts.secondTextPrompt(prevMessage)
+            2 -> JustificationPrompts.thirdTextPrompt(prevMessage)
             else -> JustificationPrompts.finalTextPrompt()
         }
 

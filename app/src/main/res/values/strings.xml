@@ -25,4 +25,5 @@
 
     <string name="example_message">Example message</string>
     <string name="example_time">10s</string>
+    <string name="page">1/3</string>
 </resources>

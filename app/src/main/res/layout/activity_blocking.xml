@@ -51,5 +51,14 @@
             android:text="@string/example_time"
             android:textColor="#999999"
             android:textSize="18sp" />
+
+        <TextView
+            android:id="@+id/tvMessagePage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/page"
+            android:textColor="#999999"
+            android:textSize="18sp" />
     </LinearLayout>
 </LinearLayout>

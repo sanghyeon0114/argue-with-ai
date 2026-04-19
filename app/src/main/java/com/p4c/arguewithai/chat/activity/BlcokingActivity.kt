@@ -11,6 +11,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.p4c.arguewithai.R
+import com.p4c.arguewithai.chat.prompts.AffirmationPrompts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -19,6 +20,8 @@ object BlockingActivityStatus {
 }
 
 class BlockingActivity : ComponentActivity() {
+    val countPage: Int = 3
+    val secondPerPage: Int = 5
 
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,6 +32,7 @@ class BlockingActivity : ComponentActivity() {
         hideSystemUI()
 
         val tvCenterMessage = findViewById<TextView>(R.id.tvCenterMessage)
+        val tvMessagePage = findViewById<TextView>(R.id.tvMessagePage)
         val tvMessageTime = findViewById<TextView>(R.id.tvMessageTime)
 
         tvCenterMessage.text = "지금 이 영상을 보게 된 이유가 무엇인지 생각해보세요."
@@ -39,9 +43,14 @@ class BlockingActivity : ComponentActivity() {
         })
 
         lifecycleScope.launch {
-            for (i in 10 downTo 1) {
-                tvMessageTime.text = "${i}s"
-                delay(1000L)
+            for (page in 1..countPage) {
+                tvCenterMessage.text = AffirmationPrompts.getPrompt(page-1)
+
+                for (i in secondPerPage downTo 1) {
+                    tvMessageTime.text = "${i}s"
+                    tvMessagePage.text = "${page}/3"
+                    delay(1000L)
+                }
             }
             finish()
         }
