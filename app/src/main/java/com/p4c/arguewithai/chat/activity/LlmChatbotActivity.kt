@@ -173,14 +173,31 @@ class LlmChatbotActivity : ComponentActivity() {
 
         return getAITextToLLM(chatPrompt)
     }
-     private suspend fun getAITextToLLM(prompt: String): String {
-        val response = aiClient.generateText(prompt, messageList)
-         val raw = response.text ?: return localQuestionsCache[state.index]
-         return runCatching {
-             JSONObject(raw).getString("text")
-         }.getOrElse {
-             localQuestionsCache[state.index]
-         }
+    private suspend fun getAITextToLLM(prompt: String): String {
+        return try {
+            Logger.d("AI 호출 시작 - Prompt: $prompt")
+
+            // 여기서 멈춘다면 aiClient 내부 설정(백엔드/인증) 문제임
+            val response = aiClient.generateText(prompt, messageList)
+
+            val raw = response.text
+            Logger.d("AI Raw Response: $raw")
+
+            if (raw == null) {
+                Logger.e("AI 응답이 null입니다.")
+                return localQuestionsCache[state.index]
+            }
+
+            // JSON이 아닌 일반 텍스트로 올 경우를 대비
+            if (raw.trim().startsWith("{")) {
+                JSONObject(raw).getString("text")
+            } else {
+                raw
+            }
+        } catch (e: Exception) {
+            Logger.e("AI 호출 중 치명적 에러 발생", e)
+            localQuestionsCache[state.index]
+        }
     }
 
     // ---------------------------

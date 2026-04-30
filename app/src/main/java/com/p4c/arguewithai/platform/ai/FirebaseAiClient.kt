@@ -8,12 +8,10 @@ import com.google.firebase.ai.type.GenerateContentResponse
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.generationConfig
 import com.google.firebase.ai.type.thinkingConfig
-import com.p4c.arguewithai.utils.Logger
-import org.json.JSONObject
 
 class FirebaseAiClient(
     private val modelName: String = "gemini-2.5-flash",
-    private val backend: GenerativeBackend = GenerativeBackend.googleAI()
+    private val backend: GenerativeBackend = GenerativeBackend.vertexAI(),
 ) {
     private val textPromptConfig = generationConfig {
         thinkingConfig = thinkingConfig { thinkingBudget = 0 }
