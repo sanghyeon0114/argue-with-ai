@@ -117,8 +117,8 @@ class LlmChatbotActivity : ComponentActivity() {
                 state.currentUserMessage = state.currentUserMessage.copy(score = response.score)
                 saveScoreInFirebase(response.score, currentOrder)
 
-                if (currentIdx >= maxIndex) { state.finalMessageShown = true }
                 if(response.score) { state.index = (state.index + 1).coerceAtMost(maxIndex) }
+                if (state.index >= maxIndex) { state.finalMessageShown = true }
 
                 state.order++
                 showMessage(Sender.AI, response.text, state.order, state.index)
@@ -127,6 +127,21 @@ class LlmChatbotActivity : ComponentActivity() {
             } catch (_: Exception) {
                 showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
             }
+        }
+    }
+
+    private suspend fun sendFinalChatbotMessage() {
+        try {
+            val currentIdx = state.index.coerceIn(0, maxIndex)
+
+            val response = getChatbotMessage { getJustificationResponse(currentIdx, "") }
+            state.currentUserMessage = state.currentUserMessage.copy(score = response.score)
+            saveScoreInFirebase(response.score, state.order)
+
+            state.order++
+            showMessage(Sender.AI, response.text, state.order, state.index)
+        } catch (_: Exception) {
+            showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
         }
     }
 
@@ -153,7 +168,10 @@ class LlmChatbotActivity : ComponentActivity() {
             state.isUserTurn = false
             updateSendButtonState()
 
-            delay(1500)
+            delay(500)
+            sendFinalChatbotMessage()
+
+            delay(3000)
             closePrompt(reason = "final_ack")
         } else {
             state.isUserTurn = true
