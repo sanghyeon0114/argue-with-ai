@@ -86,9 +86,11 @@ class LlmChatbotActivity : ComponentActivity() {
     // ---------------------------
     private fun sendUserMessage(currentMessage: String) {
         if (!state.isUserTurn) return
+        state.isUserTurn = false
+        updateSendButtonState()
+
         showMessage(Sender.USER, currentMessage, state.order, state.index)
         state.currentUserMessage = state.currentUserMessage.copy(text = currentMessage)
-        updateSendButtonState()
         sendChatbotMessage()
     }
 
@@ -98,6 +100,7 @@ class LlmChatbotActivity : ComponentActivity() {
                 val response = getChatbotMessage { getFirstJustificationResponse() }
                 showMessage(Sender.CHATBOT, response.text, state.order, state.index)
                 state.isUserTurn = true
+                handleTurnTransition()
             } catch (_: Exception) {
                 showMessage(Sender.CHATBOT, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
             }
@@ -344,7 +347,7 @@ class LlmChatbotActivity : ComponentActivity() {
         btnSend.isEnabled = when {
             !state.isUserTurn -> false
             state.finalMessageShown -> text.isNotEmpty()
-            else -> true
+            else -> text.isNotEmpty()
         }
         if (btnSend.isEnabled) {
             btnSend.backgroundTintList = android.content.res.ColorStateList.valueOf(

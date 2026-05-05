@@ -4,7 +4,6 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -50,7 +49,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // 1. 여기서 우리가 만든 XML 화면을 연결합니다!
         setContentView(R.layout.activity_settings)
 
         Logger.setLoggerEnabled(true)
@@ -70,7 +68,6 @@ class MainActivity : ComponentActivity() {
             .addOnSuccessListener {
                 Logger.d("✅[Firebase] Logged in: ${it.user?.uid}")
 
-                // 2. XML 뷰들을 찾아 클릭 이벤트 등을 연결하는 함수 호출
                 setupViews()
 
                 uiScope.launch(Dispatchers.IO) {
@@ -134,7 +131,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // --- 기존의 복잡했던 setView()를 대체하는 새 함수 ---
     private fun setupViews() {
         // [1. 이름 설정]
         val etNameInput = findViewById<EditText>(R.id.etNameInput)
@@ -216,7 +212,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 이름 입력란과 표시란의 Visibility(숨김/보임)를 교체하는 로직
     private fun renderNameDisplay(name: String) {
         findViewById<LinearLayout>(R.id.layoutNameInput).visibility = View.GONE
         findViewById<LinearLayout>(R.id.layoutNameDisplay).visibility = View.VISIBLE
@@ -241,7 +236,6 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
-    // --- 아래는 기존 유틸리티 함수들 (변경 없음) ---
     private fun serviceStatusText(): String {
         return if (isMyAccessibilityServiceEnabled()) {
             "상태: 활성화됨 ✅"
@@ -295,23 +289,19 @@ class MainActivity : ComponentActivity() {
     }
 
     fun openPipSettingsForApp(context: Context, packageName: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val intent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS").apply {
-                    data = "package:$packageName".toUri()
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (_: Exception) {
-                val fallback = Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    "package:$packageName".toUri()
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(fallback)
-                Toast.makeText(context, "PIP 설정 화면을 열 수 없어 앱 설정으로 이동합니다.", Toast.LENGTH_SHORT).show()
+        try {
+            val intent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS").apply {
+                data = "package:$packageName".toUri()
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-        } else {
-            Toast.makeText(context, "PIP는 Android 8.0 이상에서만 지원됩니다.", Toast.LENGTH_SHORT).show()
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            val fallback = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                "package:$packageName".toUri()
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(fallback)
+            Toast.makeText(context, "PIP 설정 화면을 열 수 없어 앱 설정으로 이동합니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
