@@ -6,45 +6,32 @@ import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.GenerateContentResponse
 import com.google.firebase.ai.type.GenerativeBackend
+import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
 import com.google.firebase.ai.type.thinkingConfig
 
 class FirebaseAiClient(
+    private val systemInstruction: String,
     private val modelName: String = "gemini-2.5-flash",
     private val backend: GenerativeBackend = GenerativeBackend.vertexAI(),
 ) {
-    private val textPromptConfig = generationConfig {
+    private val combinedConfig = generationConfig {
         thinkingConfig = thinkingConfig { thinkingBudget = 0 }
-        maxOutputTokens = 200
+        maxOutputTokens = 300
         responseMimeType = "application/json"
-        responseSchema = ChatContract.textSchema
-    }
-    private val scoringPromptConfig = generationConfig {
-        thinkingConfig = thinkingConfig { thinkingBudget = 0 }
-        maxOutputTokens = 200
-        responseMimeType = "application/json"
-        responseSchema = ChatContract.scoringSchema
+        responseSchema = ChatContract.schema
     }
 
-    private val textModel: GenerativeModel by lazy {
+    private val model: GenerativeModel by lazy {
         Firebase.ai(backend = backend).generativeModel(
             modelName = modelName,
-            generationConfig = textPromptConfig
-        )
-    }
-    private val scoringModel: GenerativeModel by lazy {
-        Firebase.ai(backend = backend).generativeModel(
-            modelName = modelName,
-            generationConfig = scoringPromptConfig
+            generationConfig = combinedConfig,
+            systemInstruction = content { text(systemInstruction) }
         )
     }
 
-    suspend fun generateText(prompt: String, history: List<Content>): GenerateContentResponse {
-        val chat = textModel.startChat(history = history)
-        return chat.sendMessage(prompt)
-    }
-    suspend fun generateScore(prompt: String): GenerateContentResponse {
-        val chat = scoringModel.startChat()
+    suspend fun generateResponse(prompt: String, history: List<Content>): GenerateContentResponse {
+        val chat = model.startChat(history = history)
         return chat.sendMessage(prompt)
     }
 }

@@ -8,20 +8,13 @@ object ChatContract {
 
     data class Type(
         val text: String,
-        val score: Int
+        val score: Boolean
     )
 
-    val textSchema: FbSchema = FbSchema.obj(
+    val schema: FbSchema = FbSchema.obj(
         mapOf(
-            FIELD_TEXT to FbSchema.string()
-        )
-    )
-    val scoringSchema: FbSchema = FbSchema.obj(
-        mapOf(
-            FIELD_SCORE to FbSchema.integer(
-                minimum = -3.0,
-                maximum = 3.0
-            )
+            FIELD_TEXT to FbSchema.string(description = "사용자에게 줄 대답"),
+            FIELD_SCORE to FbSchema.boolean(description = "사용자의 답변이 정답/논리적인지 여부")
         )
     )
 }

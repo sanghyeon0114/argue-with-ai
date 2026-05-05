@@ -20,6 +20,7 @@ import com.p4c.arguewithai.chat.ChatAdapter
 import com.p4c.arguewithai.chat.Message
 import com.p4c.arguewithai.chat.prompts.JustificationPrompts
 import com.p4c.arguewithai.chat.ui.*
+import com.p4c.arguewithai.platform.ai.ChatContract
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
 import com.p4c.arguewithai.repository.ChatMessage
 import com.p4c.arguewithai.repository.ExitMethod
@@ -40,7 +41,7 @@ private data class LlmChatbotState(
     var finalMessageShown: Boolean = false,
     var hasSentResult: Boolean = false,
     var index: Int = 0,
-    var prevMessage: String? = null
+    var currentUserMessage: ChatContract.Type = ChatContract.Type("", false)
 )
 
 class LlmChatbotActivity : ComponentActivity() {
@@ -52,7 +53,7 @@ class LlmChatbotActivity : ComponentActivity() {
     private lateinit var adapter: ChatAdapter
 
     private val messages = mutableListOf<Message>()
-    private val messageList = mutableListOf<Content>()
+    private val _chatHistory = mutableListOf<Content>()
 
     private val repo = FirestoreChatRepository()
 
@@ -68,45 +69,64 @@ class LlmChatbotActivity : ComponentActivity() {
             intent.getParcelableExtra("receiver")
         }
     }
-    private val aiClient = FirebaseAiClient()
+    private val aiClient = FirebaseAiClient(JustificationPrompts.SYSTEM_PROMPT)
 
-    private var localQuestionsCache: MutableList<String> = mutableListOf(
-        "지금 이 영상을 보게 된 이유가 떠오르시나요?",
-        "지금 보내고 있는 이 시간이 의미 있다고 느껴지시나요?",
-        "이 선택이 나중에도 괜찮다고 느껴질까요?",
-        "답변해주셔서 감사합니다. 앱을 종료하겠습니다."
-    )
-    private val maxIndex: Int = localQuestionsCache.lastIndex
+    private val maxIndex: Int = 3
 
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
         LlmChatbotActivityStatus.isOpen = true
-        preloadLocalQuestions()
         setupUI()
-        sendChatbotMessage("")
+        sendFirstChatbotMessage()
+    }
+    // ---------------------------
+    // Basic Code
+    // ---------------------------
+    private fun sendUserMessage(currentMessage: String) {
+        if (!state.isUserTurn) return
+        Logger.d("[USER]채팅 입력 시작")
+        showMessage(Sender.USER, currentMessage)
+        state.currentUserMessage = state.currentUserMessage.copy(text = currentMessage)
+        updateSendButtonState()
+        sendChatbotMessage()
     }
 
-    // ---------------------------
-    // load Local Question
-    // ---------------------------
-    private fun preloadLocalQuestions() {
-        for (stepIdx in 0 until maxIndex) {
-            runCatching {
-                val fileName = "q${stepIdx + 1}.json"
-                val jsonText = assets.open(fileName)
-                    .bufferedReader(Charsets.UTF_8)
-                    .use { it.readText() }
+    private fun sendFirstChatbotMessage() {
+        Logger.d("[First Chatbot Message]챗봇 첫 메세지 시작")
+        lifecycleScope.launch {
+            try {
+                getChatbotMessage { getFirstJustificationResponse() }
+                state.isUserTurn = true
+            } catch (_: Exception) {
+                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.")
+            }
+        }
+    }
 
-                val obj = JSONObject(jsonText)
-                val arr = obj.getJSONArray("messages")
-                if (arr.length() > 0) {
-                    val picked = arr.getString((0 until arr.length()).random())
-                    localQuestionsCache[stepIdx] = picked
+    private fun sendChatbotMessage() {
+        Logger.d("[Chatbot Message]챗봇 응답 시작")
+        lifecycleScope.launch {
+            try {
+                val currentIdx = state.index.coerceIn(0, maxIndex)
+                val currentMessage = state.currentUserMessage
+                val response = getChatbotMessage { getJustificationResponse(currentIdx, currentMessage.text) }
+                if (currentIdx >= maxIndex) {
+                    Logger.d("마지막 메세지")
+                    state.finalMessageShown = true
                 }
-            }.onFailure {
-                it.printStackTrace()
+                state.currentUserMessage = state.currentUserMessage.copy(score = response.score)
+
+                if(currentMessage.score) {
+                    state.index = (state.index + 1).coerceAtMost(maxIndex)
+                    Logger.d("[성찰 됐다고 판단] ${state.index} 단계로 응답했음.")
+                } else {
+                    Logger.d("[성찰 안됐다고 판단] ${state.index} 단계로 응답했음.")
+                }
+                handleTurnTransition()
+            } catch (_: Exception) {
+                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.")
             }
         }
     }
@@ -114,36 +134,29 @@ class LlmChatbotActivity : ComponentActivity() {
     // ---------------------------
     // Process Chat Flow
     // ---------------------------
-    private fun sendChatbotMessage(prevUserMessage: String) {
-        val currentIdx = state.index.coerceIn(0, maxIndex)
-        lifecycleScope.launch {
-            val message = simulateTypingDelay {
-                try {
-                    getAIText(currentIdx, prevUserMessage)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    localQuestionsCache[currentIdx]
-                }
-            }
-            appendMessage(Sender.AI, message)
-            handleTurnTransition(currentIdx)
+    private suspend fun getChatbotMessage(promptFunction: suspend () -> ChatContract.Type): ChatContract.Type {
+        val response: ChatContract.Type = simulateTypingDelay {
+            promptFunction()
         }
+        showMessage(Sender.AI, response.text)
+
+        return response
     }
 
-    private suspend fun simulateTypingDelay(fetchAction: suspend () -> String): String {
+    private suspend fun <T> simulateTypingDelay(fetchAction: suspend () -> T): T {
         val typing = addTypingBubble()
         val result = fetchAction()
         removeTypingBubble(typing)
+
         return result
     }
 
-    private suspend fun handleTurnTransition(currentIdx: Int) {
-        if (currentIdx >= maxIndex) {
-            state.finalMessageShown = true
+    private suspend fun handleTurnTransition() {
+        if (state.finalMessageShown) {
             state.isUserTurn = false
             updateSendButtonState()
 
-            delay(1000)
+            delay(1500)
             closePrompt(reason = "final_ack")
         } else {
             state.isUserTurn = true
@@ -151,53 +164,31 @@ class LlmChatbotActivity : ComponentActivity() {
         }
     }
 
-    private fun sendUserMessage(currentMessage: String) {
-        if (!state.isUserTurn) return
-        appendMessage(Sender.USER, currentMessage)
-        state.isUserTurn =  false
-        state.index = (state.index + 1).coerceAtMost(maxIndex)
-
-        sendChatbotMessage(currentMessage)
-    }
-
     // ---------------------------
     // AI
     // ---------------------------
-    private suspend fun getAIText(currentIdx: Int, prevMessage: String): String {
-        val chatPrompt: String = when(currentIdx) {
-            0 -> JustificationPrompts.firstTextPrompt()
-            1 -> JustificationPrompts.secondTextPrompt(prevMessage)
-            2 -> JustificationPrompts.thirdTextPrompt(prevMessage)
-            else -> JustificationPrompts.finalTextPrompt()
-        }
-
-        return getAITextToLLM(chatPrompt)
+    private suspend fun getFirstJustificationResponse(): ChatContract.Type {
+        val chatPrompt: String = JustificationPrompts.startPrompt()
+        return getChatbotResponse(chatPrompt)
     }
-    private suspend fun getAITextToLLM(prompt: String): String {
-        return try {
-            Logger.d("AI 호출 시작 - Prompt: $prompt")
 
-            // 여기서 멈춘다면 aiClient 내부 설정(백엔드/인증) 문제임
-            val response = aiClient.generateText(prompt, messageList)
+    private suspend fun getJustificationResponse(currentIdx: Int, prevMessage: String): ChatContract.Type {
+        val chatPrompt: String = JustificationPrompts.getPromptByIndex(currentIdx, prevMessage)
+        return getChatbotResponse(chatPrompt)
+    }
 
-            val raw = response.text
-            Logger.d("AI Raw Response: $raw")
-
-            if (raw == null) {
-                Logger.e("AI 응답이 null입니다.")
-                return localQuestionsCache[state.index]
-            }
-
-            // JSON이 아닌 일반 텍스트로 올 경우를 대비
-            if (raw.trim().startsWith("{")) {
-                JSONObject(raw).getString("text")
-            } else {
-                raw
-            }
-        } catch (e: Exception) {
-            Logger.e("AI 호출 중 치명적 에러 발생", e)
-            localQuestionsCache[state.index]
-        }
+     private suspend fun getChatbotResponse(prompt: String): ChatContract.Type {
+        val response = aiClient.generateResponse(prompt, _chatHistory)
+         val raw = response.text ?: return ChatContract.Type("에러가 발생했습니다.", false)
+         return try {
+             val json = JSONObject(raw)
+             ChatContract.Type(
+                 text = json.getString(ChatContract.FIELD_TEXT),
+                 score = json.getBoolean(ChatContract.FIELD_SCORE)
+             )
+         } catch (_: Exception) {
+             ChatContract.Type("데이터 해석 중 오류가 발생했습니다.", false)
+         }
     }
 
     // ---------------------------
@@ -221,12 +212,11 @@ class LlmChatbotActivity : ComponentActivity() {
                 etMessage.setText("")
                 updateSendButtonState()
                 sendUserMessage(text)
-                state.prevMessage = text
             }
         }
     }
 
-    private fun appendMessage(sender: Sender, text: String) {
+    private fun showMessage(sender: Sender, text: String) {
         val prev = messages.lastIndex
         if (prev >= 0) adapter.notifyItemChanged(prev)
 
@@ -242,7 +232,7 @@ class LlmChatbotActivity : ComponentActivity() {
     }
     private fun addMessageInList(sender: Sender, text: String) {
         val role = if (sender == Sender.USER) "user" else "model"
-        messageList.add(content(role = role) { text(text) })
+        _chatHistory.add(content(role = role) { text(text) })
     }
 
     private fun saveChatInFirebase(sender: Sender, text: String, index: Int) {
@@ -324,7 +314,6 @@ class LlmChatbotActivity : ComponentActivity() {
             Logger.d("❌ Not user's turn")
             return null
         }
-        if (text.length < 3) return null
 
         return InputDecision.Accept
     }
@@ -334,7 +323,7 @@ class LlmChatbotActivity : ComponentActivity() {
         btnSend.isEnabled = when {
             !state.isUserTurn -> false
             state.finalMessageShown -> text.isNotEmpty()
-            else -> text.length >= 3
+            else -> true
         }
         if (btnSend.isEnabled) {
             btnSend.backgroundTintList = android.content.res.ColorStateList.valueOf(
