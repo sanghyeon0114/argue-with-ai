@@ -22,10 +22,10 @@ import com.p4c.arguewithai.chat.prompts.JustificationPrompts
 import com.p4c.arguewithai.chat.ui.*
 import com.p4c.arguewithai.platform.ai.ChatContract
 import com.p4c.arguewithai.platform.ai.FirebaseAiClient
-import com.p4c.arguewithai.repository.ChatMessage
-import com.p4c.arguewithai.repository.ExitMethod
-import com.p4c.arguewithai.repository.FirestoreChatRepository
-import com.p4c.arguewithai.repository.Sender
+import com.p4c.arguewithai.repository.intervention.JustificationMessage
+import com.p4c.arguewithai.repository.intervention.ExitMethod
+import com.p4c.arguewithai.repository.intervention.FirestoreJustificationRepository
+import com.p4c.arguewithai.repository.intervention.Sender
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -40,7 +40,8 @@ private data class LlmChatbotState(
     var isUserTurn: Boolean = false,
     var finalMessageShown: Boolean = false,
     var hasSentResult: Boolean = false,
-    var index: Int = 0,
+    var order: Int = 0, // conversation count
+    var index: Int = 0, // question level ( 0, 1, 2, 3 )
     var currentUserMessage: ChatContract.Type = ChatContract.Type("", false)
 )
 
@@ -53,9 +54,10 @@ class LlmChatbotActivity : ComponentActivity() {
     private lateinit var adapter: ChatAdapter
 
     private val messages = mutableListOf<Message>()
+    private val maxIndex: Int = 3
     private val _chatHistory = mutableListOf<Content>()
 
-    private val repo = FirestoreChatRepository()
+    private val repo = FirestoreJustificationRepository()
 
     private var state = LlmChatbotState()
     private val sessionId: String by lazy {
@@ -71,8 +73,6 @@ class LlmChatbotActivity : ComponentActivity() {
     }
     private val aiClient = FirebaseAiClient(JustificationPrompts.SYSTEM_PROMPT)
 
-    private val maxIndex: Int = 3
-
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -87,7 +87,7 @@ class LlmChatbotActivity : ComponentActivity() {
     private fun sendUserMessage(currentMessage: String) {
         if (!state.isUserTurn) return
         Logger.d("[USER]채팅 입력 시작")
-        showMessage(Sender.USER, currentMessage)
+        showMessage(Sender.USER, currentMessage, state.order, state.index)
         state.currentUserMessage = state.currentUserMessage.copy(text = currentMessage)
         updateSendButtonState()
         sendChatbotMessage()
@@ -97,36 +97,35 @@ class LlmChatbotActivity : ComponentActivity() {
         Logger.d("[First Chatbot Message]챗봇 첫 메세지 시작")
         lifecycleScope.launch {
             try {
-                getChatbotMessage { getFirstJustificationResponse() }
+                val response = getChatbotMessage { getFirstJustificationResponse() }
+                showMessage(Sender.AI, response.text, state.order, state.index)
                 state.isUserTurn = true
             } catch (_: Exception) {
-                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.")
+                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
             }
         }
     }
 
     private fun sendChatbotMessage() {
-        Logger.d("[Chatbot Message]챗봇 응답 시작")
         lifecycleScope.launch {
             try {
                 val currentIdx = state.index.coerceIn(0, maxIndex)
+                val currentOrder = state.order
                 val currentMessage = state.currentUserMessage
-                val response = getChatbotMessage { getJustificationResponse(currentIdx, currentMessage.text) }
-                if (currentIdx >= maxIndex) {
-                    Logger.d("마지막 메세지")
-                    state.finalMessageShown = true
-                }
-                state.currentUserMessage = state.currentUserMessage.copy(score = response.score)
 
-                if(currentMessage.score) {
-                    state.index = (state.index + 1).coerceAtMost(maxIndex)
-                    Logger.d("[성찰 됐다고 판단] ${state.index} 단계로 응답했음.")
-                } else {
-                    Logger.d("[성찰 안됐다고 판단] ${state.index} 단계로 응답했음.")
-                }
+                val response = getChatbotMessage { getJustificationResponse(currentIdx, currentMessage.text) }
+                state.currentUserMessage = state.currentUserMessage.copy(score = response.score)
+                saveScoreInFirebase(response.score, currentOrder)
+
+                if (currentIdx >= maxIndex) { state.finalMessageShown = true }
+                if(response.score) { state.index = (state.index + 1).coerceAtMost(maxIndex) }
+
+                state.order++
+                showMessage(Sender.AI, response.text, state.order, state.index)
+
                 handleTurnTransition()
             } catch (_: Exception) {
-                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.")
+                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
             }
         }
     }
@@ -138,8 +137,6 @@ class LlmChatbotActivity : ComponentActivity() {
         val response: ChatContract.Type = simulateTypingDelay {
             promptFunction()
         }
-        showMessage(Sender.AI, response.text)
-
         return response
     }
 
@@ -216,7 +213,7 @@ class LlmChatbotActivity : ComponentActivity() {
         }
     }
 
-    private fun showMessage(sender: Sender, text: String) {
+    private fun showMessage(sender: Sender, text: String, order: Int, questionIdx: Int) {
         val prev = messages.lastIndex
         if (prev >= 0) adapter.notifyItemChanged(prev)
 
@@ -227,21 +224,29 @@ class LlmChatbotActivity : ComponentActivity() {
         adapter.notifyItemInserted(messages.lastIndex)
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
 
-        val index = (messages.size - 1) / 2
-        saveChatInFirebase(sender, text, index)
+        saveChatInFirebase(sender, text, order, questionIdx)
     }
     private fun addMessageInList(sender: Sender, text: String) {
         val role = if (sender == Sender.USER) "user" else "model"
         _chatHistory.add(content(role = role) { text(text) })
     }
 
-    private fun saveChatInFirebase(sender: Sender, text: String, index: Int) {
+    private fun saveChatInFirebase(sender: Sender, text: String, order: Int, questionIdx: Int) {
         lifecycleScope.launch(Dispatchers.Main) {
             runCatching {
-                repo.appendMessage(
-                    ChatMessage(sessionId = sessionId, sender = sender, text = text),
-                    index
+                repo.updateMessage(
+                    JustificationMessage(sessionId = sessionId, sender = sender, text = text),
+                    order,
+                    questionIdx
                 )
+            }.onFailure { it.printStackTrace() }
+        }
+    }
+
+    private fun saveScoreInFirebase(score: Boolean, index: Int) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching {
+                repo.updateScore(sessionId, index, score)
             }.onFailure { it.printStackTrace() }
         }
     }

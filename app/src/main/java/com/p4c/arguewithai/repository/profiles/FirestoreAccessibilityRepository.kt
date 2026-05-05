@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.repository
+package com.p4c.arguewithai.repository.profiles
 
 import android.os.Build
 import com.p4c.arguewithai.utils.SystemTimeProvider
@@ -7,6 +7,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.p4c.arguewithai.repository.FirebaseConfig
 import java.util.Date
 
 class FirestoreAccessibilityRepository (
@@ -20,8 +21,8 @@ class FirestoreAccessibilityRepository (
 
         val docRef = db.collection(FirebaseConfig.ROOT_COLLECTION)
             .document(uid())
-            .collection(FirebaseConfig.User.CLIENT)
-            .document(FirebaseConfig.User.Client.ACCESSIBILITY)
+            .collection(FirebaseConfig.User.PROFILES)
+            .document(FirebaseConfig.User.Profiles.ACCESSIBILITY)
 
         val data = hashMapOf(
             "accessibilityEnabled" to enabled,

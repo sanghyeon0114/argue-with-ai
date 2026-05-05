@@ -19,10 +19,10 @@ import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ChatAdapter
 import com.p4c.arguewithai.chat.Message
 import com.p4c.arguewithai.chat.ui.*
-import com.p4c.arguewithai.repository.ChatMessage
-import com.p4c.arguewithai.repository.ExitMethod
-import com.p4c.arguewithai.repository.FirestoreChatRepository
-import com.p4c.arguewithai.repository.Sender
+import com.p4c.arguewithai.repository.intervention.AffirmationMessage
+import com.p4c.arguewithai.repository.intervention.ExitMethod
+import com.p4c.arguewithai.repository.intervention.FirestoreAffirmationRepository
+import com.p4c.arguewithai.repository.intervention.Sender
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -53,7 +53,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     private val messages = mutableListOf<Message>()
     private val messageList = mutableListOf<Content>()
 
-    private val repo = FirestoreChatRepository()
+    private val repo = FirestoreAffirmationRepository()
 
     private var state = RuleBasedChatbotState()
     private val sessionId: String by lazy {
@@ -174,8 +174,8 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     private fun saveChatInFirebase(sender: Sender, text: String, index: Int) {
         lifecycleScope.launch(Dispatchers.Main) {
             runCatching {
-                repo.appendMessage(
-                    ChatMessage(sessionId = sessionId, sender = sender, text = text),
+                repo.updateMessage(
+                    AffirmationMessage(sessionId = sessionId, sender = sender, text = text),
                     index
                 )
             }.onFailure { it.printStackTrace() }

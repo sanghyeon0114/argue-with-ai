@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.repository
+package com.p4c.arguewithai.repository.profiles
 
 import android.content.Context
 import android.net.ConnectivityManager
@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
+import com.p4c.arguewithai.repository.FirebaseConfig
 import kotlinx.coroutines.tasks.await
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
@@ -24,7 +25,7 @@ class FirestoreInterventionRepository(
     private fun interventionDoc() =
         db.collection(FirebaseConfig.ROOT_COLLECTION)
             .document(uid())
-            .collection(FirebaseConfig.User.CLIENT)
+            .collection(FirebaseConfig.User.PROFILES)
             .document("intervention")
 
     private fun interventionHistoryCollection() =

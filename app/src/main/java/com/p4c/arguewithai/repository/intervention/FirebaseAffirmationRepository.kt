@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.repository
+package com.p4c.arguewithai.repository.intervention
 
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
@@ -6,17 +6,10 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.p4c.arguewithai.repository.FirebaseConfig
 import kotlinx.coroutines.tasks.await
 
-enum class Sender {
-    AI,
-    USER,
-    NONE
-}
-
-enum class ExitMethod { BUTTON, NAV_BAR }
-
-data class ChatMessage(
+data class AffirmationMessage(
     val sessionId: String = "",
     val sender: Sender = Sender.NONE,
     val text: String = "",
@@ -24,7 +17,7 @@ data class ChatMessage(
     val createdAt: Timestamp? = null
 )
 
-class FirestoreChatRepository(
+class FirestoreAffirmationRepository(
     private val time: TimeProvider = SystemTimeProvider()
 ) {
     private val db = FirebaseFirestore.getInstance()
@@ -35,19 +28,19 @@ class FirestoreChatRepository(
     private fun userRoot() = db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
 
     private fun chatSessionDoc(sessionId: String) =
-        userRoot().collection(FirebaseConfig.User.CHAT).document(sessionId)
+        userRoot().collection(FirebaseConfig.User.AFFIRMATION).document(sessionId)
 
     private fun chatMessagesCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Chat.MESSAGES)
+        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.MESSAGES)
 
     private fun chatExitCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Chat.EXIT)
+        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.EXIT)
 
-    suspend fun appendMessage(msg: ChatMessage, order: Int) {
+    suspend fun updateMessage(msg: AffirmationMessage, order: Int) {
         val docId = order.toString()
         val ms = time.nowMs()
 
-        val payload = hashMapOf(
+        val payload = hashMapOf<String, Any>(
             "updatedAt" to ms,
             "updatedAtMs" to time.dayUTC(ms)
         )
@@ -87,20 +80,4 @@ class FirestoreChatRepository(
         chatExitCol(sessionId).document(ms.toString()).set(data).await()
     }
 
-    suspend fun updateScore(
-        sessionId: String,
-        order: Int,
-        deltaScore: Int,
-        totalScore: Int
-    ) {
-        val data = hashMapOf(
-            "scoreDelta" to deltaScore,
-            "totalScore" to totalScore
-        )
-
-        chatMessagesCol(sessionId)
-            .document(order.toString())
-            .set(data, SetOptions.merge())
-            .await()
-    }
 }

@@ -1,9 +1,10 @@
-package com.p4c.arguewithai.repository
+package com.p4c.arguewithai.repository.profiles
 
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import java.util.*
+import com.p4c.arguewithai.repository.FirebaseConfig
+import java.util.Date
 
 class FirestoreUserRepository {
     private val db = FirebaseFirestore.getInstance()
@@ -14,7 +15,7 @@ class FirestoreUserRepository {
     fun setUserName(name: String, onResult: (Boolean) -> Unit = {}) {
         val docRef = db.collection(FirebaseConfig.ROOT_COLLECTION)
             .document(uid())
-            .collection("profile")
+            .collection("profiles")
             .document("userInfo")
 
         val data = mapOf(

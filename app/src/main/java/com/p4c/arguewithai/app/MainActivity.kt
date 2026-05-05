@@ -22,9 +22,9 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.platform.accessibility.MyAccessibilityService
-import com.p4c.arguewithai.repository.FirestoreAccessibilityRepository
-import com.p4c.arguewithai.repository.FirestoreInterventionRepository
-import com.p4c.arguewithai.repository.FirestoreUserRepository
+import com.p4c.arguewithai.repository.profiles.FirestoreAccessibilityRepository
+import com.p4c.arguewithai.repository.profiles.FirestoreInterventionRepository
+import com.p4c.arguewithai.repository.profiles.FirestoreUserRepository
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

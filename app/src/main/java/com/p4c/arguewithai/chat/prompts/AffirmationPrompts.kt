@@ -4,7 +4,7 @@ object AffirmationPrompts {
     val keyword: List<String> = listOf("자제력", "건강", "질서", "끈기", "자기인식", "자기관리", "책임감")
     val templateValue: List<String> = listOf(
         "나는 ____을(를) 중요하게 생각합니다.",
-        "____는 나에게 중요합니다.",
+        "____은(는) 나에게 중요합니다.",
         "나는 ____이(가) 중요하다고 생각합니다.",
         "나는 내가 ____을(를) 중요하게 여기는 사람이라고 생각합니다."
     )
