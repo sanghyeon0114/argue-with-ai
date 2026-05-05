@@ -1,7 +1,7 @@
 package com.p4c.arguewithai.repository.intervention
 
 enum class Sender {
-    AI,
+    CHATBOT,
     USER,
     NONE
 }

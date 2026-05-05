@@ -92,7 +92,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             simulateTypingDelay()
-            appendMessage(Sender.AI, message)
+            appendMessage(Sender.CHATBOT, message)
             handleTurnTransition(currentIdx)
         }
     }

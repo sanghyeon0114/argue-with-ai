@@ -8,16 +8,16 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.p4c.arguewithai.repository.FirebaseConfig
 import kotlinx.coroutines.tasks.await
-data class JustificationMessage(
+
+data class AffirmationMessage(
     val sessionId: String = "",
     val sender: Sender = Sender.NONE,
     val text: String = "",
-    val score: Boolean? = null,
     val createdAtMs: Long = System.currentTimeMillis(),
     val createdAt: Timestamp? = null
 )
 
-class FirestoreJustificationRepository(
+class FirestoreAffirmationRepository(
     private val time: TimeProvider = SystemTimeProvider()
 ) {
     private val db = FirebaseFirestore.getInstance()
@@ -28,15 +28,15 @@ class FirestoreJustificationRepository(
     private fun userRoot() = db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
 
     private fun chatSessionDoc(sessionId: String) =
-        userRoot().collection(FirebaseConfig.User.JUSTIFICATION).document(sessionId)
+        userRoot().collection(FirebaseConfig.User.AFFIRMATION).document(sessionId)
 
     private fun chatMessagesCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Justification.MESSAGES)
+        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.MESSAGES)
 
     private fun chatExitCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Justification.EXIT)
+        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.EXIT)
 
-    suspend fun updateMessage(msg: JustificationMessage, order: Int, questionIdx: Int) {
+    suspend fun updateMessage(msg: AffirmationMessage, order: Int) {
         val docId = order.toString()
         val ms = time.nowMs()
 
@@ -48,8 +48,6 @@ class FirestoreJustificationRepository(
         when (msg.sender) {
             Sender.CHATBOT -> {
                 payload["question"] = msg.text
-                payload["order"] = order
-                payload["questionIdx"] = questionIdx
             }
             Sender.USER -> {
                 payload["answer"] = msg.text
@@ -58,19 +56,6 @@ class FirestoreJustificationRepository(
         }
 
         chatMessagesCol(msg.sessionId)
-            .document(docId)
-            .set(payload, SetOptions.merge())
-            .await()
-    }
-
-    suspend fun updateScore(sessionId: String, order: Int, score: Boolean) {
-        val docId = order.toString()
-
-        val payload = hashMapOf<String, Any>(
-            FirebaseConfig.User.Justification.SCORE to score,
-        )
-
-        chatMessagesCol(sessionId)
             .document(docId)
             .set(payload, SetOptions.merge())
             .await()

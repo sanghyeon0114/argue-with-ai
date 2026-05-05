@@ -9,15 +9,14 @@ import com.google.firebase.firestore.SetOptions
 import com.p4c.arguewithai.repository.FirebaseConfig
 import kotlinx.coroutines.tasks.await
 
-data class AffirmationMessage(
+data class BlockingMessage(
     val sessionId: String = "",
-    val sender: Sender = Sender.NONE,
     val text: String = "",
     val createdAtMs: Long = System.currentTimeMillis(),
     val createdAt: Timestamp? = null
 )
 
-class FirestoreAffirmationRepository(
+class FirestoreBlockingRepository(
     private val time: TimeProvider = SystemTimeProvider()
 ) {
     private val db = FirebaseFirestore.getInstance()
@@ -28,15 +27,12 @@ class FirestoreAffirmationRepository(
     private fun userRoot() = db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
 
     private fun chatSessionDoc(sessionId: String) =
-        userRoot().collection(FirebaseConfig.User.AFFIRMATION).document(sessionId)
+        userRoot().collection(FirebaseConfig.User.BLOCKING).document(sessionId)
 
     private fun chatMessagesCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.MESSAGES)
+        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Blocking.MESSAGES)
 
-    private fun chatExitCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.EXIT)
-
-    suspend fun updateMessage(msg: AffirmationMessage, order: Int) {
+    suspend fun updateMessage(msg: BlockingMessage, order: Int) {
         val docId = order.toString()
         val ms = time.nowMs()
 
@@ -45,39 +41,11 @@ class FirestoreAffirmationRepository(
             "updatedAtMs" to time.dayUTC(ms)
         )
 
-        when (msg.sender) {
-            Sender.AI -> {
-                payload["question"] = msg.text
-                payload["order"] = order
-            }
-            Sender.USER -> {
-                payload["answer"] = msg.text
-            }
-            else -> Unit
-        }
+        payload["message"] = msg.text
 
         chatMessagesCol(msg.sessionId)
             .document(docId)
             .set(payload, SetOptions.merge())
             .await()
     }
-
-    suspend fun logExit(
-        sessionId: String,
-        finished: Boolean,
-        method: ExitMethod,
-        note: String? = null
-    ) {
-        val ms = time.nowMs()
-        val data = hashMapOf(
-            "finished" to finished,
-            "method" to method.name,
-            "note" to note,
-            "atMs" to ms,
-            "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
-        )
-
-        chatExitCol(sessionId).document(ms.toString()).set(data).await()
-    }
-
 }

@@ -31,7 +31,7 @@ class FirestoreUserRepository {
     fun getUserName(onResult: (String?) -> Unit) {
         val docRef = db.collection(FirebaseConfig.ROOT_COLLECTION)
             .document(uid())
-            .collection("profile")
+            .collection("profiles")
             .document("userInfo")
 
         docRef.get()

@@ -12,6 +12,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.prompts.AffirmationPrompts
+import com.p4c.arguewithai.repository.intervention.BlockingMessage
+import com.p4c.arguewithai.repository.intervention.FirestoreBlockingRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -21,7 +24,12 @@ object BlockingActivityStatus {
 
 class BlockingActivity : ComponentActivity() {
     val countPage: Int = 3
-    val secondPerPage: Int = 5
+    val secondPerPage: Int = 10
+
+    private val repo = FirestoreBlockingRepository()
+    private val sessionId: String by lazy {
+        intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
+    }
 
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,8 +52,9 @@ class BlockingActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             for (page in 1..countPage) {
-                tvCenterMessage.text = AffirmationPrompts.getPrompt(page-1)
-
+                val currentMessage = AffirmationPrompts.getPrompt(page - 1)
+                tvCenterMessage.text = currentMessage
+                saveBlockingStep(currentMessage, page)
                 for (i in secondPerPage downTo 1) {
                     tvMessageTime.text = "${i}s"
                     tvMessagePage.text = "${page}/3"
@@ -71,5 +80,14 @@ class BlockingActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         BlockingActivityStatus.isOpen = false
+    }
+
+    private fun saveBlockingStep(prompt: String, step: Int) {
+        lifecycleScope.launch {
+            runCatching {
+                val message = BlockingMessage(sessionId, prompt)
+                repo.updateMessage(message, step)
+            }.onFailure { it.printStackTrace() }
+        }
     }
 }

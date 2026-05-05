@@ -86,7 +86,6 @@ class LlmChatbotActivity : ComponentActivity() {
     // ---------------------------
     private fun sendUserMessage(currentMessage: String) {
         if (!state.isUserTurn) return
-        Logger.d("[USER]채팅 입력 시작")
         showMessage(Sender.USER, currentMessage, state.order, state.index)
         state.currentUserMessage = state.currentUserMessage.copy(text = currentMessage)
         updateSendButtonState()
@@ -94,14 +93,13 @@ class LlmChatbotActivity : ComponentActivity() {
     }
 
     private fun sendFirstChatbotMessage() {
-        Logger.d("[First Chatbot Message]챗봇 첫 메세지 시작")
         lifecycleScope.launch {
             try {
                 val response = getChatbotMessage { getFirstJustificationResponse() }
-                showMessage(Sender.AI, response.text, state.order, state.index)
+                showMessage(Sender.CHATBOT, response.text, state.order, state.index)
                 state.isUserTurn = true
             } catch (_: Exception) {
-                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
+                showMessage(Sender.CHATBOT, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
             }
         }
     }
@@ -121,11 +119,11 @@ class LlmChatbotActivity : ComponentActivity() {
                 if (state.index >= maxIndex) { state.finalMessageShown = true }
 
                 state.order++
-                showMessage(Sender.AI, response.text, state.order, state.index)
+                showMessage(Sender.CHATBOT, response.text, state.order, state.index)
 
                 handleTurnTransition()
             } catch (_: Exception) {
-                showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
+                showMessage(Sender.CHATBOT, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
             }
         }
     }
@@ -139,9 +137,9 @@ class LlmChatbotActivity : ComponentActivity() {
             saveScoreInFirebase(response.score, state.order)
 
             state.order++
-            showMessage(Sender.AI, response.text, state.order, state.index)
+            showMessage(Sender.CHATBOT, response.text, state.order, state.index)
         } catch (_: Exception) {
-            showMessage(Sender.AI, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
+            showMessage(Sender.CHATBOT, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
         }
     }
 
