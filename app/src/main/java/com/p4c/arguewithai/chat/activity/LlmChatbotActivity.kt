@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
+import com.google.firebase.ai.type.TextPart
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ChatAdapter
@@ -243,6 +244,7 @@ class LlmChatbotActivity : ComponentActivity() {
         adapter.notifyItemInserted(messages.lastIndex)
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
 
+        //printChatHistory() // DEBUG CODE
         saveChatInFirebase(sender, text, order, questionIdx)
     }
     private fun addMessageInList(sender: Sender, text: String) {
@@ -407,4 +409,26 @@ class LlmChatbotActivity : ComponentActivity() {
         }
         if (isFinishing) LlmChatbotActivityStatus.isOpen = false
     }
+
+//    private fun printChatHistory() {
+//        if (_chatHistory.isEmpty()) {
+//            Logger.d("채팅 기록이 없습니다.")
+//            return
+//        }
+//
+//        Logger.d("-------------------------------")
+//        _chatHistory.forEachIndexed { index, content ->
+//            // content.parts 내의 모든 텍스트 요소를 합칩니다.
+//            val message = content.parts.joinToString(" ") { part ->
+//                when (part) {
+//                    is TextPart -> part.text
+//                    else -> ""
+//                }
+//            }
+//
+//            val role = content.role?.uppercase() ?: "UNKNOWN"
+//            Logger.d("[$index] $role: $message")
+//        }
+//        Logger.d("-------------------------------")
+//    }
 }
