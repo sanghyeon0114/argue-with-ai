@@ -47,4 +47,33 @@ class FirestoreBlockingRepository(
             .set(payload, SetOptions.merge())
             .await()
     }
+    suspend fun logStart(sessionId: String) {
+        val ms = time.nowMs()
+        val data = mapOf(
+            "start" to mapOf(
+                "atMs" to ms,
+                "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+            )
+        )
+        chatSessionDoc(sessionId).set(data, SetOptions.merge()).await()
+    }
+    suspend fun logExit(
+        sessionId: String,
+        finished: Boolean,
+        method: ExitMethod,
+        note: String? = null
+    ) {
+        val ms = time.nowMs()
+        val data = mapOf(
+            "exit" to mapOf(
+                "finished" to finished,
+                "method" to method.name,
+                "note" to note,
+                "atMs" to ms,
+                "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+            )
+        )
+
+        chatSessionDoc(sessionId).set(data, SetOptions.merge()).await()
+    }
 }

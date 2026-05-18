@@ -53,7 +53,16 @@ class FirestoreAffirmationRepository(
             .set(payload, SetOptions.merge())
             .await()
     }
-
+    suspend fun logStart(sessionId: String) {
+        val ms = time.nowMs()
+        val data = mapOf(
+            "start" to mapOf(
+                "atMs" to ms,
+                "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+            )
+        )
+        chatSessionDoc(sessionId).set(data, SetOptions.merge()).await()
+    }
     suspend fun logExit(
         sessionId: String,
         finished: Boolean,

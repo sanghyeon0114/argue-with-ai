@@ -74,6 +74,9 @@ class RuleBasedChatbotActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         RuleBasedChatbotActivityStatus.isOpen = true
         setupUI()
+        lifecycleScope.launch {
+            runCatching { repo.logStart(sessionId) }.onFailure { it.printStackTrace() }
+        }
         sendChatbotMessage()
     }
 
@@ -288,15 +291,13 @@ class RuleBasedChatbotActivity : ComponentActivity() {
 
     private fun exitMethodFor(reason: String): ExitMethod {
         return when (reason) {
-            "user_closed" -> ExitMethod.BUTTON
-            "user_stop_keyword" -> ExitMethod.BUTTON
-            "final_ack" -> ExitMethod.BUTTON
-            else -> ExitMethod.NAV_BAR
+            "final_ack" -> ExitMethod.COMPLETE
+            else -> ExitMethod.BACKGROUND
         }
     }
 
     private fun closePrompt(reason: String = "user_closed", resultCode: Int = RESULT_OK) {
-        val finished = state.finalMessageShown
+        val finished = reason == "final_ack"
         val method = exitMethodFor(reason)
 
         lifecycleScope.launch {

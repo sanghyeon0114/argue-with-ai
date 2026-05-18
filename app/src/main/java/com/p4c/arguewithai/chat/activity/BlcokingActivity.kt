@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.prompts.AffirmationPrompts
 import com.p4c.arguewithai.repository.intervention.BlockingMessage
+import com.p4c.arguewithai.repository.intervention.ExitMethod
 import com.p4c.arguewithai.repository.intervention.FirestoreBlockingRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,22 +32,28 @@ class BlockingActivity : ComponentActivity() {
         intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
     }
 
+    private var finished: Boolean = false
+
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            runCatching { repo.logStart(sessionId) }.onFailure { it.printStackTrace() }
+        }
         BlockingActivityStatus.isOpen = true
         setContentView(R.layout.activity_blocking)
         hideSystemUI()
 
         val tvCenterMessage = findViewById<TextView>(R.id.tvCenterMessage)
-        val tvMessagePage = findViewById<TextView>(R.id.tvMessagePage)
-        val tvMessageTime = findViewById<TextView>(R.id.tvMessageTime)
+        val tvMessagePage   = findViewById<TextView>(R.id.tvMessagePage)
+        val tvMessageTime   = findViewById<TextView>(R.id.tvMessageTime)
 
         tvCenterMessage.text = "지금 이 영상을 보게 된 이유가 무엇인지 생각해보세요."
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                saveExit(finished = false, method = ExitMethod.BACK)
             }
         })
 
@@ -61,9 +68,12 @@ class BlockingActivity : ComponentActivity() {
                     delay(1000L)
                 }
             }
+            finished = true
+            saveExit(finished = true, method = ExitMethod.COMPLETE)
             finish()
         }
     }
+
     private fun hideSystemUI() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).let { controller ->
@@ -80,6 +90,9 @@ class BlockingActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         BlockingActivityStatus.isOpen = false
+        if (!finished) {
+            saveExit(finished = false, method = ExitMethod.BACKGROUND)
+        }
     }
 
     private fun saveBlockingStep(prompt: String, step: Int) {
@@ -87,6 +100,14 @@ class BlockingActivity : ComponentActivity() {
             runCatching {
                 val message = BlockingMessage(sessionId, prompt)
                 repo.updateMessage(message, step)
+            }.onFailure { it.printStackTrace() }
+        }
+    }
+
+    private fun saveExit(finished: Boolean, method: ExitMethod, note: String? = null) {
+        lifecycleScope.launch {
+            runCatching {
+                repo.logExit(sessionId, finished, method, note)
             }.onFailure { it.printStackTrace() }
         }
     }

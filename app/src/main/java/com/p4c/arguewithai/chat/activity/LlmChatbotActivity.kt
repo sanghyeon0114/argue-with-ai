@@ -14,7 +14,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
-import com.google.firebase.ai.type.TextPart
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ChatAdapter
@@ -80,6 +79,9 @@ class LlmChatbotActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         LlmChatbotActivityStatus.isOpen = true
         setupUI()
+        lifecycleScope.launch {
+            runCatching { repo.logStart(sessionId) }.onFailure { it.printStackTrace() }
+        }
         sendFirstChatbotMessage()
     }
     // ---------------------------
@@ -364,10 +366,8 @@ class LlmChatbotActivity : ComponentActivity() {
 
     private fun exitMethodFor(reason: String): ExitMethod {
         return when (reason) {
-            "user_closed" -> ExitMethod.BUTTON
-            "user_stop_keyword" -> ExitMethod.BUTTON
-            "final_ack" -> ExitMethod.BUTTON
-            else -> ExitMethod.NAV_BAR
+            "final_ack" -> ExitMethod.COMPLETE
+            else -> ExitMethod.BACKGROUND
         }
     }
 

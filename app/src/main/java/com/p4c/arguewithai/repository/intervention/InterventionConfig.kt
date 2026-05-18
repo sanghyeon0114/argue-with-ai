@@ -6,4 +6,4 @@ enum class Sender {
     NONE
 }
 
-enum class ExitMethod { BUTTON, NAV_BAR }
+enum class ExitMethod { COMPLETE, BACKGROUND, BACK }
