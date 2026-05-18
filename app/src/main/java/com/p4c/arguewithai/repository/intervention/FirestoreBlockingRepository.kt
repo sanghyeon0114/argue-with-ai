@@ -38,10 +38,9 @@ class FirestoreBlockingRepository(
 
         val payload = hashMapOf<String, Any>(
             "updatedAt" to ms,
-            "updatedAtMs" to time.dayUTC(ms)
+            "updatedAtMs" to time.dayUTC(ms),
+            "message" to msg.text
         )
-
-        payload["message"] = msg.text
 
         chatMessagesCol(msg.sessionId)
             .document(docId)

@@ -8,6 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.p4c.arguewithai.repository.FirebaseConfig
 import kotlinx.coroutines.tasks.await
+
 data class JustificationMessage(
     val sessionId: String = "",
     val sender: Sender = Sender.NONE,
@@ -33,9 +34,6 @@ class FirestoreJustificationRepository(
     private fun chatMessagesCol(sessionId: String) =
         chatSessionDoc(sessionId).collection(FirebaseConfig.User.Justification.MESSAGES)
 
-    private fun chatExitCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Justification.EXIT)
-
     suspend fun updateMessage(msg: JustificationMessage, order: Int, questionIdx: Int) {
         val docId = order.toString()
         val ms = time.nowMs()
@@ -51,9 +49,7 @@ class FirestoreJustificationRepository(
                 payload["order"] = order
                 payload["questionIdx"] = questionIdx
             }
-            Sender.USER -> {
-                payload["answer"] = msg.text
-            }
+            Sender.USER -> payload["answer"] = msg.text
             else -> Unit
         }
 
@@ -64,14 +60,12 @@ class FirestoreJustificationRepository(
     }
 
     suspend fun updateScore(sessionId: String, order: Int, score: Boolean) {
-        val docId = order.toString()
-
         val payload = hashMapOf<String, Any>(
-            FirebaseConfig.User.Justification.SCORE to score,
+            FirebaseConfig.User.Justification.SCORE to score
         )
 
         chatMessagesCol(sessionId)
-            .document(docId)
+            .document(order.toString())
             .set(payload, SetOptions.merge())
             .await()
     }
@@ -83,15 +77,16 @@ class FirestoreJustificationRepository(
         note: String? = null
     ) {
         val ms = time.nowMs()
-        val data = hashMapOf(
-            "finished" to finished,
-            "method" to method.name,
-            "note" to note,
-            "atMs" to ms,
-            "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+        val data = mapOf(
+            "exit" to mapOf(
+                "finished" to finished,
+                "method" to method.name,
+                "note" to note,
+                "atMs" to ms,
+                "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+            )
         )
 
-        chatExitCol(sessionId).document(ms.toString()).set(data).await()
+        chatSessionDoc(sessionId).set(data, SetOptions.merge()).await()
     }
-
 }

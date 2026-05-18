@@ -33,9 +33,6 @@ class FirestoreAffirmationRepository(
     private fun chatMessagesCol(sessionId: String) =
         chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.MESSAGES)
 
-    private fun chatExitCol(sessionId: String) =
-        chatSessionDoc(sessionId).collection(FirebaseConfig.User.Affirmation.EXIT)
-
     suspend fun updateMessage(msg: AffirmationMessage, order: Int) {
         val docId = order.toString()
         val ms = time.nowMs()
@@ -46,12 +43,8 @@ class FirestoreAffirmationRepository(
         )
 
         when (msg.sender) {
-            Sender.CHATBOT -> {
-                payload["question"] = msg.text
-            }
-            Sender.USER -> {
-                payload["answer"] = msg.text
-            }
+            Sender.CHATBOT -> payload["question"] = msg.text
+            Sender.USER -> payload["answer"] = msg.text
             else -> Unit
         }
 
@@ -68,15 +61,16 @@ class FirestoreAffirmationRepository(
         note: String? = null
     ) {
         val ms = time.nowMs()
-        val data = hashMapOf(
-            "finished" to finished,
-            "method" to method.name,
-            "note" to note,
-            "atMs" to ms,
-            "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+        val data = mapOf(
+            "exit" to mapOf(
+                "finished" to finished,
+                "method" to method.name,
+                "note" to note,
+                "atMs" to ms,
+                "at" to Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+            )
         )
 
-        chatExitCol(sessionId).document(ms.toString()).set(data).await()
+        chatSessionDoc(sessionId).set(data, SetOptions.merge()).await()
     }
-
 }
