@@ -10,31 +10,32 @@ import com.google.firebase.firestore.SetOptions
 import com.p4c.arguewithai.repository.FirebaseConfig
 import java.util.Date
 
-class FirestoreAccessibilityRepository (
+class FirestoreAccessibilityRepository(
     private val time: TimeProvider = SystemTimeProvider()
 ) {
     private val db = FirebaseFirestore.getInstance()
     private val auth get() = FirebaseAuth.getInstance()
 
-    private fun uid(): String = auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
+    private fun uid(): String =
+        auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
+
+    private fun userDoc() =
+        db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
+
     fun setAccessibilityEnabled(enabled: Boolean, onResult: (Boolean) -> Unit = {}) {
-
-        val docRef = db.collection(FirebaseConfig.ROOT_COLLECTION)
-            .document(uid())
-            .collection(FirebaseConfig.User.PROFILES)
-            .document(FirebaseConfig.User.Profiles.ACCESSIBILITY)
-
-        val data = hashMapOf(
-            "accessibilityEnabled" to enabled,
-            "updatedAt" to Timestamp(Date(time.nowMs())),
-            "device" to mapOf(
-                "manufacturer" to Build.MANUFACTURER,
-                "model" to Build.MODEL,
-                "sdkInt" to Build.VERSION.SDK_INT
+        val data = mapOf(
+            "accessibility" to mapOf(
+                "enabled" to enabled,
+                "updatedAt" to Timestamp(Date(time.nowMs())),
+                "device" to mapOf(
+                    "manufacturer" to Build.MANUFACTURER,
+                    "model" to Build.MODEL,
+                    "sdkInt" to Build.VERSION.SDK_INT
+                )
             )
         )
 
-        docRef.set(data, SetOptions.merge())
+        userDoc().set(data, SetOptions.merge())
             .addOnSuccessListener { onResult(true) }
             .addOnFailureListener { onResult(false) }
     }

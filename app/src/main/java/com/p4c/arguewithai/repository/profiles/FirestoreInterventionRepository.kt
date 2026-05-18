@@ -22,37 +22,28 @@ class FirestoreInterventionRepository(
     private fun uid(): String =
         auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
 
-    private fun interventionDoc() =
-        db.collection(FirebaseConfig.ROOT_COLLECTION)
-            .document(uid())
-            .collection(FirebaseConfig.User.PROFILES)
-            .document("intervention")
-
-    private fun interventionHistoryCollection() =
-        interventionDoc().collection("history")
+    private fun userDoc() =
+        db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
 
     suspend fun setEnabled(enabled: Boolean) {
         val ms = time.nowMs()
         val ts = Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
 
-        val data = hashMapOf(
-            "enabled" to enabled,
-            "updatedAt" to ts,
-            "updatedAtMs" to ms
+        val data = mapOf(
+            "intervention" to mapOf(
+                "enabled" to enabled,
+                "updatedAt" to ts
+            )
         )
 
-        interventionDoc().set(data, SetOptions.merge()).await()
-
-        val historyData = hashMapOf(
-            "enabled" to enabled,
-            "updatedAt" to ts,
-            "updatedAtMs" to ms
-        )
-        interventionHistoryCollection().add(historyData).await()
+        userDoc().set(data, SetOptions.merge()).await()
     }
+
     suspend fun getEnabledOrNull(): Boolean? {
-        val snap = interventionDoc().get().await()
-        return if (snap.exists()) snap.getBoolean("enabled") else null
+        val snap = userDoc().get().await()
+        @Suppress("UNCHECKED_CAST")
+        val intervention = snap.get("intervention") as? Map<String, Any>
+        return intervention?.get("enabled") as? Boolean
     }
 
     fun Context.isOnline(): Boolean {
@@ -61,16 +52,15 @@ class FirestoreInterventionRepository(
         val caps = cm.getNetworkCapabilities(net) ?: return false
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
+
     suspend fun syncLocalFromRemoteIfExists(context: Context) {
         val user = FirebaseAuth.getInstance().currentUser ?: return
-        val docRef = db.collection("users").document(user.uid)
+        val docRef = db.collection(FirebaseConfig.ROOT_COLLECTION).document(user.uid)
 
         try {
             if (context.isOnline()) {
                 runCatching { db.enableNetwork().await() }
-                runCatching {
-                    docRef.get(Source.SERVER).await()
-                }
+                runCatching { docRef.get(Source.SERVER).await() }
             }
         } catch (_: Exception) {
         }
