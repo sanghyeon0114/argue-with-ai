@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
+import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.chat.activity.BlockingActivity
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
@@ -108,6 +109,7 @@ class ShortFormWatcherManager(
             ) {
                 if (!interventionEnabled) return
                 if (isPromptVisible) return
+                if (!InterventionPrefs.isEnabled(context)) return
 
                 var totalWatchTime = currentTotalWatchTime()
 
@@ -137,6 +139,10 @@ class ShortFormWatcherManager(
     private fun showPrompt() {
         if (isPromptVisible) {
             Logger.d("❌ showPrompt: already visible, skip")
+            return
+        }
+        if (!InterventionPrefs.isEnabled(context)) {
+            Logger.d("❌ showPrompt: intervention disabled, skip")
             return
         }
         isPromptVisible = true
