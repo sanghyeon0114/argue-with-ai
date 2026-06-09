@@ -127,7 +127,7 @@ class ShortFormListener(
                 InstagramScreen.PROFILE
             } else if(isInstagramNoTabSelected(root)) {
                 Logger.d("HOME COLD START")
-                InstagramScreen.HOME
+                InstagramScreen.HOME // HOME이 아니라 별도 처리 필요
             } else {
                 Logger.d("NO")
                 null
