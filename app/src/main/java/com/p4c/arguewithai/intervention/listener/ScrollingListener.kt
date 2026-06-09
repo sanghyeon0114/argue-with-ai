@@ -5,10 +5,19 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.p4c.arguewithai.utils.Logger
 
 enum class ShortFormApp(val pkg: String, val label: String) {
-    YOUTUBE("com.google.android.youtube", "YouTube"),
-    INSTAGRAM("com.instagram.android", "Instagram"),
-    TIKTOK("com.ss.android.ugc.trill", "TikTok"),
-    SYSTEM("com.android.systemui", "system")
+    INSTAGRAM("com.instagram.android", "Instagram")
+}
+
+interface AppScreen {
+    val label: String
+}
+
+enum class InstagramScreen(override val label: String) : AppScreen {
+    HOME("home"),
+    REELS("reels"),
+    DM("dm"),
+    SEARCH("search"),
+    PROFILE("profile")
 }
 
 interface ShortFormCallback {
@@ -32,8 +41,6 @@ class ShortFormListener(
 
     private var lastSeenShortFormAt: Long = 0L
     private var lastTickAt: Long = 0L
-    private var lastRoot: AccessibilityNodeInfo? = null
-    private var lastDumpAt: Long = 0L
 
     fun onEvent(
         event: AccessibilityEvent?,
@@ -46,23 +53,7 @@ class ShortFormListener(
         }
 
         val pkg = event.packageName?.toString()
-
-        if (nowMs - lastDumpAt >= 3000L) {
-//            Logger.d("==== NODE DUMP ====")
-//            root.walkNodes { node ->
-//                val cls = node.className?.toString() ?: return@walkNodes
-//                val id  = node.viewIdResourceName ?: return@walkNodes
-//                Logger.d("[${event.packageName}] $cls | $id")
-//            }
-//            Logger.d("==== END NODE DUMP ====")
-            lastDumpAt = nowMs
-        }
-
-        val detected: ShortFormApp? = if (currentApp == null) {
-            detectEnter(pkg, root)
-        } else {
-            detectApp(pkg, root)
-        }
+        val detected: ShortFormApp? = detectApp(pkg, root)
 
         if (detected != null) {
             lastSeenShortFormAt = nowMs
@@ -72,7 +63,6 @@ class ShortFormListener(
             maybeExitOnInvisibility(nowMs)
         }
     }
-
     private fun handleDetected(app: ShortFormApp, nowMs: Long) {
         if (currentApp == app) return
 
@@ -105,16 +95,6 @@ class ShortFormListener(
     private fun maybeExitOnInvisibility(nowMs: Long) {
         val app = currentApp ?: return
         if (nowMs - lastSeenShortFormAt >= exitGraceMs) {
-
-            lastRoot?.let { root ->
-                Logger.d("==== EXIT NODE DUMP: ${app.label} ====")
-                root.walkNodes { node ->
-                    val cls = node.className?.toString() ?: return@walkNodes
-                    val id  = node.viewIdResourceName ?: return@walkNodes
-                    Logger.d("[${app.pkg}] $cls | $id")
-                }
-                Logger.d("==== END EXIT NODE DUMP ====")
-            }
             callback.onExit(app, enteredAt, nowMs)
             currentApp = null
             pendingApp = null
@@ -122,197 +102,152 @@ class ShortFormListener(
         }
     }
 
-    private fun detectEnter(pkg: String?, root: AccessibilityNodeInfo): ShortFormApp? {
+    private fun detectApp(pkg: String?, root: AccessibilityNodeInfo): ShortFormApp? {
         return when (pkg) {
-            ShortFormApp.YOUTUBE.pkg -> if (isYoutubeISScreen(root)) ShortFormApp.YOUTUBE else null
-            ShortFormApp.INSTAGRAM.pkg -> if (isInstagramISScreen(root)) ShortFormApp.INSTAGRAM else null
-            ShortFormApp.TIKTOK.pkg -> if (isTikTokISScreen(root)) ShortFormApp.TIKTOK else null
+            ShortFormApp.INSTAGRAM.pkg -> if(detectInstagramScreen(pkg, root) == InstagramScreen.HOME || detectInstagramScreen(pkg, root) == InstagramScreen.REELS || detectInstagramScreen(pkg, root) == InstagramScreen.SEARCH) ShortFormApp.INSTAGRAM else null
             else -> null
         }
     }
-
-    private fun detectApp(pkg: String?, root: AccessibilityNodeInfo): ShortFormApp? {
+    private fun detectInstagramScreen(pkg: String?, root: AccessibilityNodeInfo): AppScreen? {
         return when (pkg) {
-            ShortFormApp.YOUTUBE.pkg -> if (isYoutubeISScreen(root)) ShortFormApp.YOUTUBE else null
-            ShortFormApp.INSTAGRAM.pkg -> if (isInstagramISScreen(root)) ShortFormApp.INSTAGRAM else null
-            ShortFormApp.TIKTOK.pkg -> if (isTikTokISScreen(root)) ShortFormApp.TIKTOK else null
-            ShortFormApp.SYSTEM.pkg -> ShortFormApp.SYSTEM
+            ShortFormApp.INSTAGRAM.pkg -> if (isInstagramHomeScreen(root)) {
+                Logger.d("HOME")
+                InstagramScreen.HOME
+            } else if (isInstagramReelsScreen(root)) {
+                Logger.d("REELS")
+                InstagramScreen.REELS
+            } else if (isInstagramDirectScreen(root)) {
+                Logger.d("DM")
+                InstagramScreen.DM
+            } else if (isInstagramSearchScreen(root)) {
+                Logger.d("SEARCH")
+                InstagramScreen.SEARCH
+            } else if (isInstagramProfileScreen(root)) {
+                Logger.d("Profile")
+                InstagramScreen.PROFILE
+            } else if(isInstagramNoTabSelected(root)) {
+                Logger.d("HOME COLD START")
+                InstagramScreen.HOME
+            } else {
+                Logger.d("NO")
+                null
+            }
             else -> null
         }
     }
     companion object {
-        fun isInstagramISScreen(root: AccessibilityNodeInfo): Boolean {
-            return (isInstagramHomeScreen(root) || isInstagramReelsScreen(root) || isInstagramSearchScreen(root))
+        fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
+            if (root == null) return false
+            var isHomeTabSelected = false
+
+            root.walkNodes { node ->
+                val id = node.viewIdResourceName ?: ""
+                if ((id.endsWith("feed_tab") && node.isSelected) ||
+                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("feed_tab") == true)
+                ) {
+                    isHomeTabSelected = true
+                }
+            }
+
+            return isHomeTabSelected
         }
-        fun isYoutubeISScreen(root: AccessibilityNodeInfo): Boolean {
-            var found = 0
+        fun isInstagramReelsScreen(root: AccessibilityNodeInfo?): Boolean {
+            if (root == null) return false
+            var isReelsTabSelected = false
+            var hasReelsContainer = false
 
             root.walkNodes { node ->
-                if (node.className == "android.view.View" &&
-                    node.viewIdResourceName?.endsWith("reel_progress_bar") == true
-                ) found++
+                val id = node.viewIdResourceName ?: ""
 
-                if (node.className == "android.widget.FrameLayout" &&
-                    node.viewIdResourceName?.endsWith("reel_player_page_container") == true
-                ) found++
+                if ((id.endsWith("clips_tab") && node.isSelected) ||
+                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("clips_tab") == true)
+                ) {
+                    isReelsTabSelected = true
+                }
 
-                if (node.className == "android.view.ViewGroup" &&
-                    node.viewIdResourceName?.endsWith("reel_time_bar") == true
-                ) found++
+                if (id.endsWith("root_clips_layout") || id.endsWith("clips_viewer_video_layout")) {
+                    hasReelsContainer = true
+                }
             }
 
-            return found >= 2
+            return isReelsTabSelected || hasReelsContainer
         }
-        // 1. 홈 피드 화면 감지
-        fun isInstagramHomeScreen(root: AccessibilityNodeInfo): Boolean {
-            var found = 0
+        fun isInstagramDirectScreen(root: AccessibilityNodeInfo?): Boolean {
+            if (root == null) return false
+            var isDirectTabSelected = false
 
             root.walkNodes { node ->
-                // 피드 게시물 헤더
-                if (node.className == "android.view.ViewGroup" &&
-                    node.viewIdResourceName?.endsWith("row_feed_profile_header") == true
-                ) found++
+                val id = node.viewIdResourceName ?: ""
 
-                // 피드 좋아요/댓글 버튼 영역
-                if (node.className == "android.view.ViewGroup" &&
-                    node.viewIdResourceName?.endsWith("row_feed_view_group_buttons") == true
-                ) found++
-
-                // 인스타그램 로고
-                if (node.className == "android.widget.ImageView" &&
-                    node.viewIdResourceName?.endsWith("title_logo") == true
-                ) found++
+                if ((id.endsWith("direct_tab") && node.isSelected) ||
+                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("direct_tab") == true)
+                ) {
+                    isDirectTabSelected = true
+                }
             }
 
-            return found >= 3
+            return isDirectTabSelected
         }
-
-        // 2. 릴스 화면 감지
-        fun isInstagramReelsScreen(root: AccessibilityNodeInfo): Boolean {
-            var found = 0
+        fun isInstagramSearchScreen(root: AccessibilityNodeInfo?): Boolean {
+            if (root == null) return false
+            var isSearchTabSelected = false
 
             root.walkNodes { node ->
-                // 릴스 전용 뷰페이저
-                if (node.className == "androidx.viewpager.widget.ViewPager" &&
-                    node.viewIdResourceName?.endsWith("clips_viewer_view_pager") == true
-                ) found++
+                val id = node.viewIdResourceName ?: ""
 
-                // 릴스 작성자 유저네임
-                if (node.className == "android.widget.Button" &&
-                    node.viewIdResourceName?.endsWith("clips_author_username") == true
-                ) found++
-
-                // 릴스 UFI (좋아요/댓글 등) 영역
-                if (node.className == "android.view.ViewGroup" &&
-                    node.viewIdResourceName?.endsWith("clips_ufi_component") == true
-                ) found++
+                if ((id.endsWith("search_tab") && node.isSelected) ||
+                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("search_tab") == true)
+                ) {
+                    isSearchTabSelected = true
+                }
             }
 
-            // 단, 홈 피드와 구분: row_feed_view_group_buttons 없어야 함
-            var hasFeedButtons = false
-            root.walkNodes { node ->
-                if (node.viewIdResourceName?.endsWith("row_feed_view_group_buttons") == true)
-                    hasFeedButtons = true
-            }
-
-            return found >= 3 && !hasFeedButtons
+            return isSearchTabSelected
         }
-
-        // 3. DM 리스트 화면 감지
-        fun isInstagramDMListScreen(root: AccessibilityNodeInfo): Boolean {
-            var found = 0
+        fun isInstagramProfileScreen(root: AccessibilityNodeInfo?): Boolean {
+            if (root == null) return false
+            var isProfileTabSelected = false
 
             root.walkNodes { node ->
-                // DM 대화 목록 RecyclerView
-                if (node.className == "androidx.recyclerview.widget.RecyclerView" &&
-                    node.viewIdResourceName?.endsWith("inbox_refreshable_thread_list_recyclerview") == true
-                ) found++
+                val id = node.viewIdResourceName ?: ""
 
-                // DM 상단 액션바 타이틀
-                if (node.className == "android.widget.Button" &&
-                    node.viewIdResourceName?.endsWith("igds_action_bar_title") == true
-                ) found++
-
-                // 스냅/스토리 미리보기 영역
-                if (node.className == "android.widget.FrameLayout" &&
-                    node.viewIdResourceName?.endsWith("direct_quick_snap_consumption_preview") == true
-                ) found++
+                if ((id.endsWith("profile_tab") && node.isSelected) ||
+                    (id.endsWith("tab_avatar") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("container") == true)
+                ) {
+                    isProfileTabSelected = true
+                }
             }
 
-            // 검색창 없어야 DM 리스트 (검색 화면과 구분)
-            var hasSearchEdit = false
-            root.walkNodes { node ->
-                if (node.viewIdResourceName?.endsWith("action_bar_search_edit_text") == true)
-                    hasSearchEdit = true
-            }
-
-            return found >= 3 && !hasSearchEdit
+            return isProfileTabSelected
         }
-
-        // 4. 검색(탐색) 화면 감지
-        fun isInstagramSearchScreen(root: AccessibilityNodeInfo): Boolean {
-            var found = 0
+        fun isInstagramNoTabSelected(root: AccessibilityNodeInfo?): Boolean {
+            if (root == null) return false
+            var isAnyTabSelected = false
 
             root.walkNodes { node ->
-                // 검색 입력창
-                if (node.className == "android.widget.EditText" &&
-                    node.viewIdResourceName?.endsWith("action_bar_search_edit_text") == true
-                ) found++
+                val id = node.viewIdResourceName ?: ""
+                val isSelected = node.isSelected
 
-                // 탐색 그리드 RecyclerView
-                if (node.className == "androidx.recyclerview.widget.RecyclerView" &&
-                    node.viewIdResourceName?.endsWith("recycler_view") == true
-                ) found++
-
-                // 그리드 카드 아이템
-                if (node.className == "android.widget.FrameLayout" &&
-                    node.viewIdResourceName?.endsWith("grid_card_layout_container") == true
-                ) found++
+                if (id.endsWith("feed_tab")) {
+                    if (isSelected) isAnyTabSelected = true
+                }
+                if (id.endsWith("clips_tab")) {
+                    if (isSelected) isAnyTabSelected = true
+                }
+                if (id.endsWith("direct_tab")) {
+                    if (isSelected) isAnyTabSelected = true
+                }
+                if (id.endsWith("search_tab")) {
+                    if (isSelected) isAnyTabSelected = true
+                }
+                if (id.endsWith("profile_tab")) {
+                    if (isSelected) isAnyTabSelected = true
+                }
             }
 
-            return found >= 3
+            return !isAnyTabSelected
         }
 
-        // 5. 마이페이지(프로필) 화면 감지
-        fun isInstagramProfileScreen(root: AccessibilityNodeInfo): Boolean {
-            var found = 0
-
-            root.walkNodes { node ->
-                // 프로필 뷰페이저 (게시물/릴스/태그 탭)
-                if (node.className == "androidx.viewpager.widget.ViewPager" &&
-                    node.viewIdResourceName?.endsWith("profile_viewpager") == true
-                ) found++
-
-                // 프로필 탭 아이콘 레이아웃
-                if (node.className == "android.widget.HorizontalScrollView" &&
-                    node.viewIdResourceName?.endsWith("profile_tab_layout") == true
-                ) found++
-
-                // 상단 유저네임 컨테이너
-                if (node.className == "android.widget.LinearLayout" &&
-                    node.viewIdResourceName?.endsWith("action_bar_username_container") == true
-                ) found++
-            }
-
-            return found >= 3
-        }
-
-        fun isTikTokISScreen(root: AccessibilityNodeInfo): Boolean {
-            var found = 0
-
-            root.walkNodes { node ->
-                if (node.className == "android.widget.Button" &&
-                    node.viewIdResourceName == "com.ss.android.ugc.trill:id/ew0") found++
-
-                if (node.className == "android.widget.Button" &&
-                    node.viewIdResourceName == "com.ss.android.ugc.trill:id/dnl") found++
-
-                if (node.className == "android.widget.Button" &&
-                    node.viewIdResourceName == "com.ss.android.ugc.trill:id/ggg") found++
-            }
-
-            return found >= 3
-        }
         inline fun AccessibilityNodeInfo.walkNodes(visit: (AccessibilityNodeInfo) -> Unit) {
             val stack = ArrayDeque<AccessibilityNodeInfo>()
             stack.add(this)

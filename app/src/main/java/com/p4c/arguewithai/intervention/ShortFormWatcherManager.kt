@@ -40,7 +40,7 @@ class ShortFormWatcherManager(
     val shortFormTimeCounter = ShortFormListener(
         object : ShortFormCallback {
             override fun onEnter(app: ShortFormApp, sinceMs: Long) {
-                Logger.d("▶️ Enter short-form: ${app.label}")
+                Logger.d("⏹ Enter short-form: ${app.label}")
                 serviceScope.launch {
                     sessionMutex.withLock {
                         if (sessionId == null) {
@@ -89,12 +89,12 @@ class ShortFormWatcherManager(
     val sessionWatcher = SessionViewListener(
         object : SessionViewCallback {
             override fun onEnter(app: SessionApp, sinceMs: Long) {
-                Logger.d("▶️▶️▶️▶️ Enter Session View: ${app.label}, sinceMs=$sinceMs")
+                Logger.d("▶️️ Enter Session View: ${app.label}, sinceMs=$sinceMs")
                 interventionEnabled = true
             }
 
             override fun onExit(app: SessionApp, enteredAtMs: Long, exitedAtMs: Long) {
-                Logger.d("▶️▶️▶️▶️ Exit Session View: ${app.label}, enteredAt=$enteredAtMs, exitedAt=$exitedAtMs")
+                Logger.d("▶️ Exit Session View: ${app.label}, enteredAt=$enteredAtMs, exitedAt=$exitedAtMs")
 
                 interventionEnabled = false
 

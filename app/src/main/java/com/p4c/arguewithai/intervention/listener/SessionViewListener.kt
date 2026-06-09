@@ -116,9 +116,6 @@ class SessionViewListener(
 
     private fun detectEnter(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
         return when (pkg) {
-            SessionApp.YOUTUBE.pkg -> if (ShortFormListener.isYoutubeISScreen(root)) SessionApp.YOUTUBE else null
-            SessionApp.INSTAGRAM.pkg -> if (ShortFormListener.isInstagramReelsScreen(root)) SessionApp.INSTAGRAM else null
-            SessionApp.TIKTOK.pkg -> if (ShortFormListener.isTikTokISScreen(root)) SessionApp.TIKTOK else null
             SessionApp.MYAPP.pkg -> if (isChatActivity()) SessionApp.MYAPP else null
             else -> null
         }
@@ -126,9 +123,6 @@ class SessionViewListener(
 
     private fun detectApp(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
         return when (pkg) {
-            SessionApp.YOUTUBE.pkg -> if (ShortFormListener.isYoutubeISScreen(root)) SessionApp.YOUTUBE else null
-            SessionApp.INSTAGRAM.pkg -> if (ShortFormListener.isInstagramReelsScreen(root)) SessionApp.INSTAGRAM else null
-            SessionApp.TIKTOK.pkg -> if (ShortFormListener.isTikTokISScreen(root)) SessionApp.TIKTOK else null
             SessionApp.MYAPP.pkg -> if (isChatActivity()) SessionApp.MYAPP else null
             SessionApp.SYSTEM.pkg -> SessionApp.SYSTEM
             SessionApp.KEYBOARD.pkg -> SessionApp.KEYBOARD
