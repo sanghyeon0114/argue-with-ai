@@ -155,10 +155,12 @@ class MainActivity : ComponentActivity() {
             userRepo.setUserName(name) { ok ->
                 runOnUiThread {
                     if (ok) {
-                        Toast.makeText(this@MainActivity, "✅ 이름이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "✅ 이름이 저장되었습니다.", Toast.LENGTH_SHORT)
+                            .show()
                         renderNameDisplay(name)
                     } else {
-                        Toast.makeText(this@MainActivity, "❌ 저장 실패 (네트워크 확인)", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "❌ 저장 실패 (네트워크 확인)", Toast.LENGTH_SHORT)
+                            .show()
                     }
                 }
             }

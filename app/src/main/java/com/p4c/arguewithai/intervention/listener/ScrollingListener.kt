@@ -17,7 +17,9 @@ enum class InstagramScreen(override val label: String) : AppScreen {
     REELS("reels"),
     DM("dm"),
     SEARCH("search"),
-    PROFILE("profile")
+    PROFILE("profile"),
+    WATCH_REELS("watch_reels"),
+    NULL("null")
 }
 
 interface ShortFormCallback {
@@ -109,6 +111,9 @@ class ShortFormListener(
         }
     }
     private fun detectInstagramScreen(pkg: String?, root: AccessibilityNodeInfo): AppScreen? {
+//        if(isTestScreenDetection(root)) {
+//            Logger.d("TEST")
+//        }
         return when (pkg) {
             ShortFormApp.INSTAGRAM.pkg -> if (isInstagramHomeScreen(root)) {
                 Logger.d("HOME")
@@ -125,127 +130,59 @@ class ShortFormListener(
             } else if (isInstagramProfileScreen(root)) {
                 Logger.d("Profile")
                 InstagramScreen.PROFILE
-            } else if(isInstagramNoTabSelected(root)) {
-                Logger.d("HOME COLD START")
-                InstagramScreen.HOME // HOME이 아니라 별도 처리 필요
             } else {
-                Logger.d("NO")
+                Logger.d("NONE")
                 null
             }
             else -> null
         }
     }
     companion object {
-        fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
-            if (root == null) return false
-            var isHomeTabSelected = false
+        private fun isTabSelected(root: AccessibilityNodeInfo, tabIdSuffix: String, iconIdSuffixes: List<String> = listOf("tab_icon", "tab_avatar")): Boolean {
+            var selected = false
 
             root.walkNodes { node ->
                 val id = node.viewIdResourceName ?: ""
-                if ((id.endsWith("feed_tab") && node.isSelected) ||
-                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("feed_tab") == true)
-                ) {
-                    isHomeTabSelected = true
+                if (id.endsWith(tabIdSuffix)) {
+                    if (node.isSelected) {
+                        selected = true
+                    } else {
+                        for (i in 0 until node.childCount) {
+                            val child = node.getChild(i) ?: continue
+                            val childId = child.viewIdResourceName ?: ""
+                            if (iconIdSuffixes.any { childId.endsWith(it) } && child.isSelected) {
+                                selected = true
+                            }
+                        }
+                    }
                 }
             }
 
-            return isHomeTabSelected
+            return selected
+        }
+        fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
+            if (root == null) return false
+            return isTabSelected(root, "feed_tab")
         }
         fun isInstagramReelsScreen(root: AccessibilityNodeInfo?): Boolean {
             if (root == null) return false
-            var isReelsTabSelected = false
-            var hasReelsContainer = false
-
-            root.walkNodes { node ->
-                val id = node.viewIdResourceName ?: ""
-
-                if ((id.endsWith("clips_tab") && node.isSelected) ||
-                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("clips_tab") == true)
-                ) {
-                    isReelsTabSelected = true
-                }
-
-                if (id.endsWith("root_clips_layout") || id.endsWith("clips_viewer_video_layout")) {
-                    hasReelsContainer = true
-                }
-            }
-
-            return isReelsTabSelected || hasReelsContainer
+            return isTabSelected(root, "clips_tab")
         }
         fun isInstagramDirectScreen(root: AccessibilityNodeInfo?): Boolean {
             if (root == null) return false
-            var isDirectTabSelected = false
-
-            root.walkNodes { node ->
-                val id = node.viewIdResourceName ?: ""
-
-                if ((id.endsWith("direct_tab") && node.isSelected) ||
-                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("direct_tab") == true)
-                ) {
-                    isDirectTabSelected = true
-                }
-            }
-
-            return isDirectTabSelected
+            return isTabSelected(root, "direct_tab")
         }
         fun isInstagramSearchScreen(root: AccessibilityNodeInfo?): Boolean {
             if (root == null) return false
-            var isSearchTabSelected = false
-
-            root.walkNodes { node ->
-                val id = node.viewIdResourceName ?: ""
-
-                if ((id.endsWith("search_tab") && node.isSelected) ||
-                    (id.endsWith("tab_icon") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("search_tab") == true)
-                ) {
-                    isSearchTabSelected = true
-                }
-            }
-
-            return isSearchTabSelected
+            return isTabSelected(root, "search_tab")
         }
         fun isInstagramProfileScreen(root: AccessibilityNodeInfo?): Boolean {
             if (root == null) return false
-            var isProfileTabSelected = false
-
-            root.walkNodes { node ->
-                val id = node.viewIdResourceName ?: ""
-
-                if ((id.endsWith("profile_tab") && node.isSelected) ||
-                    (id.endsWith("tab_avatar") && node.isSelected && node.parent?.viewIdResourceName?.endsWith("container") == true)
-                ) {
-                    isProfileTabSelected = true
-                }
-            }
-
-            return isProfileTabSelected
+            return isTabSelected(root, "profile_tab")
         }
-        fun isInstagramNoTabSelected(root: AccessibilityNodeInfo?): Boolean {
-            if (root == null) return false
-            var isAnyTabSelected = false
 
-            root.walkNodes { node ->
-                val id = node.viewIdResourceName ?: ""
-                val isSelected = node.isSelected
-
-                if (id.endsWith("feed_tab")) {
-                    if (isSelected) isAnyTabSelected = true
-                }
-                if (id.endsWith("clips_tab")) {
-                    if (isSelected) isAnyTabSelected = true
-                }
-                if (id.endsWith("direct_tab")) {
-                    if (isSelected) isAnyTabSelected = true
-                }
-                if (id.endsWith("search_tab")) {
-                    if (isSelected) isAnyTabSelected = true
-                }
-                if (id.endsWith("profile_tab")) {
-                    if (isSelected) isAnyTabSelected = true
-                }
-            }
-
-            return !isAnyTabSelected
+        fun isTestScreenDetection(root: AccessibilityNodeInfo?): Boolean {
+            return true
         }
 
         inline fun AccessibilityNodeInfo.walkNodes(visit: (AccessibilityNodeInfo) -> Unit) {
