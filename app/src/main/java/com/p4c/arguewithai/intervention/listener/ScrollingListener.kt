@@ -114,6 +114,7 @@ class ShortFormListener(
 //        if(isTestScreenDetection(root)) {
 //            Logger.d("TEST")
 //        }
+        //dumpTree(root)
         return when (pkg) {
             ShortFormApp.INSTAGRAM.pkg -> if (isInstagramHomeScreen(root)) {
                 Logger.d("HOME")
@@ -160,9 +161,28 @@ class ShortFormListener(
 
             return selected
         }
+//        fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
+//            if (root == null) return false
+//            return isTabSelected(root, "feed_tab")
+//        }
         fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
             if (root == null) return false
-            return isTabSelected(root, "feed_tab")
+            val hasStoriesTray = findNode(root) { node ->
+                node.contentDescription?.toString() == "릴스 트레이 컨테이너"
+            } != null
+
+            return hasStoriesTray
+        }
+        private fun findNode(
+            root: AccessibilityNodeInfo,
+            predicate: (AccessibilityNodeInfo) -> Boolean
+        ): AccessibilityNodeInfo? {
+            if (predicate(root)) return root
+            for (i in 0 until root.childCount) {
+                val child = root.getChild(i) ?: continue
+                findNode(child, predicate)?.let { return it }
+            }
+            return null
         }
         fun isInstagramReelsScreen(root: AccessibilityNodeInfo?): Boolean {
             if (root == null) return false
@@ -180,7 +200,36 @@ class ShortFormListener(
             if (root == null) return false
             return isTabSelected(root, "profile_tab")
         }
+        fun dumpTree(root: AccessibilityNodeInfo?) {
+            root ?: return
 
+            fun dumpNode(node: AccessibilityNodeInfo, depth: Int) {
+                val indent = "  ".repeat(depth)
+                val id = node.viewIdResourceName?.substringAfterLast("/") ?: ""
+                val cls = node.className?.toString()?.substringAfterLast(".") ?: ""
+                val desc = node.contentDescription ?: ""
+                val txt = node.text ?: ""
+
+                Logger.d(
+                    "DUMP $indent[$cls] id=$id " +
+                            "selected=${node.isSelected} " +
+                            "checked=${node.isChecked} " +
+                            "clickable=${node.isClickable} " +
+                            "stateDesc=${node.stateDescription} " +
+                            "desc=\"$desc\" text=\"$txt\" " +
+                            "childCount=${node.childCount}"
+                )
+
+                for (i in 0 until node.childCount) {
+                    val child = node.getChild(i) ?: continue
+                    dumpNode(child, depth + 1)
+                }
+            }
+
+            Logger.d("DUMP ===== TREE START =====")
+            dumpNode(root, 0)
+            Logger.d("DUMP ===== TREE END =====")
+        }
         fun isTestScreenDetection(root: AccessibilityNodeInfo?): Boolean {
             return true
         }
