@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.intervention.listener
+package com.p4c.arguewithai.intervention.listener.session
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -6,23 +6,7 @@ import com.p4c.arguewithai.chat.activity.BlockingActivityStatus
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivityStatus
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivityStatus
 
-enum class SessionApp(val pkg: String?, val label: String) {
-    YOUTUBE("com.google.android.youtube", "YouTube"),
-    INSTAGRAM("com.instagram.android", "Instagram"),
-    TIKTOK("com.ss.android.ugc.trill", "TikTok"),
-    MYAPP("com.p4c.arguewithai", "ArgueWithAi"),
-    SYSTEM("com.android.systemui", "SYSTEM"),
-    KEYBOARD("com.samsung.android.honeyboard", "KEYBOARD"),
-    NULL(null, "NULL")
-}
-
-interface SessionViewCallback {
-    fun onEnter(app: SessionApp, sinceMs: Long) {}
-    fun onExit(app: SessionApp, enteredAtMs: Long, exitedAtMs: Long) {}
-    fun onWatchingTick(app: SessionApp, enteredAtMs: Long, nowMs: Long, elapsedMs: Long) {}
-}
-
-class SessionViewListener(
+class Listener(
     private val callback: SessionViewCallback,
     private val stableMs: Long = 300L,
     private val exitGraceMs: Long = 1000L,

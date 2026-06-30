@@ -2,7 +2,9 @@ package com.p4c.arguewithai.platform.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences
+import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
@@ -65,11 +67,56 @@ class MyAccessibilityService (
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_VIEW_CLICKED ->
+                logEventNode("CLICKED", event)
+
+            AccessibilityEvent.TYPE_VIEW_SELECTED ->
+                logEventNode("SELECTED", event)
+        }
+
         val root = rootInActiveWindow ?: return
 
-        watcherManager.shortFormTimeCounter.onEvent(event, root, time.nowMs())
+        watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs())
         watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
     }
+    private fun logEventNode(tag: String, event: AccessibilityEvent) {
+        val node = event.source
+        val pkg = event.packageName
+
+        if (node == null) {
+            Logger.d("[$tag] source=null pkg=$pkg")
+            return
+        }
+
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+
+        val cls = node.className?.toString()?.substringAfterLast('.') ?: "?"
+        val info = buildList {
+            node.text?.toString()?.takeIf { it.isNotBlank() }?.let { add("text=\"$it\"") }
+            node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { add("desc=\"$it\"") }
+            node.viewIdResourceName?.let { add("id=${it.substringAfterLast('/')}") }
+            add("selected=${node.isSelected}")
+            add("clickable=${node.isClickable}")
+        }.joinToString(" ")
+
+        Logger.d("[$tag] pkg=$pkg  $cls  $info  ${rect.toShortString()}")
+
+        // node가 null이 아닌 게 보장된 여기서 탭 탐색
+        val knownTabs = listOf("feed_tab", "clips_tab", "search_tab", "direct_tab", "profile_tab")
+        for (suffix in knownTabs) {
+            val matches: MutableList<AccessibilityNodeInfo>? =
+                node.findAccessibilityNodeInfosByViewId("com.instagram.android:id/$suffix")
+            val found: AccessibilityNodeInfo? = matches?.firstOrNull { it.isVisibleToUser }
+            if (found != null) {
+                val sel = found.isSelected
+                Logger.d("    └ contains $suffix (selected=$sel)")
+            }
+        }
+    }
+
 
 
     override fun onInterrupt() {

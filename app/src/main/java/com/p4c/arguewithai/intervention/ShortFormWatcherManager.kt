@@ -10,12 +10,12 @@ import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.chat.activity.BlockingActivity
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
-import com.p4c.arguewithai.intervention.listener.SessionApp
-import com.p4c.arguewithai.intervention.listener.SessionViewCallback
-import com.p4c.arguewithai.intervention.listener.SessionViewListener
-import com.p4c.arguewithai.intervention.listener.ShortFormApp
-import com.p4c.arguewithai.intervention.listener.ShortFormCallback
-import com.p4c.arguewithai.intervention.listener.ShortFormListener
+import com.p4c.arguewithai.intervention.listener.session.SessionApp
+import com.p4c.arguewithai.intervention.listener.session.SessionViewCallback
+import com.p4c.arguewithai.intervention.listener.session.Listener
+import com.p4c.arguewithai.intervention.listener.scroll.ShortFormApp
+import com.p4c.arguewithai.intervention.listener.scroll.ShortFormCallback
+import com.p4c.arguewithai.intervention.listener.scroll.ShortFormListener
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.repository.SessionRepository
 import com.p4c.arguewithai.utils.Logger
@@ -86,7 +86,7 @@ class ShortFormWatcherManager(
         }
     )
 
-    val sessionWatcher = SessionViewListener(
+    val sessionWatcher = Listener(
         object : SessionViewCallback {
             override fun onEnter(app: SessionApp, sinceMs: Long) {
                 Logger.d("▶️️ Enter Session View: ${app.label}, sinceMs=$sinceMs")
