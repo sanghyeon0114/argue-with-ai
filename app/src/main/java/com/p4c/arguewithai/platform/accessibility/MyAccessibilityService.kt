@@ -68,13 +68,19 @@ class MyAccessibilityService (
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        when (event.eventType) {
-            AccessibilityEvent.TYPE_VIEW_CLICKED ->
-                logEventNode("CLICKED", event)
-
-            AccessibilityEvent.TYPE_VIEW_SELECTED ->
-                logEventNode("SELECTED", event)
-        }
+//        when (event.eventType) {
+////            AccessibilityEvent.TYPE_VIEW_CLICKED ->
+////                logEventNode("CLICKED", event)
+////
+////            AccessibilityEvent.TYPE_VIEW_SELECTED ->
+////                logEventNode("SELECTED", event)
+////            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+////                logEventNode("CONTENT_CHANGED", event)
+////            }
+////            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+////                logEventNode("STATE_CHANGED", event)
+////            }
+//        }
 
         val root = rootInActiveWindow ?: return
 
