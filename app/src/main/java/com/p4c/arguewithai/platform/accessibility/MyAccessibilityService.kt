@@ -67,7 +67,7 @@ class MyAccessibilityService (
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-
+        val root = rootInActiveWindow ?: return
 //        when (event.eventType) {
 ////            AccessibilityEvent.TYPE_VIEW_CLICKED ->
 ////                logEventNode("CLICKED", event)
@@ -82,10 +82,10 @@ class MyAccessibilityService (
 ////            }
 //        }
 
-        val root = rootInActiveWindow ?: return
+
 
         watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs())
-        watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
+        //watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
     }
     private fun logEventNode(tag: String, event: AccessibilityEvent) {
         val node = event.source

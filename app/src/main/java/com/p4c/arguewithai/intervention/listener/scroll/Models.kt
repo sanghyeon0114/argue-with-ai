@@ -5,17 +5,16 @@ enum class ShortFormApp(val pkg: String, val label: String) {
 }
 
 interface AppScreen {
-    val label: String
 }
 
-enum class InstagramScreen(override val label: String) : AppScreen {
-    HOME("home"),
-    REELS("reels"),
-    DM("dm"),
-    SEARCH("search"),
-    PROFILE("profile"),
-    WATCH_REELS("watch_reels"),
-    NULL("null")
+enum class InstagramScreen : AppScreen {
+    HOME,
+    REELS,
+    DM,
+    SEARCH,
+    PROFILE,
+    FEED_MENU,
+    NULL
 }
 
 interface ShortFormCallback {
