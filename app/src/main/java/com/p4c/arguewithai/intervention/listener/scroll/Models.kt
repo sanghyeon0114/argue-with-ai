@@ -8,12 +8,16 @@ interface AppScreen {
 }
 
 enum class InstagramScreen : AppScreen {
-    HOME,
+    FEED,
+    FEED_MENU,
+    FEED_WEB_VIEW,
     REELS,
+    REELS_MENU,
+    REELS_AUDIO_MENU,
     DM,
     SEARCH,
-    PROFILE,
-    FEED_MENU,
+    MY_PROFILE,
+    REPLY,
     NULL
 }
 

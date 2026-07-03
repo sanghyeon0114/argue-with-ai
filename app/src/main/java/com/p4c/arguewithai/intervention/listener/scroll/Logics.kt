@@ -9,7 +9,7 @@ object Logics {
     private var lastScreen: AppScreen? = null
     fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?): ShortFormApp? {
         return when (pkg) {
-            ShortFormApp.INSTAGRAM.pkg -> if(detectInstagramScreen(pkg, root) == InstagramScreen.HOME || detectInstagramScreen(pkg, root) == InstagramScreen.REELS || detectInstagramScreen(pkg, root) == InstagramScreen.SEARCH) ShortFormApp.INSTAGRAM else null
+            ShortFormApp.INSTAGRAM.pkg -> if(detectInstagramScreen(pkg, root) == InstagramScreen.FEED || detectInstagramScreen(pkg, root) == InstagramScreen.REELS || detectInstagramScreen(pkg, root) == InstagramScreen.SEARCH) ShortFormApp.INSTAGRAM else null
             else -> null
         }
     }
@@ -17,17 +17,25 @@ object Logics {
         return when (pkg) {
             ShortFormApp.INSTAGRAM.pkg -> {
                 val screen: AppScreen? = if (isInstagramHomeScreen(root)) {
-                    InstagramScreen.HOME
+                    InstagramScreen.FEED
+                } else if (isInstagramFeedMenuScreen(root)) {
+                    InstagramScreen.FEED_MENU
+                } else if(isInstagramWebviewMenuScreen(root)) {
+                    InstagramScreen.FEED_WEB_VIEW
+                } else if(isInstagramReplyMenuScreen(root)) {
+                    InstagramScreen.REPLY
                 } else if (isInstagramReelsScreen(root)) {
                     InstagramScreen.REELS
+                } else if (isInstagramReelsMenuScreen(root)) {
+                    InstagramScreen.REELS_MENU
+                } else if (isInstagramReelsAudioMenuScreen(root)) {
+                    InstagramScreen.REELS_AUDIO_MENU
                 } else if (isInstagramDirectScreen(root)) {
                     InstagramScreen.DM
                 } else if (isInstagramSearchScreen(root)) {
                     InstagramScreen.SEARCH
                 } else if (isInstagramProfileScreen(root)) {
-                    InstagramScreen.PROFILE
-                } else if (isInstagramFeedMenuScreen(root)) {
-                    InstagramScreen.FEED_MENU
+                    InstagramScreen.MY_PROFILE
                 } else {
                     null
                 }
@@ -42,24 +50,39 @@ object Logics {
     }
     fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        if (isTabSelected(root, "feed_tab")) return true
-        if (hasVisibleNodeById(root, "title_logo")) return true
         return hasFeedActionButton(root)
     }
     fun isInstagramReelsScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        return isTabSelected(root, "clips_tab")
+        return isInstagramReelsContainer(root)
     }
     fun isInstagramDirectScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        return isTabSelected(root, "direct_tab")
+        return isInstagramDirectTab(root)
     }
     fun isInstagramSearchScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        return isTabSelected(root, "search_tab")
+        return isInstagramSearchTab(root)
     }
     fun isInstagramProfileScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
+        return isInstagramProfileTab(root)
+    }
+
+    // ############## Check Sceen Tab ##############
+//    private fun isInstagramHomeTab(root: AccessibilityNodeInfo): Boolean {
+//        return isTabSelected(root, "feed_tab") || hasVisibleNodeById(root, "title_logo")
+//    }
+//    private fun isInstagramReelsTab(root: AccessibilityNodeInfo): Boolean {
+//        return isTabSelected(root, "clips_tab")
+//    }
+    private fun isInstagramDirectTab(root: AccessibilityNodeInfo): Boolean {
+        return isTabSelected(root, "direct_tab")
+    }
+    private fun isInstagramSearchTab(root: AccessibilityNodeInfo): Boolean {
+        return isTabSelected(root, "search_tab")
+    }
+    private fun isInstagramProfileTab(root: AccessibilityNodeInfo): Boolean {
         return isTabSelected(root, "profile_tab")
     }
 
@@ -81,6 +104,8 @@ object Logics {
         val nodes = root.findAccessibilityNodeInfosByViewId(fullId) ?: return false
         return nodes.any { it.isVisibleToUser }
     }
+
+    // ############## Feed Screen ##############
     private fun hasFeedActionButton(root: AccessibilityNodeInfo): Boolean {
         val buttonIds = listOf(
             "row_feed_button_like",
@@ -97,6 +122,89 @@ object Logics {
         val labels = root.findAccessibilityNodeInfosByViewId("$IG_PKG:id/context_menu_item_label")
             ?.filter { it.isVisibleToUser } ?: return false
         val targets = setOf("팔로잉", "즐겨찾기")
-        return labels.any { it.text?.toString() in targets }
+        val foundTexts = labels.mapNotNull { it.text?.toString() }.toSet()
+        return foundTexts.containsAll(targets)
+    }
+    fun isInstagramWebviewMenuScreen(root: AccessibilityNodeInfo?): Boolean {
+        val labelId = "$IG_PKG:id/title_textview"
+        val targets = setOf(
+            "웹사이트 신고",
+            "새로 고침",
+            "삼성 브라우저에서 열기",
+            "링크 복사",
+            "공유 수단...",
+            "Direct를 통해 공유",
+            "브라우저 설정",
+            "개인정보처리방침"
+        )
+        val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
+        val foundTexts = labelNodes
+            .filter { it.isVisibleToUser }
+            .mapNotNull { it.text?.toString() }
+            .toSet()
+
+        return foundTexts.containsAll(targets)
+    }
+    fun isInstagramReplyMenuScreen(root: AccessibilityNodeInfo?): Boolean {
+        val labelId = "$IG_PKG:id/context_menu_item_label"
+        val itemId = "$IG_PKG:id/context_menu_item"
+
+        val labelTargets = setOf("릴스로 답글 달기")
+        val itemTargets = setOf("공유하기", "신고", "차단")
+
+        val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
+        val itemNodes = root.findAccessibilityNodeInfosByViewId(itemId) ?: return false
+
+        val hasLabel = labelNodes.any { node ->
+            node.isVisibleToUser && node.text?.toString() in labelTargets
+        }
+        val foundItemDescs = itemNodes
+            .filter { it.isVisibleToUser }
+            .mapNotNull { it.contentDescription?.toString() }
+            .toSet()
+
+        val hasAllItems = foundItemDescs.containsAll(itemTargets)
+
+        return hasLabel && hasAllItems
+    }
+
+    // ############## Reels Screen ##############
+
+    private fun isInstagramReelsContainer(root: AccessibilityNodeInfo?): Boolean {
+        if (root == null) return false
+
+        return hasVisibleNodeById(root, "root_clips_layout") ||
+                hasVisibleNodeById(root, "clips_linear_layout_container") ||
+                hasVisibleNodeById(root, "clips_viewer_container") ||
+                hasVisibleNodeById(root, "clips_swipe_refresh_container") ||
+                hasVisibleNodeById(root, "clips_viewer_view_pager")
+    }
+
+
+    fun isInstagramReelsMenuScreen(root: AccessibilityNodeInfo?): Boolean {
+        val labelId = "$IG_PKG:id/context_menu_item_label"
+        val targets = setOf("팔로잉")
+        val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
+        return labelNodes.any { node ->
+            node.isVisibleToUser && node.text?.toString() in targets
+        }
+    }
+
+    fun isInstagramReelsAudioMenuScreen(root: AccessibilityNodeInfo?): Boolean {
+        val labelId = "$IG_PKG:id/context_menu_item_label"
+        val subLabelId = "$IG_PKG:id/context_menu_item_sub_label"
+        val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
+        val subLabelNodes = root.findAccessibilityNodeInfosByViewId(subLabelId) ?: return false
+
+        val labelTargets = setOf("리믹스 및 시퀀스")
+        val subLabelTargets = setOf("오디오")
+        val hasLabel = labelNodes.any { node ->
+            node.isVisibleToUser && node.text?.toString() in labelTargets
+        }
+        val hasSubLabel = subLabelNodes.any { node ->
+            node.isVisibleToUser && node.text?.toString() in subLabelTargets
+        }
+
+        return hasLabel && hasSubLabel
     }
 }
