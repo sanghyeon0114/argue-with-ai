@@ -7,22 +7,42 @@ import com.p4c.arguewithai.utils.Logger
 object Logics {
     private const val IG_PKG = "com.instagram.android"
     private var lastScreen: AppScreen? = null
-    fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?): ShortFormApp? {
-        return when (pkg) {
-            ShortFormApp.INSTAGRAM.pkg -> if(detectInstagramScreen(pkg, root) == InstagramScreen.FEED || detectInstagramScreen(pkg, root) == InstagramScreen.REELS || detectInstagramScreen(pkg, root) == InstagramScreen.SEARCH) ShortFormApp.INSTAGRAM else null
+    fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?, onScreenChanged: (String) -> Unit = {}): ShortFormApp? {
+        val t0 = System.currentTimeMillis()
+        val result = when (pkg) {
+            ShortFormApp.INSTAGRAM.pkg -> {
+                val screen = detectInstagramScreen(pkg, root, onScreenChanged)
+                if (screen == InstagramScreen.FEED || screen == InstagramScreen.REELS || screen == InstagramScreen.SEARCH) {
+                    ShortFormApp.INSTAGRAM
+                } else {
+                    null
+                }
+            }
             else -> null
         }
+        val elapsed = System.currentTimeMillis() - t0
+        if (elapsed > 8) Logger.d("[PERF] detectApp took ${elapsed}ms")
+        return result
     }
-    private fun detectInstagramScreen(pkg: String?, root: AccessibilityNodeInfo): AppScreen? {
+
+    private fun detectInstagramScreen(
+        pkg: String?,
+        root: AccessibilityNodeInfo,
+        onScreenChanged: (String) -> Unit
+    ): AppScreen? {
         return when (pkg) {
             ShortFormApp.INSTAGRAM.pkg -> {
+                val cached = lastScreen
+                if (cached != null && isStillOnScreen(cached, root)) {
+                    return cached
+                }
                 val screen: AppScreen? = if (isInstagramHomeScreen(root)) {
                     InstagramScreen.FEED
                 } else if (isInstagramFeedMenuScreen(root)) {
                     InstagramScreen.FEED_MENU
-                } else if(isInstagramWebviewMenuScreen(root)) {
+                } else if (isInstagramWebviewMenuScreen(root)) {
                     InstagramScreen.FEED_WEB_VIEW
-                } else if(isInstagramReplyMenuScreen(root)) {
+                } else if (isInstagramReplyMenuScreen(root)) {
                     InstagramScreen.REPLY
                 } else if (isInstagramReelsScreen(root)) {
                     InstagramScreen.REELS
@@ -40,7 +60,9 @@ object Logics {
                     null
                 }
                 if (screen != lastScreen) {
-                    Logger.d(screen?.toString() ?: "NONE")
+                    val label = screen?.toString() ?: "NONE"
+                    Logger.d(label)
+                    onScreenChanged(label)
                     lastScreen = screen
                 }
                 screen
@@ -48,6 +70,22 @@ object Logics {
             else -> null
         }
     }
+    private fun isStillOnScreen(screen: AppScreen, root: AccessibilityNodeInfo): Boolean {
+        return when (screen) {
+            InstagramScreen.FEED -> isInstagramHomeScreen(root)
+            InstagramScreen.FEED_MENU -> isInstagramFeedMenuScreen(root)
+            InstagramScreen.FEED_WEB_VIEW -> isInstagramWebviewMenuScreen(root)
+            InstagramScreen.REPLY -> isInstagramReplyMenuScreen(root)
+            InstagramScreen.REELS -> isInstagramReelsScreen(root)
+            InstagramScreen.REELS_MENU -> isInstagramReelsMenuScreen(root)
+            InstagramScreen.REELS_AUDIO_MENU -> isInstagramReelsAudioMenuScreen(root)
+            InstagramScreen.DM -> isInstagramDirectScreen(root)
+            InstagramScreen.SEARCH -> isInstagramSearchScreen(root)
+            InstagramScreen.MY_PROFILE -> isInstagramProfileScreen(root)
+            else -> false
+        }
+    }
+
     fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
         return hasFeedActionButton(root)

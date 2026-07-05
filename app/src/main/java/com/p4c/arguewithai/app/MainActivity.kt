@@ -1,6 +1,7 @@
 package com.p4c.arguewithai.app
 
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -10,6 +11,8 @@ import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -44,12 +47,13 @@ class MainActivity : ComponentActivity() {
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val startIVCode: String = "start2026"
     private val stopIVCode: String = "stop"
+    private val SETTINGS_PASSWORD: String = "qwe123"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        setContentView(R.layout.activity_settings)
+        setContentView(R.layout.activity_main)
 
         Logger.setLoggerEnabled(true)
         val ctx = applicationContext
@@ -132,6 +136,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupViews() {
+        // [0. 세팅 버튼 설정]
+        findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettingsMenu() }
+
+
         // [1. 이름 설정]
         val etNameInput = findViewById<EditText>(R.id.etNameInput)
         val btnSaveName = findViewById<Button>(R.id.btnSaveName)
@@ -265,6 +273,34 @@ class MainActivity : ComponentActivity() {
         if (!tryStart(generalIntent)) {
             Toast.makeText(this, R.string.accessibility_error, Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun showSettingsMenu() {
+        val input = EditText(this).apply {
+            hint = "비밀번호 입력"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+
+        val container = FrameLayout(this).apply {
+            val padding = (16 * resources.displayMetrics.density).toInt()
+            setPadding(padding, padding, padding, padding)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("설정")
+            .setView(container)
+            .setPositiveButton("확인") { _, _ ->
+                val entered = input.text.toString().trim()
+                if (entered == SETTINGS_PASSWORD) {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    Toast.makeText(this, "인증되었습니다.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "비밀번호가 올바르지 않습니다.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("취소", null)
+            .show()
     }
 
     private fun tryStart(intent: Intent): Boolean {

@@ -24,7 +24,8 @@ class ShortFormListener(
         event: AccessibilityEvent?,
         root: AccessibilityNodeInfo?,
         windowList: List<AccessibilityWindowInfo>? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        onScreenChanged: (String) -> Unit = {}
     ) {
         if (event == null || root == null) {
             maybeExitOnInvisibility(nowMs)
@@ -32,7 +33,7 @@ class ShortFormListener(
         }
 
         val pkg = event.packageName?.toString()
-        val detected: ShortFormApp? = Logics.detectApp(pkg, root, windowList)
+        val detected: ShortFormApp? = Logics.detectApp(pkg, root, windowList, onScreenChanged)
 
         if (detected != null) {
             lastSeenShortFormAt = nowMs

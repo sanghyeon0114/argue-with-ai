@@ -9,6 +9,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.intervention.ShortFormWatcherManager
+import com.p4c.arguewithai.platform.overlay.DebugScreenOverlay
 import com.p4c.arguewithai.repository.FirestoreSessionRepository
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.repository.SessionRepository
@@ -28,10 +29,17 @@ class MyAccessibilityService (
     private var interventionEnabled: Boolean = true
     private lateinit var prefs: SharedPreferences
     private val prefListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "intervention_enabled") {
-                interventionEnabled = InterventionPrefs.isEnabled(this)
-                Logger.d("🟢 Intervention enabled = $interventionEnabled")
+        SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
+            when (key) {
+                "intervention_enabled" -> {
+                    interventionEnabled = InterventionPrefs.isEnabled(this)
+                    Logger.d("🟢 Intervention enabled = $interventionEnabled")
+                }
+                "debug_overlay_enabled" -> {
+                    val enabled = sp.getBoolean("debug_overlay_enabled", false)
+                    if (enabled) debugOverlay.start() else debugOverlay.stop()
+                    Logger.d("🟣 Debug overlay enabled = $enabled")
+                }
             }
         }
     private val repo: SessionRepository = FirestoreSessionRepository()
@@ -47,6 +55,7 @@ class MyAccessibilityService (
             sessionMutex = sessionMutex
         )
     }
+    private val debugOverlay by lazy { DebugScreenOverlay(applicationContext) }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -55,6 +64,9 @@ class MyAccessibilityService (
         prefs = getSharedPreferences("argue_prefs", MODE_PRIVATE).also {
             interventionEnabled = it.getBoolean("intervention_enabled", true)
             it.registerOnSharedPreferenceChangeListener(prefListener)
+        }
+        if (prefs.getBoolean("debug_overlay_enabled", false)) {
+            debugOverlay.start()
         }
 
         FirebaseApp.initializeApp(this)
@@ -67,6 +79,8 @@ class MyAccessibilityService (
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        //Logger.d("[EVT] type=${AccessibilityEvent.eventTypeToString(event.eventType)} t=${time.nowMs()}")
+
         val root = rootInActiveWindow ?: return
 //        when (event.eventType) {
 ////            AccessibilityEvent.TYPE_VIEW_CLICKED ->
@@ -84,7 +98,7 @@ class MyAccessibilityService (
 
 
 
-        watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs())
+        watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs(), onScreenChanged = { label -> debugOverlay.update(label) })
         //watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
     }
     private fun logEventNode(tag: String, event: AccessibilityEvent) {
