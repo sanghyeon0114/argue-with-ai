@@ -288,7 +288,7 @@ class MainActivity : ComponentActivity() {
         }
 
         AlertDialog.Builder(this)
-            .setTitle("설정")
+            .setTitle("관리자 페이지")
             .setView(container)
             .setPositiveButton("확인") { _, _ ->
                 val entered = input.text.toString().trim()
