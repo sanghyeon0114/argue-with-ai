@@ -25,7 +25,7 @@ class ShortFormListener(
         root: AccessibilityNodeInfo?,
         windowList: List<AccessibilityWindowInfo>? = null,
         nowMs: Long = System.currentTimeMillis(),
-        onScreenChanged: (String) -> Unit = {}
+        onScreenChanged: ((String) -> Unit)? = {}
     ) {
         if (event == null || root == null) {
             maybeExitOnInvisibility(nowMs)

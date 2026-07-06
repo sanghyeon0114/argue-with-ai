@@ -28,6 +28,7 @@ class MyAccessibilityService (
 ) : AccessibilityService() {
     private var interventionEnabled: Boolean = true
     private lateinit var prefs: SharedPreferences
+    private var debugOverlayEnabled: Boolean = false
     private val prefListener =
         SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
             when (key) {
@@ -37,6 +38,7 @@ class MyAccessibilityService (
                 }
                 "debug_overlay_enabled" -> {
                     val enabled = sp.getBoolean("debug_overlay_enabled", false)
+                    debugOverlayEnabled = enabled
                     if (enabled) debugOverlay.start() else debugOverlay.stop()
                     Logger.d("🟣 Debug overlay enabled = $enabled")
                 }
@@ -63,9 +65,10 @@ class MyAccessibilityService (
 
         prefs = getSharedPreferences("argue_prefs", MODE_PRIVATE).also {
             interventionEnabled = it.getBoolean("intervention_enabled", true)
+            debugOverlayEnabled = it.getBoolean("debug_overlay_enabled", false)
             it.registerOnSharedPreferenceChangeListener(prefListener)
         }
-        if (prefs.getBoolean("debug_overlay_enabled", false)) {
+        if (debugOverlayEnabled) {
             debugOverlay.start()
         }
 
@@ -95,10 +98,11 @@ class MyAccessibilityService (
 ////                logEventNode("STATE_CHANGED", event)
 ////            }
 //        }
-
-
-
-        watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs(), onScreenChanged = { label -> debugOverlay.update(label) })
+        val onScreenChanged: ((String) -> Unit)? = when(debugOverlayEnabled) {
+            true -> { label -> debugOverlay.update(label) }
+            false -> null
+        }
+        watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs(), onScreenChanged = onScreenChanged)
         //watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
     }
     private fun logEventNode(tag: String, event: AccessibilityEvent) {

@@ -7,7 +7,7 @@ import com.p4c.arguewithai.utils.Logger
 object Logics {
     private const val IG_PKG = "com.instagram.android"
     private var lastScreen: AppScreen? = null
-    fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?, onScreenChanged: (String) -> Unit = {}): ShortFormApp? {
+    fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?, onScreenChanged: ((String) -> Unit)?): ShortFormApp? {
         val result = when (pkg) {
             ShortFormApp.INSTAGRAM.pkg -> {
                 val screen = detectInstagramScreen(pkg, root, onScreenChanged)
@@ -17,7 +17,9 @@ object Logics {
                     null
                 }
             }
-            else -> null
+            else -> {
+                null
+            }
         }
         return result
     }
@@ -25,7 +27,7 @@ object Logics {
     private fun detectInstagramScreen(
         pkg: String?,
         root: AccessibilityNodeInfo,
-        onScreenChanged: (String) -> Unit
+        onScreenChanged: ((String) -> Unit)?
     ): AppScreen? {
         return when (pkg) {
             ShortFormApp.INSTAGRAM.pkg -> {
@@ -67,7 +69,9 @@ object Logics {
                 if (screen != lastScreen) {
                     val label = screen?.toString() ?: "NONE"
                     Logger.d(label)
-                    onScreenChanged(label)
+                    if(onScreenChanged != null) {
+                        onScreenChanged(label)
+                    }
                     lastScreen = screen
                 }
                 screen
