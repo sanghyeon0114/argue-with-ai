@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.intervention.listener.scroll
+package com.p4c.arguewithai.intervention.listener.scroll_detection
 
 enum class ShortFormApp(val pkg: String, val label: String) {
     INSTAGRAM("com.instagram.android", "Instagram")

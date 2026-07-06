@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.intervention.listener.scroll
+package com.p4c.arguewithai.intervention.listener.scroll_detection
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo

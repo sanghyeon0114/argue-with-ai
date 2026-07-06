@@ -7,7 +7,6 @@ import android.os.Build
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.TextView
-import com.p4c.arguewithai.utils.Logger
 
 class DebugScreenOverlay(private val context: Context) {
 

@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.intervention.listener.session
+package com.p4c.arguewithai.intervention.listener.session_time
 
 enum class SessionApp(val pkg: String?, val label: String) {
     YOUTUBE("com.google.android.youtube", "YouTube"),

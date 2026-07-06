@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.intervention.listener.scroll
+package com.p4c.arguewithai.intervention.listener.scroll_detection
 
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -8,7 +8,6 @@ object Logics {
     private const val IG_PKG = "com.instagram.android"
     private var lastScreen: AppScreen? = null
     fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?, onScreenChanged: (String) -> Unit = {}): ShortFormApp? {
-        val t0 = System.currentTimeMillis()
         val result = when (pkg) {
             ShortFormApp.INSTAGRAM.pkg -> {
                 val screen = detectInstagramScreen(pkg, root, onScreenChanged)
@@ -20,8 +19,6 @@ object Logics {
             }
             else -> null
         }
-        val elapsed = System.currentTimeMillis() - t0
-        if (elapsed > 8) Logger.d("[PERF] detectApp took ${elapsed}ms")
         return result
     }
 
