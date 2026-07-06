@@ -29,6 +29,7 @@ class MyAccessibilityService (
     private var interventionEnabled: Boolean = true
     private lateinit var prefs: SharedPreferences
     private var debugOverlayEnabled: Boolean = false
+    private val debugOverlay by lazy { ScreenTimeOverlay(applicationContext) }
     private val prefListener =
         SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
             when (key) {
@@ -57,7 +58,6 @@ class MyAccessibilityService (
             sessionMutex = sessionMutex
         )
     }
-    private val debugOverlay by lazy { ScreenTimeOverlay(applicationContext) }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -82,22 +82,8 @@ class MyAccessibilityService (
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-        //Logger.d("[EVT] type=${AccessibilityEvent.eventTypeToString(event.eventType)} t=${time.nowMs()}")
 
         val root = rootInActiveWindow ?: return
-//        when (event.eventType) {
-////            AccessibilityEvent.TYPE_VIEW_CLICKED ->
-////                logEventNode("CLICKED", event)
-////
-////            AccessibilityEvent.TYPE_VIEW_SELECTED ->
-////                logEventNode("SELECTED", event)
-////            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-////                logEventNode("CONTENT_CHANGED", event)
-////            }
-////            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-////                logEventNode("STATE_CHANGED", event)
-////            }
-//        }
         val onScreenChanged: ((String) -> Unit)? = when(debugOverlayEnabled) {
             true -> { label -> debugOverlay.update(label) }
             false -> null
@@ -105,42 +91,6 @@ class MyAccessibilityService (
         watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs(), onScreenChanged = onScreenChanged)
         watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
     }
-    private fun logEventNode(tag: String, event: AccessibilityEvent) {
-        val node = event.source
-        val pkg = event.packageName
-
-        if (node == null) {
-            Logger.d("[$tag] source=null pkg=$pkg")
-            return
-        }
-
-        val rect = Rect()
-        node.getBoundsInScreen(rect)
-
-        val cls = node.className?.toString()?.substringAfterLast('.') ?: "?"
-        val info = buildList {
-            node.text?.toString()?.takeIf { it.isNotBlank() }?.let { add("text=\"$it\"") }
-            node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { add("desc=\"$it\"") }
-            node.viewIdResourceName?.let { add("id=${it.substringAfterLast('/')}") }
-            add("selected=${node.isSelected}")
-            add("clickable=${node.isClickable}")
-        }.joinToString(" ")
-
-        Logger.d("[$tag] pkg=$pkg  $cls  $info  ${rect.toShortString()}")
-
-        val knownTabs = listOf("feed_tab", "clips_tab", "search_tab", "direct_tab", "profile_tab")
-        for (suffix in knownTabs) {
-            val matches: MutableList<AccessibilityNodeInfo>? =
-                node.findAccessibilityNodeInfosByViewId("com.instagram.android:id/$suffix")
-            val found: AccessibilityNodeInfo? = matches?.firstOrNull { it.isVisibleToUser }
-            if (found != null) {
-                val sel = found.isSelected
-                Logger.d("    └ contains $suffix (selected=$sel)")
-            }
-        }
-    }
-
-
 
     override fun onInterrupt() {
         // pass
