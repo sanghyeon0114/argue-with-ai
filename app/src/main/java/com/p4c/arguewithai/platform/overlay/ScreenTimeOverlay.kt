@@ -9,11 +9,10 @@ import android.view.Gravity
 import android.view.WindowManager
 import android.widget.TextView
 
-class DebugScreenOverlay(
+class ScreenTimeOverlay(
     private val context: Context,
     private val tickIntervalMs: Long = 200L
 ) {
-
     private var windowManager: WindowManager? = null
     private var overlayView: TextView? = null
 

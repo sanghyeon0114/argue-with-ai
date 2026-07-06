@@ -1,10 +1,11 @@
-package com.p4c.arguewithai.intervention.listener.session_time
+package com.p4c.arguewithai.intervention.listener.session
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.p4c.arguewithai.chat.activity.BlockingActivityStatus
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivityStatus
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivityStatus
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.InstagramLogics
 
 class Listener(
     private val callback: SessionViewCallback,
@@ -101,6 +102,7 @@ class Listener(
     private fun detectEnter(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
         return when (pkg) {
             SessionApp.MYAPP.pkg -> if (isChatActivity()) SessionApp.MYAPP else null
+            SessionApp.INSTAGRAM.pkg -> if(InstagramLogics.detectApp(pkg, root, null, null)) SessionApp.INSTAGRAM else null
             else -> null
         }
     }
@@ -108,9 +110,7 @@ class Listener(
     private fun detectApp(pkg: String?, root: AccessibilityNodeInfo): SessionApp? {
         return when (pkg) {
             SessionApp.MYAPP.pkg -> if (isChatActivity()) SessionApp.MYAPP else null
-            SessionApp.SYSTEM.pkg -> SessionApp.SYSTEM
-            SessionApp.KEYBOARD.pkg -> SessionApp.KEYBOARD
-            SessionApp.NULL.pkg -> SessionApp.NULL
+            SessionApp.INSTAGRAM.pkg -> if(InstagramLogics.detectApp(pkg, root, null, null)) SessionApp.INSTAGRAM else null
             else -> null
         }
     }

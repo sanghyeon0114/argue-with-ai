@@ -1,8 +1,6 @@
-package com.p4c.arguewithai.intervention.listener.scroll_detection
+package com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram
 
-enum class ShortFormApp(val pkg: String, val label: String) {
-    INSTAGRAM("com.instagram.android", "Instagram")
-}
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.ShortFormApp
 
 interface AppScreen {
 }
@@ -11,6 +9,7 @@ enum class InstagramScreen : AppScreen {
     FEED,
     FEED_MENU,
     FEED_WEB_VIEW,
+    NOTIFICATION,
     REELS,
     REELS_MENU,
     REELS_AUDIO_MENU,
@@ -22,7 +21,6 @@ enum class InstagramScreen : AppScreen {
     OTHER_SUBSCRIBE_LIST,
     REPLY,
     STORY,
-    NULL
 }
 
 interface ShortFormCallback {

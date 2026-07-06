@@ -10,12 +10,12 @@ import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.chat.activity.BlockingActivity
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
-import com.p4c.arguewithai.intervention.listener.session_time.SessionApp
-import com.p4c.arguewithai.intervention.listener.session_time.SessionViewCallback
-import com.p4c.arguewithai.intervention.listener.session_time.Listener
-import com.p4c.arguewithai.intervention.listener.scroll_detection.ShortFormApp
-import com.p4c.arguewithai.intervention.listener.scroll_detection.ShortFormCallback
-import com.p4c.arguewithai.intervention.listener.scroll_detection.ShortFormListener
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.ShortFormApp
+import com.p4c.arguewithai.intervention.listener.session.SessionApp
+import com.p4c.arguewithai.intervention.listener.session.SessionViewCallback
+import com.p4c.arguewithai.intervention.listener.session.Listener
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.ShortFormCallback
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.ShortFormListener
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.repository.SessionRepository
 import com.p4c.arguewithai.utils.Logger
@@ -33,14 +33,14 @@ class ShortFormWatcherManager(
     var sessionId: SessionId? = null
     var isPromptVisible: Boolean = false
     var interventionEnabled: Boolean = true
-    var cooltimeMs: Long = 1 * 1000L
+    var cooltimeMs: Long = 60 * 1000L
     var currentWatchTime: Long = 0
     var watchTimeOnOneSession: Long = 0
 
     val shortFormTimeCounter = ShortFormListener(
         object : ShortFormCallback {
             override fun onEnter(app: ShortFormApp, sinceMs: Long) {
-                //Logger.d("⏹ Enter short-form: ${app.label}")
+                Logger.d("⏹ Enter short-form: ${app.label}")
                 serviceScope.launch {
                     sessionMutex.withLock {
                         if (sessionId == null) {
@@ -55,7 +55,7 @@ class ShortFormWatcherManager(
             }
 
             override fun onExit(app: ShortFormApp, enteredAtMs: Long, exitedAtMs: Long) {
-                //Logger.d("⏹ Exit short-form: ${app.label}")
+                Logger.d("⏹ Exit short-form: ${app.label}")
                 serviceScope.launch {
                     sessionMutex.withLock {
                         sessionId?.let { id ->
@@ -89,15 +89,14 @@ class ShortFormWatcherManager(
     val sessionWatcher = Listener(
         object : SessionViewCallback {
             override fun onEnter(app: SessionApp, sinceMs: Long) {
-                //Logger.d("▶️️ Enter Session View: ${app.label}, sinceMs=$sinceMs")
+                Logger.d("▶️️ Enter Session View: ${app.label}, sinceMs=$sinceMs")
                 interventionEnabled = true
             }
 
             override fun onExit(app: SessionApp, enteredAtMs: Long, exitedAtMs: Long) {
-                //Logger.d("▶️ Exit Session View: ${app.label}, enteredAt=$enteredAtMs, exitedAt=$exitedAtMs")
+                Logger.d("▶️ Exit Session View: ${app.label}, enteredAt=$enteredAtMs, exitedAt=$exitedAtMs")
 
                 interventionEnabled = false
-
                 watchTimeOnOneSession = 0
             }
 
@@ -107,6 +106,7 @@ class ShortFormWatcherManager(
                 nowMs: Long,
                 elapsedMs: Long
             ) {
+                currentWatchTime = elapsedMs
                 if (!interventionEnabled) return
                 if (isPromptVisible) return
                 if (!InterventionPrefs.isEnabled(context)) return
@@ -116,7 +116,6 @@ class ShortFormWatcherManager(
                 if(totalWatchTime >= cooltimeMs) {
                     interventionEnabled = false
                     watchTimeOnOneSession = 0
-                    currentWatchTime = 0
                     showPrompt()
                 }
             }

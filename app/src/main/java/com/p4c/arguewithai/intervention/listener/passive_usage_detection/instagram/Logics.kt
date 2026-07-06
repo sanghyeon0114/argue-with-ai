@@ -1,27 +1,21 @@
-package com.p4c.arguewithai.intervention.listener.scroll_detection
+package com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram
 
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.ShortFormApp
 import com.p4c.arguewithai.utils.Logger
 
-object Logics {
-    private const val IG_PKG = "com.instagram.android"
+object InstagramLogics {
+    private val INSTAGRAM_PKG = ShortFormApp.INSTAGRAM.pkg
     private var lastScreen: AppScreen? = null
-    fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?, onScreenChanged: ((String) -> Unit)?): ShortFormApp? {
-        val result = when (pkg) {
-            ShortFormApp.INSTAGRAM.pkg -> {
+    fun detectApp(pkg: String?, root: AccessibilityNodeInfo, windowList: List<AccessibilityWindowInfo>?, onScreenChanged: ((String) -> Unit)?): Boolean {
+        return when (pkg) {
+            INSTAGRAM_PKG -> {
                 val screen = detectInstagramScreen(pkg, root, onScreenChanged)
-                if (screen == InstagramScreen.FEED || screen == InstagramScreen.REELS || screen == InstagramScreen.SEARCH) {
-                    ShortFormApp.INSTAGRAM
-                } else {
-                    null
-                }
+                screen == InstagramScreen.FEED || screen == InstagramScreen.REELS || screen == InstagramScreen.SEARCH
             }
-            else -> {
-                null
-            }
+            else -> false
         }
-        return result
     }
 
     private fun detectInstagramScreen(
@@ -30,7 +24,7 @@ object Logics {
         onScreenChanged: ((String) -> Unit)?
     ): AppScreen? {
         return when (pkg) {
-            ShortFormApp.INSTAGRAM.pkg -> {
+            INSTAGRAM_PKG -> {
                 val cached = lastScreen
                 if (cached != null && isStillOnScreen(cached, root)) {
                     return cached
@@ -41,6 +35,8 @@ object Logics {
                     InstagramScreen.FEED_MENU
                 } else if (isInstagramWebviewMenuScreen(root)) {
                     InstagramScreen.FEED_WEB_VIEW
+                } else if(isInstagramNotificationScreen(root)) {
+                    InstagramScreen.NOTIFICATION
                 } else if (isInstagramReplyMenuScreen(root)) {
                     InstagramScreen.REPLY
                 } else if (isInstagramReelsScreen(root)) {
@@ -84,6 +80,7 @@ object Logics {
             InstagramScreen.FEED -> isInstagramHomeScreen(root)
             InstagramScreen.FEED_MENU -> isInstagramFeedMenuScreen(root)
             InstagramScreen.FEED_WEB_VIEW -> isInstagramWebviewMenuScreen(root)
+            InstagramScreen.NOTIFICATION -> isInstagramNotificationScreen(root)
             InstagramScreen.REPLY -> isInstagramReplyMenuScreen(root)
             InstagramScreen.REELS -> isInstagramReelsScreen(root)
             InstagramScreen.REELS_MENU -> isInstagramReelsMenuScreen(root)
@@ -101,7 +98,7 @@ object Logics {
 
     fun isInstagramHomeScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        return hasFeedActionButton(root)
+        return hasFeedActionButton(root) || isInstagramFollowingFeedScreen(root) || isInstagramBookmarkFeedScreen(root)
     }
     fun isInstagramReelsScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
@@ -121,7 +118,7 @@ object Logics {
     }
 
     private fun hasVisibleNodeById(root: AccessibilityNodeInfo, idSuffix: String): Boolean {
-        val fullId = "$IG_PKG:id/$idSuffix"
+        val fullId = "$INSTAGRAM_PKG:id/$idSuffix"
         val nodes = root.findAccessibilityNodeInfosByViewId(fullId) ?: return false
         return nodes.any { it.isVisibleToUser }
     }
@@ -140,14 +137,14 @@ object Logics {
     }
     fun isInstagramFeedMenuScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        val labels = root.findAccessibilityNodeInfosByViewId("$IG_PKG:id/context_menu_item_label")
+        val labels = root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PKG:id/context_menu_item_label")
             ?.filter { it.isVisibleToUser } ?: return false
         val targets = setOf("팔로잉", "즐겨찾기")
         val foundTexts = labels.mapNotNull { it.text?.toString() }.toSet()
         return foundTexts.containsAll(targets)
     }
     fun isInstagramWebviewMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        val labelId = "$IG_PKG:id/title_textview"
+        val labelId = "$INSTAGRAM_PKG:id/title_textview"
         val targets = setOf(
             "웹사이트 신고",
             "새로 고침",
@@ -166,9 +163,27 @@ object Logics {
 
         return foundTexts.containsAll(targets)
     }
+    private fun isInstagramFollowingFeedScreen(root: AccessibilityNodeInfo): Boolean {
+        val titleId = "$INSTAGRAM_PKG:id/action_bar_title"
+        val nodes = root.findAccessibilityNodeInfosByViewId(titleId) ?: return false
+        return nodes.any { it.isVisibleToUser && it.text?.toString() == "팔로잉" }
+    }
+    private fun isInstagramBookmarkFeedScreen(root: AccessibilityNodeInfo): Boolean {
+        val titleId = "$INSTAGRAM_PKG:id/action_bar_title"
+        val nodes = root.findAccessibilityNodeInfosByViewId(titleId) ?: return false
+        return nodes.any { it.isVisibleToUser && it.text?.toString() == "즐겨찾기" }
+    }
+
+    // ############## Notification Screen ##############
+    private fun isInstagramNotificationScreen(root: AccessibilityNodeInfo): Boolean {
+        val titleId = "$INSTAGRAM_PKG:id/action_bar_title"
+        val nodes = root.findAccessibilityNodeInfosByViewId(titleId) ?: return false
+        return nodes.any { it.isVisibleToUser && it.text?.toString() == "알림" }
+    }
+
     fun isInstagramReplyMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        val labelId = "$IG_PKG:id/context_menu_item_label"
-        val itemId = "$IG_PKG:id/context_menu_item"
+        val labelId = "$INSTAGRAM_PKG:id/context_menu_item_label"
+        val itemId = "$INSTAGRAM_PKG:id/context_menu_item"
 
         val labelTargets = setOf("릴스로 답글 달기")
         val itemTargets = setOf("공유하기", "신고", "차단")
@@ -203,7 +218,7 @@ object Logics {
 
 
     fun isInstagramReelsMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        val labelId = "$IG_PKG:id/context_menu_item_label"
+        val labelId = "$INSTAGRAM_PKG:id/context_menu_item_label"
         val targets = setOf("팔로잉")
         val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
         return labelNodes.any { node ->
@@ -212,8 +227,8 @@ object Logics {
     }
 
     fun isInstagramReelsAudioMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        val labelId = "$IG_PKG:id/context_menu_item_label"
-        val subLabelId = "$IG_PKG:id/context_menu_item_sub_label"
+        val labelId = "$INSTAGRAM_PKG:id/context_menu_item_label"
+        val subLabelId = "$INSTAGRAM_PKG:id/context_menu_item_sub_label"
         val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
         val subLabelNodes = root.findAccessibilityNodeInfosByViewId(subLabelId) ?: return false
 
@@ -240,7 +255,7 @@ object Logics {
     }
 
     private fun isTabSelected(root: AccessibilityNodeInfo, tabIdSuffix: String, iconIdSuffixes: List<String> = listOf("tab_icon", "tab_avatar")): Boolean {
-        val fullId = "$IG_PKG:id/$tabIdSuffix"
+        val fullId = "$INSTAGRAM_PKG:id/$tabIdSuffix"
         val tabs = root.findAccessibilityNodeInfosByViewId(fullId) ?.filter { it.isVisibleToUser } ?: return false
 
         return tabs.any { tab ->
@@ -257,8 +272,8 @@ object Logics {
     fun isInstagramSubscriberListScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
 
-        val followListTabId = "$IG_PKG:id/unified_follow_list_tab_layout"
-        val titleId = "$IG_PKG:id/title"
+        val followListTabId = "$INSTAGRAM_PKG:id/unified_follow_list_tab_layout"
+        val titleId = "$INSTAGRAM_PKG:id/title"
 
         val hasFollowListTab = root.findAccessibilityNodeInfosByViewId(followListTabId)
             .any { it.isVisibleToUser }
@@ -271,7 +286,7 @@ object Logics {
 
     fun isInstagramOtherProfileScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        val containerId = "$IG_PKG:id/profile_header_container"
+        val containerId = "$INSTAGRAM_PKG:id/profile_header_container"
 
         val hasProfileHeader = root.findAccessibilityNodeInfosByViewId(containerId)
             .any { it.isVisibleToUser }
@@ -280,8 +295,8 @@ object Logics {
     }
     fun isInstagramOtherSubscribeListScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        val followListTabId = "$IG_PKG:id/unified_follow_list_tab_layout"
-        val titleId = "$IG_PKG:id/title"
+        val followListTabId = "$INSTAGRAM_PKG:id/unified_follow_list_tab_layout"
+        val titleId = "$INSTAGRAM_PKG:id/title"
 
         val recommendTargets = setOf("추천")
 

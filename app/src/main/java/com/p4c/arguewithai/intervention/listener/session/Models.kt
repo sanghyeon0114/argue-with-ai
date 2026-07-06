@@ -1,13 +1,12 @@
-package com.p4c.arguewithai.intervention.listener.session_time
+package com.p4c.arguewithai.intervention.listener.session
 
 enum class SessionApp(val pkg: String?, val label: String) {
-    YOUTUBE("com.google.android.youtube", "YouTube"),
     INSTAGRAM("com.instagram.android", "Instagram"),
-    TIKTOK("com.ss.android.ugc.trill", "TikTok"),
     MYAPP("com.p4c.arguewithai", "ArgueWithAi"),
-    SYSTEM("com.android.systemui", "SYSTEM"),
-    KEYBOARD("com.samsung.android.honeyboard", "KEYBOARD"),
-    NULL(null, "NULL")
+//    YOUTUBE("com.google.android.youtube", "YouTube"),
+//    SYSTEM("com.android.systemui", "SYSTEM"),
+//    KEYBOARD("com.samsung.android.honeyboard", "KEYBOARD"),
+//    NULL(null, "NULL")
 }
 
 interface SessionViewCallback {

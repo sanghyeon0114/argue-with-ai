@@ -9,7 +9,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.intervention.ShortFormWatcherManager
-import com.p4c.arguewithai.platform.overlay.DebugScreenOverlay
+import com.p4c.arguewithai.platform.overlay.ScreenTimeOverlay
 import com.p4c.arguewithai.repository.FirestoreSessionRepository
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.repository.SessionRepository
@@ -57,7 +57,7 @@ class MyAccessibilityService (
             sessionMutex = sessionMutex
         )
     }
-    private val debugOverlay by lazy { DebugScreenOverlay(applicationContext) }
+    private val debugOverlay by lazy { ScreenTimeOverlay(applicationContext) }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -103,7 +103,7 @@ class MyAccessibilityService (
             false -> null
         }
         watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs(), onScreenChanged = onScreenChanged)
-        //watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
+        watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
     }
     private fun logEventNode(tag: String, event: AccessibilityEvent) {
         val node = event.source

@@ -1,8 +1,10 @@
-package com.p4c.arguewithai.intervention.listener.scroll_detection
+package com.p4c.arguewithai.intervention.listener.passive_usage_detection
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.InstagramLogics
+import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.ShortFormCallback
 
 class ShortFormListener(
     private val callback: ShortFormCallback,
@@ -33,7 +35,11 @@ class ShortFormListener(
         }
 
         val pkg = event.packageName?.toString()
-        val detected: ShortFormApp? = Logics.detectApp(pkg, root, windowList, onScreenChanged)
+        val detected: ShortFormApp? = if (InstagramLogics.detectApp(pkg, root, windowList, onScreenChanged)) {
+            ShortFormApp.INSTAGRAM
+        } else {
+            null
+        }
 
         if (detected != null) {
             lastSeenShortFormAt = nowMs
