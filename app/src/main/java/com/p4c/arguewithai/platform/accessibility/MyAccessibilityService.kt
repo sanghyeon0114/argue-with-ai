@@ -124,7 +124,6 @@ class MyAccessibilityService (
 
         Logger.d("[$tag] pkg=$pkg  $cls  $info  ${rect.toShortString()}")
 
-        // node가 null이 아닌 게 보장된 여기서 탭 탐색
         val knownTabs = listOf("feed_tab", "clips_tab", "search_tab", "direct_tab", "profile_tab")
         for (suffix in knownTabs) {
             val matches: MutableList<AccessibilityNodeInfo>? =

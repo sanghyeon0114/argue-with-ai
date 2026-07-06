@@ -41,7 +41,8 @@ class DebugScreenOverlay(private val context: Context) {
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.TOP or Gravity.END
+            x = 24
             y = 40
         }
 

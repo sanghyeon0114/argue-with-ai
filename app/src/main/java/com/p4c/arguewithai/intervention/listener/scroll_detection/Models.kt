@@ -17,7 +17,11 @@ enum class InstagramScreen : AppScreen {
     DM,
     SEARCH,
     MY_PROFILE,
+    MY_SUBSCRIBE_LIST,
+    OTHER_PROFILE,
+    OTHER_SUBSCRIBE_LIST,
     REPLY,
+    STORY,
     NULL
 }
 

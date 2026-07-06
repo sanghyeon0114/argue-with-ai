@@ -53,6 +53,14 @@ object Logics {
                     InstagramScreen.SEARCH
                 } else if (isInstagramProfileScreen(root)) {
                     InstagramScreen.MY_PROFILE
+                } else if (isInstagramSubscriberListScreen(root)) {
+                    InstagramScreen.MY_SUBSCRIBE_LIST
+                } else if (isInstagramOtherProfileScreen(root)) {
+                    InstagramScreen.OTHER_PROFILE
+                } else if (isInstagramOtherSubscribeListScreen(root)) {
+                    InstagramScreen.OTHER_SUBSCRIBE_LIST
+                } else if(isInstagramStoryScreen(root)) {
+                    InstagramScreen.STORY
                 } else {
                     null
                 }
@@ -79,6 +87,10 @@ object Logics {
             InstagramScreen.DM -> isInstagramDirectScreen(root)
             InstagramScreen.SEARCH -> isInstagramSearchScreen(root)
             InstagramScreen.MY_PROFILE -> isInstagramProfileScreen(root)
+            InstagramScreen.MY_SUBSCRIBE_LIST -> isInstagramSubscriberListScreen(root)
+            InstagramScreen.OTHER_PROFILE -> !isInstagramProfileScreen(root) && isInstagramOtherProfileScreen(root)
+            InstagramScreen.OTHER_SUBSCRIBE_LIST -> isInstagramOtherSubscribeListScreen(root)
+            InstagramScreen.STORY -> isInstagramStoryScreen(root)
             else -> false
         }
     }
@@ -104,36 +116,6 @@ object Logics {
         return isInstagramProfileTab(root)
     }
 
-    // ############## Check Sceen Tab ##############
-//    private fun isInstagramHomeTab(root: AccessibilityNodeInfo): Boolean {
-//        return isTabSelected(root, "feed_tab") || hasVisibleNodeById(root, "title_logo")
-//    }
-//    private fun isInstagramReelsTab(root: AccessibilityNodeInfo): Boolean {
-//        return isTabSelected(root, "clips_tab")
-//    }
-    private fun isInstagramDirectTab(root: AccessibilityNodeInfo): Boolean {
-        return isTabSelected(root, "direct_tab")
-    }
-    private fun isInstagramSearchTab(root: AccessibilityNodeInfo): Boolean {
-        return isTabSelected(root, "search_tab")
-    }
-    private fun isInstagramProfileTab(root: AccessibilityNodeInfo): Boolean {
-        return isTabSelected(root, "profile_tab")
-    }
-
-    private fun isTabSelected(root: AccessibilityNodeInfo, tabIdSuffix: String, iconIdSuffixes: List<String> = listOf("tab_icon", "tab_avatar")): Boolean {
-        val fullId = "$IG_PKG:id/$tabIdSuffix"
-        val tabs = root.findAccessibilityNodeInfosByViewId(fullId) ?.filter { it.isVisibleToUser } ?: return false
-
-        return tabs.any { tab ->
-            tab.isSelected ||
-                    (0 until tab.childCount).any { i ->
-                        val child = tab.getChild(i) ?: return@any false
-                        val childId = child.viewIdResourceName ?: ""
-                        iconIdSuffixes.any { childId.endsWith(it) } && child.isSelected
-                    }
-        }
-    }
     private fun hasVisibleNodeById(root: AccessibilityNodeInfo, idSuffix: String): Boolean {
         val fullId = "$IG_PKG:id/$idSuffix"
         val nodes = root.findAccessibilityNodeInfosByViewId(fullId) ?: return false
@@ -241,5 +223,89 @@ object Logics {
         }
 
         return hasLabel && hasSubLabel
+    }
+
+    private fun isInstagramDirectTab(root: AccessibilityNodeInfo): Boolean {
+        return isTabSelected(root, "direct_tab")
+    }
+    private fun isInstagramSearchTab(root: AccessibilityNodeInfo): Boolean {
+        return isTabSelected(root, "search_tab")
+    }
+    private fun isInstagramProfileTab(root: AccessibilityNodeInfo): Boolean {
+        return isTabSelected(root, "profile_tab")
+    }
+
+    private fun isTabSelected(root: AccessibilityNodeInfo, tabIdSuffix: String, iconIdSuffixes: List<String> = listOf("tab_icon", "tab_avatar")): Boolean {
+        val fullId = "$IG_PKG:id/$tabIdSuffix"
+        val tabs = root.findAccessibilityNodeInfosByViewId(fullId) ?.filter { it.isVisibleToUser } ?: return false
+
+        return tabs.any { tab ->
+            tab.isSelected ||
+                    (0 until tab.childCount).any { i ->
+                        val child = tab.getChild(i) ?: return@any false
+                        val childId = child.viewIdResourceName ?: ""
+                        iconIdSuffixes.any { childId.endsWith(it) } && child.isSelected
+                    }
+        }
+    }
+
+    // ############## PROFILE Screen ##############
+    fun isInstagramSubscriberListScreen(root: AccessibilityNodeInfo?): Boolean {
+        if (root == null) return false
+
+        val followListTabId = "$IG_PKG:id/unified_follow_list_tab_layout"
+        val titleId = "$IG_PKG:id/title"
+
+        val hasFollowListTab = root.findAccessibilityNodeInfosByViewId(followListTabId)
+            .any { it.isVisibleToUser }
+
+        val hasSubscriberTitle = root.findAccessibilityNodeInfosByViewId(titleId)
+            .any { it.isVisibleToUser && it.text?.toString()?.contains("구독") == true }
+
+        return hasFollowListTab && hasSubscriberTitle
+    }
+
+    fun isInstagramOtherProfileScreen(root: AccessibilityNodeInfo?): Boolean {
+        if (root == null) return false
+        val containerId = "$IG_PKG:id/profile_header_container"
+
+        val hasProfileHeader = root.findAccessibilityNodeInfosByViewId(containerId)
+            .any { it.isVisibleToUser }
+
+        return hasProfileHeader
+    }
+    fun isInstagramOtherSubscribeListScreen(root: AccessibilityNodeInfo?): Boolean {
+        if (root == null) return false
+        val followListTabId = "$IG_PKG:id/unified_follow_list_tab_layout"
+        val titleId = "$IG_PKG:id/title"
+
+        val recommendTargets = setOf("추천")
+
+        val hasFollowListTab = root.findAccessibilityNodeInfosByViewId(followListTabId)
+            .any { it.isVisibleToUser }
+        val hasRecommendTitle = root.findAccessibilityNodeInfosByViewId(titleId)
+            .any { it.isVisibleToUser && it.text?.toString() in recommendTargets }
+
+        return hasFollowListTab && hasRecommendTitle
+    }
+
+
+    // ############## Story Screen ##############
+
+    private fun isInstagramStoryScreen(root: AccessibilityNodeInfo): Boolean {
+        val viewerRoot = root.findAccessibilityNodeInfosByViewId(
+            "com.instagram.android:id/reel_viewer_root"
+        )
+        val progressBar = root.findAccessibilityNodeInfosByViewId(
+            "com.instagram.android:id/reel_viewer_progress_bar"
+        )
+
+        val hasViewerRoot = viewerRoot.isNotEmpty()
+        val hasProgressBar = progressBar.isNotEmpty()
+
+        viewerRoot.forEach { it.recycle() }
+        progressBar.forEach { it.recycle() }
+
+        return hasViewerRoot && hasProgressBar
     }
 }
