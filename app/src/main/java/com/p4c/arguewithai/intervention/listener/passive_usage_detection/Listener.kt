@@ -2,12 +2,10 @@ package com.p4c.arguewithai.intervention.listener.passive_usage_detection
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.accessibility.AccessibilityWindowInfo
 import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.InstagramLogics
-import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.ShortFormCallback
 
-class ShortFormListener(
-    private val callback: ShortFormCallback,
+class SMListener(
+    private val callback: SMCallback,
     private val stableMs: Long = 150L,
     private val exitGraceMs: Long = 500L,
     private val tickIntervalMs: Long = 100L
@@ -25,7 +23,6 @@ class ShortFormListener(
     fun onEvent(
         event: AccessibilityEvent?,
         root: AccessibilityNodeInfo?,
-        windowList: List<AccessibilityWindowInfo>? = null,
         nowMs: Long = System.currentTimeMillis(),
         onScreenChanged: ((String) -> Unit)? = {}
     ) {
@@ -35,7 +32,7 @@ class ShortFormListener(
         }
 
         val pkg = event.packageName?.toString()
-        val detected: ShortFormApp? = if (InstagramLogics.detectApp(pkg, root, windowList, onScreenChanged)) {
+        val detected: ShortFormApp? = if (InstagramLogics.detectApp(pkg, root, onScreenChanged)) {
             ShortFormApp.INSTAGRAM
         } else {
             null

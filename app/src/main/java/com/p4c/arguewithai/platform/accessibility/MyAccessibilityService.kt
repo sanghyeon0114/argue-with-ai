@@ -2,13 +2,11 @@ package com.p4c.arguewithai.platform.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences
-import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
-import com.p4c.arguewithai.intervention.ShortFormWatcherManager
+import com.p4c.arguewithai.intervention.Manager
 import com.p4c.arguewithai.platform.overlay.ScreenTimeOverlay
 import com.p4c.arguewithai.repository.FirestoreSessionRepository
 import com.p4c.arguewithai.repository.SessionId
@@ -51,7 +49,7 @@ class MyAccessibilityService (
         CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private val watcherManager by lazy {
-        ShortFormWatcherManager(
+        Manager(
             context = this,
             repo = repo,
             serviceScope = serviceScope,
@@ -88,8 +86,7 @@ class MyAccessibilityService (
             true -> { label -> debugOverlay.update(label) }
             false -> null
         }
-        watcherManager.shortFormTimeCounter.onEvent(event, root, windowList = windows,time.nowMs(), onScreenChanged = onScreenChanged)
-        watcherManager.sessionWatcher.onEvent(event, root, time.nowMs())
+        watcherManager.shortFormTimeCounter.onEvent(event, root,time.nowMs(), onScreenChanged = onScreenChanged)
     }
 
     override fun onInterrupt() {
