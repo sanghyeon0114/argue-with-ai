@@ -45,8 +45,7 @@ class MyAccessibilityService (
         }
     private val repo: SessionRepository = FirestoreSessionRepository()
     private var sessionId: SessionId? = null
-    private val serviceScope =
-        CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val sessionMutex = Mutex()
     private val watcherManager by lazy {
         Manager(

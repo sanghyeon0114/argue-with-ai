@@ -1,7 +1,6 @@
-package com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.detection_logics
+package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 
 import android.view.accessibility.AccessibilityNodeInfo
-import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.InstagramLogics.INSTAGRAM_PKG
 
 object Feed {
     fun isFeedScreen(root: AccessibilityNodeInfo?): Boolean {
@@ -22,14 +21,14 @@ object Feed {
     }
     fun isFeedMenuScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
-        val labels = root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PKG:id/context_menu_item_label")
+        val labels = root.findAccessibilityNodeInfosByViewId("${InstagramLogics.INSTAGRAM_PKG}:id/context_menu_item_label")
             ?.filter { it.isVisibleToUser } ?: return false
         val targets = setOf("팔로잉", "즐겨찾기")
         val foundTexts = labels.mapNotNull { it.text?.toString() }.toSet()
         return foundTexts.containsAll(targets)
     }
     fun isWebviewMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        val labelId = "$INSTAGRAM_PKG:id/title_textview"
+        val labelId = "${InstagramLogics.INSTAGRAM_PKG}:id/title_textview"
         val targets = setOf(
             "웹사이트 신고",
             "새로 고침",
@@ -49,17 +48,17 @@ object Feed {
         return foundTexts.containsAll(targets)
     }
     private fun isFollowingFeedScreen(root: AccessibilityNodeInfo): Boolean {
-        val titleId = "$INSTAGRAM_PKG:id/action_bar_title"
+        val titleId = "${InstagramLogics.INSTAGRAM_PKG}:id/action_bar_title"
         val nodes = root.findAccessibilityNodeInfosByViewId(titleId) ?: return false
         return nodes.any { it.isVisibleToUser && it.text?.toString() == "팔로잉" }
     }
     private fun isBookmarkFeedScreen(root: AccessibilityNodeInfo): Boolean {
-        val titleId = "$INSTAGRAM_PKG:id/action_bar_title"
+        val titleId = "${InstagramLogics.INSTAGRAM_PKG}:id/action_bar_title"
         val nodes = root.findAccessibilityNodeInfosByViewId(titleId) ?: return false
         return nodes.any { it.isVisibleToUser && it.text?.toString() == "즐겨찾기" }
     }
     fun hasVisibleNodeById(root: AccessibilityNodeInfo, idSuffix: String): Boolean {
-        val fullId = "$INSTAGRAM_PKG:id/$idSuffix"
+        val fullId = "${InstagramLogics.INSTAGRAM_PKG}:id/$idSuffix"
         val nodes = root.findAccessibilityNodeInfosByViewId(fullId) ?: return false
         return nodes.any { it.isVisibleToUser }
     }

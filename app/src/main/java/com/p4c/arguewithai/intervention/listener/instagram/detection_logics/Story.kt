@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.detection_logics
+package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 
 import android.view.accessibility.AccessibilityNodeInfo
 

@@ -1,9 +1,18 @@
 package com.p4c.arguewithai.intervention
 
 import android.content.Context
-import com.p4c.arguewithai.intervention.listener.passive_usage_detection.SMCallback
-import com.p4c.arguewithai.intervention.listener.passive_usage_detection.SMListener
-import com.p4c.arguewithai.intervention.listener.passive_usage_detection.ShortFormApp
+import android.content.Intent
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.ResultReceiver
+import com.p4c.arguewithai.app.InterventionPrefs
+import com.p4c.arguewithai.chat.activity.BlockingActivity
+import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
+import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
+import com.p4c.arguewithai.intervention.listener.SMCallback
+import com.p4c.arguewithai.intervention.listener.SMListener
+import com.p4c.arguewithai.intervention.listener.ShortFormApp
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.repository.SessionRepository
 import com.p4c.arguewithai.utils.Logger
@@ -20,6 +29,8 @@ class Manager(
 ) {
     var sessionId: SessionId? = null
     var isPromptVisible: Boolean = false
+    var interventionEnabled: Boolean = true
+    var cooltimeMs: Long = 30 * 1000L
     var currentWatchTime: Long = 0
     var watchTimeOnOneSession: Long = 0
 
@@ -27,6 +38,7 @@ class Manager(
         object : SMCallback {
             override fun onEnter(app: ShortFormApp, sinceMs: Long) {
                 Logger.d("⏹ Enter short-form: ${app.label}")
+                interventionEnabled = true
                 serviceScope.launch {
                     sessionMutex.withLock {
                         if (sessionId == null) {
@@ -42,6 +54,8 @@ class Manager(
 
             override fun onExit(app: ShortFormApp, enteredAtMs: Long, exitedAtMs: Long) {
                 Logger.d("⏹ Exit short-form: ${app.label}")
+                interventionEnabled = false
+                watchTimeOnOneSession = 0
                 serviceScope.launch {
                     sessionMutex.withLock {
                         sessionId?.let { id ->
@@ -68,7 +82,66 @@ class Manager(
                 elapsedMs: Long
             ) {
                 currentWatchTime = elapsedMs
+                if (!interventionEnabled) return
+                if (isPromptVisible) return
+                if (!InterventionPrefs.isEnabled(context)) return
+
+                var totalWatchTime = currentTotalWatchTime()
+
+                if(totalWatchTime >= cooltimeMs) {
+                    interventionEnabled = false
+                    watchTimeOnOneSession = 0
+                    currentWatchTime = 0
+                    showPrompt()
+                }
             }
         }
     )
+
+    private fun currentTotalWatchTime(): Long {
+        return watchTimeOnOneSession + currentWatchTime
+    }
+
+    private val promptResultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
+        override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
+            val reason = resultData?.getString("reason") ?: "unknown"
+
+            Logger.d("ChatActivity closed. reason=$reason")
+            isPromptVisible = false
+        }
+    }
+
+    private fun showPrompt() {
+        if (isPromptVisible) {
+            Logger.d("❌ showPrompt: already visible, skip")
+            return
+        }
+        if (!InterventionPrefs.isEnabled(context)) {
+            Logger.d("❌ showPrompt: intervention disabled, skip")
+            return
+        }
+        isPromptVisible = true
+
+        val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val interventionType = prefs.getInt("intervention_type", 0)
+
+        val targetActivityClass = when (interventionType) {
+            0 -> BlockingActivity::class.java
+            1 -> RuleBasedChatbotActivity::class.java
+            2 -> LlmChatbotActivity::class.java
+            else -> BlockingActivity::class.java
+        }
+
+        val i = Intent(context, targetActivityClass)
+
+        if (interventionType == 1 || interventionType == 2) {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            i.putExtra("receiver", promptResultReceiver)
+            i.putExtra("session_id", sessionId?.value ?: "")
+        } else {
+            i.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+
+        context.startActivity(i)
+    }
 }

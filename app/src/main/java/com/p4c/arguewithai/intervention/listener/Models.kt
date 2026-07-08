@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.intervention.listener.passive_usage_detection
+package com.p4c.arguewithai.intervention.listener
 
 interface AppScreen
 

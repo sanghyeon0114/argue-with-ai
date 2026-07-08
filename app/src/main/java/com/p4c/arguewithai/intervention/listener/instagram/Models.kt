@@ -1,6 +1,6 @@
-package com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram
+package com.p4c.arguewithai.intervention.listener.instagram
 
-import com.p4c.arguewithai.intervention.listener.passive_usage_detection.AppScreen
+import com.p4c.arguewithai.intervention.listener.AppScreen
 
 enum class InstagramScreen : AppScreen {
     FEED,

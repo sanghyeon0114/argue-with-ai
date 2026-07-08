@@ -1,7 +1,6 @@
-package com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.detection_logics
+package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 
 import android.view.accessibility.AccessibilityNodeInfo
-import com.p4c.arguewithai.intervention.listener.passive_usage_detection.instagram.InstagramLogics.INSTAGRAM_PKG
 
 object Reels {
     fun isReelsScreen(root: AccessibilityNodeInfo?): Boolean {
@@ -20,7 +19,7 @@ object Reels {
     }
 
     fun isReelsMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        val labelId = "$INSTAGRAM_PKG:id/context_menu_item_label"
+        val labelId = "${InstagramLogics.INSTAGRAM_PKG}:id/context_menu_item_label"
         val targets = setOf("팔로잉")
         val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
         return labelNodes.any { node ->
@@ -29,8 +28,8 @@ object Reels {
     }
 
     fun isReelsAudioMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        val labelId = "$INSTAGRAM_PKG:id/context_menu_item_label"
-        val subLabelId = "$INSTAGRAM_PKG:id/context_menu_item_sub_label"
+        val labelId = "${InstagramLogics.INSTAGRAM_PKG}:id/context_menu_item_label"
+        val subLabelId = "${InstagramLogics.INSTAGRAM_PKG}:id/context_menu_item_sub_label"
         val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
         val subLabelNodes = root.findAccessibilityNodeInfosByViewId(subLabelId) ?: return false
 
@@ -47,7 +46,7 @@ object Reels {
     }
 
     fun hasVisibleNodeById(root: AccessibilityNodeInfo, idSuffix: String): Boolean {
-        val fullId = "$INSTAGRAM_PKG:id/$idSuffix"
+        val fullId = "${InstagramLogics.INSTAGRAM_PKG}:id/$idSuffix"
         val nodes = root.findAccessibilityNodeInfosByViewId(fullId) ?: return false
         return nodes.any { it.isVisibleToUser }
     }
