@@ -5,6 +5,11 @@ import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.detection_logics.InstagramLogics
 import com.p4c.arguewithai.utils.Logger
 
+data class PassiveDetectionResult(
+    val screen: InstagramScreen?,
+    val app: SocialMediaApp?
+)
+
 class DetectionScreen {
     private var lastScreen: InstagramScreen? = null
     private val passiveScreen = setOf(
@@ -24,7 +29,7 @@ class DetectionScreen {
         InstagramScreen.STORY
     )
 
-    fun detectScreen(root: AccessibilityNodeInfo, onScreenChanged: ((String) -> Unit)? = null): InstagramScreen? {
+    fun detectScreen(root: AccessibilityNodeInfo): InstagramScreen? {
         val cached = lastScreen
         if (cached != null && InstagramLogics.isStillOnScreen(cached, root)) {
             return cached
@@ -34,26 +39,19 @@ class DetectionScreen {
         if (screen != lastScreen) {
             val label = screen?.toString() ?: "NONE"
             Logger.d(label)
-            onScreenChanged?.invoke(label)
             lastScreen = screen
         }
         return screen
     }
 
-    fun detectPassiveApp(pkg: String?, root: AccessibilityNodeInfo, onScreenChanged: ((String) -> Unit)? = null): SocialMediaApp? {
-        if (pkg != InstagramLogics.INSTAGRAM_PKG) return null
-        val screen = detectScreen(root, onScreenChanged)
-        return if (screen in passiveScreen) {
-            SocialMediaApp.INSTAGRAM
-        } else {
-            null
+    fun detectPassiveApp(pkg: String?, root: AccessibilityNodeInfo): PassiveDetectionResult {
+        if (pkg != InstagramLogics.INSTAGRAM_PKG) {
+            return PassiveDetectionResult(screen = null, app = null)
         }
-    }
 
-    fun reset() {
-        if (lastScreen != null) {
-            Logger.d("Tracker reset (was: $lastScreen)")
-        }
-        lastScreen = null
+        val screen = detectScreen(root)
+        val app = if (screen in passiveScreen) SocialMediaApp.INSTAGRAM else null
+
+        return PassiveDetectionResult(screen = screen, app = app)
     }
 }

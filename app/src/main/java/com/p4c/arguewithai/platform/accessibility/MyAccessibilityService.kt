@@ -69,8 +69,8 @@ class MyAccessibilityService (
         if (event == null) return
         val root = rootInActiveWindow
 
-        smListener.onEvent(event, root) { label, screenElapsedMs ->
-            debugOverlay.update(label, screenElapsedMs)
+        smListener.onEvent(event, root) { screenLabel, screenElapsedMs, appLabel, appElapsedMs ->
+            debugOverlay.update(screenLabel, screenElapsedMs, appLabel, appElapsedMs)
         }
     }
 

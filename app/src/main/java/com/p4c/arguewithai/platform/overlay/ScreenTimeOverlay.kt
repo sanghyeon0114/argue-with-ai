@@ -19,9 +19,11 @@ class ScreenTimeOverlay(
     private val handler = Handler(Looper.getMainLooper())
     private var tickRunnable: Runnable? = null
 
-    private var currentLabel: String = "NONE"
+    private var currentScreenLabel: String = "NONE"
+    private var currentAppLabel: String = "NONE"
 
     private var baseScreenElapsedMs: Long = 0L
+    private var baseAppElapsedMs: Long = 0L
     private var baseAtMs: Long = 0L
 
     fun start() {
@@ -66,9 +68,16 @@ class ScreenTimeOverlay(
         overlayView = null
     }
 
-    fun update(label: String, screenElapsedMs: Long) {
-        currentLabel = label
+    fun update(
+        screenLabel: String,
+        screenElapsedMs: Long,
+        appLabel: String,
+        appElapsedMs: Long
+    ) {
+        currentScreenLabel = screenLabel
+        currentAppLabel = appLabel
         baseScreenElapsedMs = screenElapsedMs
+        baseAppElapsedMs = appElapsedMs
         baseAtMs = System.currentTimeMillis()
         render(baseAtMs)
     }
@@ -91,12 +100,14 @@ class ScreenTimeOverlay(
     }
 
     private fun render(nowMs: Long) {
-        overlayView?.text = if (currentLabel == "NONE") {
+        overlayView?.text = if (currentAppLabel == "NONE") {
             "NONE"
         } else {
             val sinceUpdate = nowMs - baseAtMs
             val liveScreenElapsed = baseScreenElapsedMs + sinceUpdate
-            "$currentLabel\n${formatElapsed(liveScreenElapsed)}"
+            val liveAppElapsed = baseAppElapsedMs + sinceUpdate
+            "$currentAppLabel (${formatElapsed(liveAppElapsed)})\n" +
+                    "$currentScreenLabel (${formatElapsed(liveScreenElapsed)})"
         }
     }
 
