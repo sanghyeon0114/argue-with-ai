@@ -2,11 +2,11 @@ package com.p4c.arguewithai.intervention.listener
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.p4c.arguewithai.intervention.listener.instagram.Tracker
+import com.p4c.arguewithai.intervention.listener.instagram.DetectionScreen
 import com.p4c.arguewithai.utils.Logger
 
 class SMListener {
-    private val screenTracker = Tracker()
+    private val screenTracker = DetectionScreen()
 
     private var screenEnteredAtMs: Long = 0L
     private var currentScreenLabel: String = "NONE"
@@ -14,7 +14,7 @@ class SMListener {
     private var totalPassiveMs: Long = 0L
     private var lastPassiveTickMs: Long? = null
 
-    private var pendingResetAtMs: Long? = null
+    private var pendingScreenResetAtMs: Long? = null
 
     fun onEvent(
         event: AccessibilityEvent,
@@ -23,17 +23,17 @@ class SMListener {
         onUpdate: ((screen: String, screenElapsedMs: Long, totalPassiveMs: Long) -> Unit)? = null
     ) {
         if (root == null) {
-            handlePotentialReset(nowMs, onUpdate)
+            handlePotentialScreenReset(nowMs, onUpdate)
             return
         }
         val pkg = event.packageName?.toString()
         val app = pkg?.let { SocialMediaApp.fromPackageName(it) }
         if (app == null) {
-            handlePotentialReset(nowMs, onUpdate)
+            handlePotentialScreenReset(nowMs, onUpdate)
             return
         }
 
-        pendingResetAtMs = null
+        pendingScreenResetAtMs = null
 
         val detected: SocialMediaApp? = screenTracker.detectPassiveApp(pkg, root) { label ->
             currentScreenLabel = label
@@ -57,12 +57,13 @@ class SMListener {
             onUpdate?.invoke(currentScreenLabel, screenElapsedMs, totalPassiveMs)
         } else {
             lastPassiveTickMs = null
-            val screenElapsedMs = nowMs - screenEnteredAtMs
-            onUpdate?.invoke(currentScreenLabel, screenElapsedMs, totalPassiveMs)
+            screenEnteredAtMs = nowMs
+
+            onUpdate?.invoke(currentScreenLabel, 0L, totalPassiveMs)
         }
     }
 
-    private fun handlePotentialReset(
+    private fun handlePotentialScreenReset(
         nowMs: Long,
         onUpdate: ((screen: String, screenElapsedMs: Long, totalPassiveMs: Long) -> Unit)?
     ) {
@@ -70,19 +71,19 @@ class SMListener {
             return
         }
 
-        val pendingSince = pendingResetAtMs
+        val pendingSince = pendingScreenResetAtMs
         if (pendingSince == null) {
-            pendingResetAtMs = nowMs
+            pendingScreenResetAtMs = nowMs
             return
         }
 
-        if (nowMs - pendingSince >= RESET_DEBOUNCE_MS) {
-            resetWatchingState(onUpdate)
-            pendingResetAtMs = null
+        if (nowMs - pendingSince >= SCREEN_RESET_DEBOUNCE_MS) {
+            resetCurrentScreenState(onUpdate)
+            pendingScreenResetAtMs = null
         }
     }
 
-    private fun resetWatchingState(
+    private fun resetCurrentScreenState(
         onUpdate: ((screen: String, screenElapsedMs: Long, totalPassiveMs: Long) -> Unit)?
     ) {
         screenTracker.reset()
@@ -100,6 +101,6 @@ class SMListener {
     }
 
     companion object {
-        private const val RESET_DEBOUNCE_MS = 500L
+        private const val SCREEN_RESET_DEBOUNCE_MS = 500L
     }
 }

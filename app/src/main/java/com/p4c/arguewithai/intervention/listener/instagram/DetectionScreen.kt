@@ -5,8 +5,24 @@ import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.detection_logics.InstagramLogics
 import com.p4c.arguewithai.utils.Logger
 
-class Tracker {
+class DetectionScreen {
     private var lastScreen: InstagramScreen? = null
+    private val passiveScreen = setOf(
+        InstagramScreen.FEED,
+        InstagramScreen.FEED_MENU,
+        InstagramScreen.FEED_WEB_VIEW,
+        InstagramScreen.NOTIFICATION,
+        InstagramScreen.REELS,
+        InstagramScreen.REELS_MENU,
+        InstagramScreen.REELS_AUDIO_MENU,
+        InstagramScreen.SEARCH,
+        InstagramScreen.MY_PROFILE,
+        InstagramScreen.MY_SUBSCRIBE_LIST,
+        InstagramScreen.OTHER_PROFILE,
+        InstagramScreen.OTHER_SUBSCRIBE_LIST,
+        InstagramScreen.REPLY,
+        InstagramScreen.STORY
+    )
 
     fun detectScreen(root: AccessibilityNodeInfo, onScreenChanged: ((String) -> Unit)? = null): InstagramScreen? {
         val cached = lastScreen
@@ -27,7 +43,7 @@ class Tracker {
     fun detectPassiveApp(pkg: String?, root: AccessibilityNodeInfo, onScreenChanged: ((String) -> Unit)? = null): SocialMediaApp? {
         if (pkg != InstagramLogics.INSTAGRAM_PKG) return null
         val screen = detectScreen(root, onScreenChanged)
-        return if (screen == InstagramScreen.FEED || screen == InstagramScreen.REELS || screen == InstagramScreen.SEARCH) {
+        return if (screen in passiveScreen) {
             SocialMediaApp.INSTAGRAM
         } else {
             null
