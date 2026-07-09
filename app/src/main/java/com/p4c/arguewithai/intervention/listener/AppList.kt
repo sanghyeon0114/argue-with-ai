@@ -1,5 +1,11 @@
 package com.p4c.arguewithai.intervention.listener
 
-enum class ShortFormApp(val pkg: String, val label: String) {
-    INSTAGRAM("com.instagram.android", "Instagram")
+enum class SocialMediaApp(val pkg: String, val label: String) {
+    INSTAGRAM("com.instagram.android", "Instagram");
+
+    companion object {
+        fun fromPackageName(pkg: String): SocialMediaApp? {
+            return entries.find { it.pkg == pkg }
+        }
+    }
 }

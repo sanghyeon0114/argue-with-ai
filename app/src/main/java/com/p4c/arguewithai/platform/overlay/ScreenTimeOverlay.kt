@@ -20,7 +20,10 @@ class ScreenTimeOverlay(
     private var tickRunnable: Runnable? = null
 
     private var currentLabel: String = "NONE"
-    private var enteredAt: Long = 0L
+
+    private var baseScreenElapsedMs: Long = 0L
+    private var baseTotalPassiveMs: Long = 0L
+    private var baseAtMs: Long = 0L
 
     fun start() {
         if (overlayView != null) return
@@ -52,7 +55,7 @@ class ScreenTimeOverlay(
         windowManager?.addView(textView, params)
         overlayView = textView
 
-        enteredAt = System.currentTimeMillis()
+        baseAtMs = System.currentTimeMillis()
         startTicking()
     }
 
@@ -64,12 +67,12 @@ class ScreenTimeOverlay(
         overlayView = null
     }
 
-    fun update(label: String) {
-        if (label != currentLabel) {
-            currentLabel = label
-            enteredAt = System.currentTimeMillis()
-        }
-        render(System.currentTimeMillis())
+    fun update(label: String, screenElapsedMs: Long, totalPassiveMs: Long) {
+        currentLabel = label
+        baseScreenElapsedMs = screenElapsedMs
+        baseTotalPassiveMs = totalPassiveMs
+        baseAtMs = System.currentTimeMillis()
+        render(baseAtMs)
     }
 
     private fun startTicking() {
@@ -91,10 +94,12 @@ class ScreenTimeOverlay(
 
     private fun render(nowMs: Long) {
         overlayView?.text = if (currentLabel == "NONE") {
-            currentLabel
+            "NONE\n총 ${formatElapsed(baseTotalPassiveMs)}"
         } else {
-            val elapsedMs = nowMs - enteredAt
-            "$currentLabel\n${formatElapsed(elapsedMs)}"
+            val sinceUpdate = nowMs - baseAtMs
+            val liveScreenElapsed = baseScreenElapsedMs + sinceUpdate
+            val liveTotal = baseTotalPassiveMs + sinceUpdate
+            "$currentLabel\n${formatElapsed(liveScreenElapsed)}\n총 ${formatElapsed(liveTotal)}"
         }
     }
 

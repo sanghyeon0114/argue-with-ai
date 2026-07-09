@@ -1,11 +1,11 @@
 package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 
 import android.view.accessibility.AccessibilityNodeInfo
-import com.p4c.arguewithai.intervention.listener.ShortFormApp
+import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.InstagramScreen
 
 object InstagramLogics {
-    val INSTAGRAM_PKG = ShortFormApp.INSTAGRAM.pkg
+    val INSTAGRAM_PKG = SocialMediaApp.INSTAGRAM.pkg
 
     fun resolveScreen(root: AccessibilityNodeInfo?): InstagramScreen? {
         if (root == null) return null

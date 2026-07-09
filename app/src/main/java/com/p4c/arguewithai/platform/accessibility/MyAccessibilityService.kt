@@ -6,11 +6,9 @@ import android.view.accessibility.AccessibilityEvent
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
-import com.p4c.arguewithai.intervention.Manager
+import com.p4c.arguewithai.intervention.listener.SMListener
 import com.p4c.arguewithai.platform.overlay.ScreenTimeOverlay
-import com.p4c.arguewithai.repository.FirestoreSessionRepository
 import com.p4c.arguewithai.repository.SessionId
-import com.p4c.arguewithai.repository.SessionRepository
 import com.p4c.arguewithai.utils.Logger
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
@@ -19,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 
 class MyAccessibilityService (
     private val time: TimeProvider = SystemTimeProvider()
@@ -43,18 +40,9 @@ class MyAccessibilityService (
                 }
             }
         }
-    private val repo: SessionRepository = FirestoreSessionRepository()
     private var sessionId: SessionId? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
-    private val sessionMutex = Mutex()
-    private val watcherManager by lazy {
-        Manager(
-            context = this,
-            repo = repo,
-            serviceScope = serviceScope,
-            sessionMutex = sessionMutex
-        )
-    }
+    private val smListener = SMListener()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -79,13 +67,21 @@ class MyAccessibilityService (
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        val root = rootInActiveWindow
 
-        val root = rootInActiveWindow ?: return
-        val onScreenChanged: ((String) -> Unit)? = when(debugOverlayEnabled) {
-            true -> { label -> debugOverlay.update(label) }
+        val onUpdate: ((String, Long, Long) -> Unit)? = when (debugOverlayEnabled) {
+            true -> { label, screenElapsedMs, totalMs ->
+                debugOverlay.update(label, screenElapsedMs, totalMs)
+            }
             false -> null
         }
-        watcherManager.shortFormTimeCounter.onEvent(event, root,time.nowMs(), onScreenChanged = onScreenChanged)
+
+        smListener.onEvent(
+            event = event,
+            root = root,
+            nowMs = time.nowMs(),
+            onUpdate = onUpdate
+        )
     }
 
     override fun onInterrupt() {

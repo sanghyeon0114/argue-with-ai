@@ -1,7 +1,7 @@
 package com.p4c.arguewithai.intervention.listener.instagram
 
 import android.view.accessibility.AccessibilityNodeInfo
-import com.p4c.arguewithai.intervention.listener.ShortFormApp
+import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.detection_logics.InstagramLogics
 import com.p4c.arguewithai.utils.Logger
 
@@ -24,13 +24,20 @@ class Tracker {
         return screen
     }
 
-    fun detectPassiveApp(pkg: String?, root: AccessibilityNodeInfo, onScreenChanged: ((String) -> Unit)? = null): ShortFormApp? {
+    fun detectPassiveApp(pkg: String?, root: AccessibilityNodeInfo, onScreenChanged: ((String) -> Unit)? = null): SocialMediaApp? {
         if (pkg != InstagramLogics.INSTAGRAM_PKG) return null
         val screen = detectScreen(root, onScreenChanged)
         return if (screen == InstagramScreen.FEED || screen == InstagramScreen.REELS || screen == InstagramScreen.SEARCH) {
-            ShortFormApp.INSTAGRAM
+            SocialMediaApp.INSTAGRAM
         } else {
             null
         }
+    }
+
+    fun reset() {
+        if (lastScreen != null) {
+            Logger.d("Tracker reset (was: $lastScreen)")
+        }
+        lastScreen = null
     }
 }
