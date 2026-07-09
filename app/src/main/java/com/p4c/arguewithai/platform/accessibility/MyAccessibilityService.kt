@@ -69,19 +69,9 @@ class MyAccessibilityService (
         if (event == null) return
         val root = rootInActiveWindow
 
-        val onUpdate: ((String, Long, Long) -> Unit)? = when (debugOverlayEnabled) {
-            true -> { label, screenElapsedMs, totalMs ->
-                debugOverlay.update(label, screenElapsedMs, totalMs)
-            }
-            false -> null
+        smListener.onEvent(event, root) { label, screenElapsedMs ->
+            debugOverlay.update(label, screenElapsedMs)
         }
-
-        smListener.onEvent(
-            event = event,
-            root = root,
-            nowMs = time.nowMs(),
-            onUpdate = onUpdate
-        )
     }
 
     override fun onInterrupt() {
