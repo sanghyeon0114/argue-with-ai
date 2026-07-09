@@ -47,6 +47,7 @@ class SMListener {
             if (nullElapsed >= PKG_NULL_RESET_THRESHOLD_MS) {
                 appDurationTracker.forceReset(nowMs)
                 screenDurationTracker.forceReset(nowMs)
+                onUpdate?.invoke("NONE", 0L, "NONE", 0L)
             }
             return
         }
