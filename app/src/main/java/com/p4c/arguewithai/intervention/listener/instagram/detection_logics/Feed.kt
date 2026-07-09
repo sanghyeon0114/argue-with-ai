@@ -3,8 +3,7 @@ package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 import android.view.accessibility.AccessibilityNodeInfo
 
 object Feed {
-    fun isFeedScreen(root: AccessibilityNodeInfo?): Boolean {
-        if (root == null) return false
+    fun isFeedScreen(root: AccessibilityNodeInfo): Boolean {
         return hasFeedActionButton(root) || isFollowingFeedScreen(root) || isBookmarkFeedScreen(root)
     }
 
@@ -19,15 +18,14 @@ object Feed {
         )
         return buttonIds.any { hasVisibleNodeById(root, it) }
     }
-    fun isFeedMenuScreen(root: AccessibilityNodeInfo?): Boolean {
-        if (root == null) return false
+    fun isFeedMenuScreen(root: AccessibilityNodeInfo): Boolean {
         val labels = root.findAccessibilityNodeInfosByViewId("${InstagramLogics.INSTAGRAM_PKG}:id/context_menu_item_label")
             ?.filter { it.isVisibleToUser } ?: return false
         val targets = setOf("팔로잉", "즐겨찾기")
         val foundTexts = labels.mapNotNull { it.text?.toString() }.toSet()
         return foundTexts.containsAll(targets)
     }
-    fun isWebviewMenuScreen(root: AccessibilityNodeInfo?): Boolean {
+    fun isWebviewMenuScreen(root: AccessibilityNodeInfo): Boolean {
         val labelId = "${InstagramLogics.INSTAGRAM_PKG}:id/title_textview"
         val targets = setOf(
             "웹사이트 신고",
@@ -39,7 +37,7 @@ object Feed {
             "브라우저 설정",
             "개인정보처리방침"
         )
-        val labelNodes = root?.findAccessibilityNodeInfosByViewId(labelId) ?: return false
+        val labelNodes = root.findAccessibilityNodeInfosByViewId(labelId)
         val foundTexts = labelNodes
             .filter { it.isVisibleToUser }
             .mapNotNull { it.text?.toString() }
@@ -49,7 +47,7 @@ object Feed {
     }
     private fun isFollowingFeedScreen(root: AccessibilityNodeInfo): Boolean {
         val titleId = "${InstagramLogics.INSTAGRAM_PKG}:id/action_bar_title"
-        val nodes = root.findAccessibilityNodeInfosByViewId(titleId) ?: return false
+        val nodes = root.findAccessibilityNodeInfosByViewId(titleId)
         return nodes.any { it.isVisibleToUser && it.text?.toString() == "팔로잉" }
     }
     private fun isBookmarkFeedScreen(root: AccessibilityNodeInfo): Boolean {

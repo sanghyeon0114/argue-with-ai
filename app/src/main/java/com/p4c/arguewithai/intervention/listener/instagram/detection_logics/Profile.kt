@@ -3,8 +3,7 @@ package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 import android.view.accessibility.AccessibilityNodeInfo
 
 object Profile {
-    fun isProfileScreen(root: AccessibilityNodeInfo?): Boolean {
-        if (root == null) return false
+    fun isProfileScreen(root: AccessibilityNodeInfo): Boolean {
         return isProfileTab(root)
     }
     private fun isProfileTab(root: AccessibilityNodeInfo): Boolean {
@@ -12,7 +11,7 @@ object Profile {
     }
     private fun isTabSelected(root: AccessibilityNodeInfo, tabIdSuffix: String, iconIdSuffixes: List<String> = listOf("tab_icon", "tab_avatar")): Boolean {
         val fullId = "${InstagramLogics.INSTAGRAM_PKG}:id/$tabIdSuffix"
-        val tabs = root.findAccessibilityNodeInfosByViewId(fullId) ?.filter { it.isVisibleToUser } ?: return false
+        val tabs = root.findAccessibilityNodeInfosByViewId(fullId).filter { it.isVisibleToUser }
 
         return tabs.any { tab ->
             tab.isSelected ||
@@ -24,17 +23,12 @@ object Profile {
         }
     }
 
-    fun isSubscriberListScreen(root: AccessibilityNodeInfo?): Boolean {
-        if (root == null) return false
-
+    fun isSubscriberListScreen(root: AccessibilityNodeInfo): Boolean {
         val followListTabId = "${InstagramLogics.INSTAGRAM_PKG}:id/unified_follow_list_tab_layout"
         val titleId = "${InstagramLogics.INSTAGRAM_PKG}:id/title"
 
-        val hasFollowListTab = root.findAccessibilityNodeInfosByViewId(followListTabId)
-            .any { it.isVisibleToUser }
-
-        val hasSubscriberTitle = root.findAccessibilityNodeInfosByViewId(titleId)
-            .any { it.isVisibleToUser && it.text?.toString()?.contains("구독") == true }
+        val hasFollowListTab = root.findAccessibilityNodeInfosByViewId(followListTabId).any { it.isVisibleToUser }
+        val hasSubscriberTitle = root.findAccessibilityNodeInfosByViewId(titleId).any { it.isVisibleToUser && it.text?.toString()?.contains("구독") == true }
 
         return hasFollowListTab && hasSubscriberTitle
     }
@@ -42,23 +36,17 @@ object Profile {
     fun isOtherProfileScreen(root: AccessibilityNodeInfo?): Boolean {
         if (root == null) return false
         val containerId = "${InstagramLogics.INSTAGRAM_PKG}:id/profile_header_container"
-
-        val hasProfileHeader = root.findAccessibilityNodeInfosByViewId(containerId)
-            .any { it.isVisibleToUser }
+        val hasProfileHeader = root.findAccessibilityNodeInfosByViewId(containerId).any { it.isVisibleToUser }
 
         return hasProfileHeader
     }
-    fun isOtherSubscribeListScreen(root: AccessibilityNodeInfo?): Boolean {
-        if (root == null) return false
+    fun isOtherSubscribeListScreen(root: AccessibilityNodeInfo): Boolean {
         val followListTabId = "${InstagramLogics.INSTAGRAM_PKG}:id/unified_follow_list_tab_layout"
         val titleId = "${InstagramLogics.INSTAGRAM_PKG}:id/title"
 
         val recommendTargets = setOf("추천")
-
-        val hasFollowListTab = root.findAccessibilityNodeInfosByViewId(followListTabId)
-            .any { it.isVisibleToUser }
-        val hasRecommendTitle = root.findAccessibilityNodeInfosByViewId(titleId)
-            .any { it.isVisibleToUser && it.text?.toString() in recommendTargets }
+        val hasFollowListTab = root.findAccessibilityNodeInfosByViewId(followListTabId).any { it.isVisibleToUser }
+        val hasRecommendTitle = root.findAccessibilityNodeInfosByViewId(titleId).any { it.isVisibleToUser && it.text?.toString() in recommendTargets }
 
         return hasFollowListTab && hasRecommendTitle
     }

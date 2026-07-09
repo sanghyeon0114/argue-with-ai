@@ -3,86 +3,25 @@ package com.p4c.arguewithai.intervention.listener
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.p4c.arguewithai.intervention.listener.instagram.DetectionScreen
-import com.p4c.arguewithai.intervention.listener.instagram.InstagramScreen
-import com.p4c.arguewithai.utils.Logger
+import com.p4c.arguewithai.intervention.listener.instagram.PassiveDetectionResult
 
 class SMListener {
     private val screenTracker = DetectionScreen()
-    private val appDurationTracker = ScreenDurationTracker<SocialMediaApp>()
-    private val screenDurationTracker = ScreenDurationTracker<InstagramScreen>()
-
-    private var pkgNullSinceMs: Long? = null
-    private var appMismatchSinceMs: Long? = null
-
-    companion object {
-        private const val PKG_NULL_RESET_THRESHOLD_MS = 300L
-        private const val APP_MISMATCH_RESET_THRESHOLD_MS = 300L
-    }
 
     fun onEvent(
         event: AccessibilityEvent,
-        root: AccessibilityNodeInfo?,
+        root: AccessibilityNodeInfo,
         nowMs: Long = System.currentTimeMillis(),
-        onUpdate: ((
-            screenLabel: String,
-            screenElapsedMs: Long,
-            appLabel: String,
-            appElapsedMs: Long
-        ) -> Unit)? = null
-    ) {
-        if (root == null) {
-            return
-        }
+    ): PassiveDetectionResult? {
         val pkg = event.packageName?.toString()
-        if (pkg == null) {
-            return
+        if(pkg == null) {
+            return null
         }
-        val app = pkg.let { SocialMediaApp.fromPackageName(it) }
-
-        if (app == null) {
-            if (pkgNullSinceMs == null) {
-                pkgNullSinceMs = nowMs
-            }
-            val nullElapsed = nowMs - pkgNullSinceMs!!
-            if (nullElapsed >= PKG_NULL_RESET_THRESHOLD_MS) {
-                appDurationTracker.forceReset(nowMs)
-                screenDurationTracker.forceReset(nowMs)
-                onUpdate?.invoke("NONE", 0L, "NONE", 0L)
-            }
-            return
-        }
-        pkgNullSinceMs = null
-
-        if (appDurationTracker.current() == SocialMediaApp.INSTAGRAM && app != SocialMediaApp.INSTAGRAM) {
-            if (appMismatchSinceMs == null) {
-                appMismatchSinceMs = nowMs
-            }
-            val mismatchElapsed = nowMs - appMismatchSinceMs!!
-            if (mismatchElapsed >= APP_MISMATCH_RESET_THRESHOLD_MS) {
-                appDurationTracker.forceReset(nowMs)
-                screenDurationTracker.forceReset(nowMs)
-                appMismatchSinceMs = null
-            }
-        } else {
-            appMismatchSinceMs = null
+        val app = SocialMediaApp.fromPackageName(pkg)
+        if(app == null) {
+            return null
         }
 
-        val result = screenTracker.detectPassiveApp(pkg, root)
-        val screenName: InstagramScreen? = result.screen
-        val appName: SocialMediaApp? = result.app
-
-        val appElapsedMs = appDurationTracker.update(appName, nowMs)
-        val screenElapsedMs = screenDurationTracker.update(screenName, nowMs)
-
-        Logger.d(
-            "screen: $screenName (${screenElapsedMs}ms), app: $appName (${appElapsedMs}ms)"
-        )
-
-        onUpdate?.invoke(
-            screenName?.toString() ?: "NONE",
-            screenElapsedMs,
-            appName?.toString() ?: "NONE",
-            appElapsedMs
-        )
+        return screenTracker.detectPassiveApp(pkg, root, nowMs)
     }
 }

@@ -18,4 +18,5 @@ enum class InstagramScreen : AppScreen {
     OTHER_SUBSCRIBE_LIST,
     REPLY,
     STORY,
+    NONE,
 }

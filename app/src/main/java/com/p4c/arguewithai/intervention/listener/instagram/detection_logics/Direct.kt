@@ -3,8 +3,7 @@ package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 import android.view.accessibility.AccessibilityNodeInfo
 
 object Direct {
-    fun isDirectScreen(root: AccessibilityNodeInfo?): Boolean {
-        if (root == null) return false
+    fun isDirectScreen(root: AccessibilityNodeInfo): Boolean {
         return isDirectTab(root)
     }
     private fun isDirectTab(root: AccessibilityNodeInfo): Boolean {

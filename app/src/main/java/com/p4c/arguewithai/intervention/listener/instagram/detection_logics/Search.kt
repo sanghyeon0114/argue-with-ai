@@ -3,8 +3,7 @@ package com.p4c.arguewithai.intervention.listener.instagram.detection_logics
 import android.view.accessibility.AccessibilityNodeInfo
 
 object Search {
-    fun isSearchScreen(root: AccessibilityNodeInfo?): Boolean {
-        if (root == null) return false
+    fun isSearchScreen(root: AccessibilityNodeInfo): Boolean {
         return isSearchTab(root)
     }
 
@@ -13,7 +12,7 @@ object Search {
     }
     private fun isTabSelected(root: AccessibilityNodeInfo, tabIdSuffix: String, iconIdSuffixes: List<String> = listOf("tab_icon", "tab_avatar")): Boolean {
         val fullId = "${InstagramLogics.INSTAGRAM_PKG}:id/$tabIdSuffix"
-        val tabs = root.findAccessibilityNodeInfosByViewId(fullId) ?.filter { it.isVisibleToUser } ?: return false
+        val tabs = root.findAccessibilityNodeInfosByViewId(fullId).filter { it.isVisibleToUser }
 
         return tabs.any { tab ->
             tab.isSelected ||

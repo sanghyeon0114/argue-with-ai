@@ -19,8 +19,8 @@ class ScreenTimeOverlay(
     private val handler = Handler(Looper.getMainLooper())
     private var tickRunnable: Runnable? = null
 
-    private var currentScreenLabel: String = "NONE"
-    private var currentAppLabel: String = "NONE"
+    private var currentScreenLabel: String = "."
+    private var currentAppLabel: String = "."
 
     private var baseScreenElapsedMs: Long = 0L
     private var baseAppElapsedMs: Long = 0L
@@ -37,7 +37,7 @@ class ScreenTimeOverlay(
             setPadding(24, 12, 24, 12)
             setBackgroundColor(Color.parseColor("#88000000"))
             gravity = Gravity.CENTER
-            text = "NONE"
+            text = "."
         }
 
         val params = WindowManager.LayoutParams(

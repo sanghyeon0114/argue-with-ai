@@ -68,9 +68,20 @@ class MyAccessibilityService (
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val root = rootInActiveWindow
+        if(root == null) {
+            return
+        }
 
-        smListener.onEvent(event, root) { screenLabel, screenElapsedMs, appLabel, appElapsedMs ->
-            debugOverlay.update(screenLabel, screenElapsedMs, appLabel, appElapsedMs)
+        val nowMs = System.currentTimeMillis()
+        val result = smListener.onEvent(event, root) ?: return
+
+        if (debugOverlayEnabled) {
+            debugOverlay.update(
+                screenLabel = result.screen.name,
+                screenElapsedMs = nowMs - result.screenSinceMs,
+                appLabel = "NONE",
+                appElapsedMs = 0L
+            )
         }
     }
 
