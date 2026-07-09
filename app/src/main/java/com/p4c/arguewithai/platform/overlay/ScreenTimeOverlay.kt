@@ -19,8 +19,9 @@ class ScreenTimeOverlay(
     private val handler = Handler(Looper.getMainLooper())
     private var tickRunnable: Runnable? = null
 
-    private var currentScreenLabel: String = "."
-    private var currentAppLabel: String = "."
+    private var currentScreenLabel: String = "NONE"
+    private var currentAppLabel: String = "NONE"
+    private var currentHasIntervened: Boolean = false
 
     private var baseScreenElapsedMs: Long = 0L
     private var baseAppElapsedMs: Long = 0L
@@ -37,7 +38,7 @@ class ScreenTimeOverlay(
             setPadding(24, 12, 24, 12)
             setBackgroundColor(Color.parseColor("#88000000"))
             gravity = Gravity.CENTER
-            text = "."
+            text = "NONE"
         }
 
         val params = WindowManager.LayoutParams(
@@ -72,10 +73,12 @@ class ScreenTimeOverlay(
         screenLabel: String,
         screenElapsedMs: Long,
         appLabel: String,
-        appElapsedMs: Long
+        appElapsedMs: Long,
+        hasIntervened: Boolean
     ) {
         currentScreenLabel = screenLabel
         currentAppLabel = appLabel
+        currentHasIntervened = hasIntervened
         baseScreenElapsedMs = screenElapsedMs
         baseAppElapsedMs = appElapsedMs
         baseAtMs = System.currentTimeMillis()
@@ -100,20 +103,23 @@ class ScreenTimeOverlay(
     }
 
     private fun render(nowMs: Long) {
-        overlayView?.text = if(currentScreenLabel == "NONE") {
-            "NONE"
+        val intervenedLine = "INTERVENED: $currentHasIntervened"
+
+        overlayView?.text = if (currentScreenLabel == "NONE") {
+            "NONE\n$intervenedLine"
         } else if (currentAppLabel == "NONE") {
             val sinceUpdate = nowMs - baseAtMs
             val liveScreenElapsed = baseScreenElapsedMs + sinceUpdate
 
-            "$currentScreenLabel: ${formatElapsed(liveScreenElapsed)}"
+            "$currentScreenLabel: ${formatElapsed(liveScreenElapsed)}\n$intervenedLine"
         } else {
             val sinceUpdate = nowMs - baseAtMs
             val liveScreenElapsed = baseScreenElapsedMs + sinceUpdate
             val liveAppElapsed = baseAppElapsedMs + sinceUpdate
 
             "$currentScreenLabel: ${formatElapsed(liveScreenElapsed)}\n" +
-                    "TOTAL: ${formatElapsed(liveAppElapsed)}"
+                    "TOTAL: ${formatElapsed(liveAppElapsed)}\n" +
+                    intervenedLine
         }
     }
 

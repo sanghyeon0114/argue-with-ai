@@ -25,7 +25,7 @@ object BlockingActivityStatus {
 
 class BlockingActivity : ComponentActivity() {
     val countPage: Int = 3
-    val secondPerPage: Int = 10
+    val secondPerPage: Int = 1
 
     private val repo = FirestoreBlockingRepository()
     private val sessionId: String by lazy {

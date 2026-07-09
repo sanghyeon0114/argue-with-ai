@@ -7,6 +7,8 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.intervention.listener.SMListener
+import com.p4c.arguewithai.intervention.listener.SocialMediaApp
+import com.p4c.arguewithai.intervention.prompt.Prompt
 import com.p4c.arguewithai.platform.overlay.ScreenTimeOverlay
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.utils.Logger
@@ -17,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class MyAccessibilityService (
     private val time: TimeProvider = SystemTimeProvider()
@@ -25,6 +28,18 @@ class MyAccessibilityService (
     private lateinit var prefs: SharedPreferences
     private var debugOverlayEnabled: Boolean = false
     private val debugOverlay by lazy { ScreenTimeOverlay(applicationContext) }
+    private val prompt by lazy { Prompt(applicationContext) }
+
+    companion object {
+        private const val PASSIVE_THRESHOLD_MS = 3 * 1000L
+        private const val NON_PASSIVE_DEBOUNCE_MS = 500L
+    }
+
+    private var hasIntervened: Boolean = false
+    private var sessionId: SessionId? = null
+    private var trackedPassiveSinceMs: Long? = null
+    private var nonPassiveSinceMs: Long? = null
+
     private val prefListener =
         SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
             when (key) {
@@ -40,7 +55,6 @@ class MyAccessibilityService (
                 }
             }
         }
-    private var sessionId: SessionId? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val smListener = SMListener()
 
@@ -68,22 +82,50 @@ class MyAccessibilityService (
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val root = rootInActiveWindow
-        if(root == null) {
+        if (root == null) {
             return
         }
 
-        val nowMs = System.currentTimeMillis()
+        val nowMs = time.nowMs()
         val result = smListener.onEvent(event, root) ?: return
 
+        Logger.d("$result")
         if (debugOverlayEnabled) {
             debugOverlay.update(
                 screenLabel = result.screen.name,
                 screenElapsedMs = nowMs - result.screenSinceMs,
-                appLabel = "NONE",
-                appElapsedMs = 0L
+                appLabel = result.app.name,
+                appElapsedMs = nowMs - result.passiveSinceMs,
+                hasIntervened = hasIntervened
             )
         }
+
+        if (!result.isPassive) {
+            val since = nonPassiveSinceMs ?: nowMs.also { nonPassiveSinceMs = it }
+            val nonPassiveElapsedMs = nowMs - since
+
+            if (nonPassiveElapsedMs >= NON_PASSIVE_DEBOUNCE_MS) {
+                hasIntervened = false
+                sessionId = null
+                trackedPassiveSinceMs = null
+            }
+            return
+        }
+
+        nonPassiveSinceMs = null
+
+        if (trackedPassiveSinceMs != result.passiveSinceMs) {
+            trackedPassiveSinceMs = result.passiveSinceMs
+            sessionId = SessionId(UUID.randomUUID().toString())
+        }
+
+        val passiveElapsedMs = nowMs - result.passiveSinceMs
+        if (!hasIntervened && passiveElapsedMs >= PASSIVE_THRESHOLD_MS) {
+            val intervened = prompt.show(sessionId)
+            hasIntervened = intervened
+        }
     }
+
 
     override fun onInterrupt() {
         // pass

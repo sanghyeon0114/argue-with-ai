@@ -3,16 +3,22 @@ package com.p4c.arguewithai.intervention.listener.instagram
 import android.view.accessibility.AccessibilityNodeInfo
 import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.detection_logics.InstagramLogics
+import com.p4c.arguewithai.utils.Logger
 
 data class PassiveDetectionResult(
     val screen: InstagramScreen,
     val screenSinceMs: Long,
-    val app: SocialMediaApp
+    val passiveSinceMs: Long,
+    val app: SocialMediaApp,
+    val isPassive: Boolean
 )
 
 class DetectionScreen {
     private var lastScreen: InstagramScreen = InstagramScreen.NONE
     private var lastScreenSinceMs: Long = 0L
+
+    private var passiveSinceMs: Long = 0L
+    private var isPassiveActive: Boolean = false
 
     private val passiveScreen = setOf(
         InstagramScreen.FEED,
@@ -39,20 +45,37 @@ class DetectionScreen {
 
         val screen = InstagramLogics.resolveScreen(root)
         if (screen != lastScreen) {
+            Logger.d("$lastScreen -> $screen : ${nowMs - lastScreenSinceMs}")
             lastScreen = screen
             lastScreenSinceMs = nowMs
         }
         return screen
     }
 
-    fun detectPassiveApp(pkg: String?, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult {
-        if (pkg != InstagramLogics.INSTAGRAM_PKG) {
-            return PassiveDetectionResult(screen = InstagramScreen.NONE, screenSinceMs = nowMs, app = SocialMediaApp.NONE)
-        }
-
+    fun detectPassiveApp(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult {
         val screen = detectScreen(root, nowMs)
-        val app = if (screen in passiveScreen) SocialMediaApp.INSTAGRAM else SocialMediaApp.NONE
+        var app: SocialMediaApp = SocialMediaApp.resolve(pkg)
+        val isPassive = screen in passiveScreen
+                || SocialMediaApp.resolve(pkg) == SocialMediaApp.INTERVENTION
+                || SocialMediaApp.resolve(pkg) == SocialMediaApp.KEYBOARD
+                || SocialMediaApp.resolve(pkg) == SocialMediaApp.SYSTEM
+        if (isPassive) {
+            if (!isPassiveActive) {
+                passiveSinceMs = nowMs
+                isPassiveActive = true
+            }
+        } else {
+            isPassiveActive = false
+        }
+        app =  if (isPassive) SocialMediaApp.PASSIVE_INSTAGRAM else app
+        val resultPassiveSinceMs = if (isPassive) passiveSinceMs else nowMs
 
-        return PassiveDetectionResult(screen = screen, screenSinceMs = lastScreenSinceMs, app = app)
+        return PassiveDetectionResult(
+            screen = screen,
+            screenSinceMs = lastScreenSinceMs,
+            passiveSinceMs = resultPassiveSinceMs,
+            app = app,
+            isPassive = isPassive
+        )
     }
 }

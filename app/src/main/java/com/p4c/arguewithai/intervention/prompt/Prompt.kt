@@ -17,28 +17,27 @@ class Prompt(
     private val context: Context,
     private val onClosed: (reason: String) -> Unit = {}
 ) {
-    var isVisible: Boolean = false
-        private set
+    private var lastShownSessionId: SessionId? = null
 
     private val resultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
         override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
             val reason = resultData?.getString("reason") ?: "unknown"
             Logger.d("ChatActivity closed. reason=$reason")
-            isVisible = false
             onClosed(reason)
         }
     }
 
-    fun show(sessionId: SessionId?) {
-        if (isVisible) {
-            Logger.d("❌ showPrompt: already visible, skip")
-            return
-        }
+    fun show(sessionId: SessionId?): Boolean {
         if (!InterventionPrefs.isEnabled(context)) {
             Logger.d("❌ showPrompt: intervention disabled, skip")
-            return
+            return false
         }
-        isVisible = true
+        if (sessionId != null && sessionId == lastShownSessionId) {
+            Logger.d("❌ showPrompt: already shown for sessionId=$sessionId, skip")
+            return true
+        }
+
+        lastShownSessionId = sessionId
 
         val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val interventionType = prefs.getInt("intervention_type", 0)
@@ -61,9 +60,6 @@ class Prompt(
         }
 
         context.startActivity(i)
-    }
-
-    fun reset() {
-        isVisible = false
+        return true
     }
 }
