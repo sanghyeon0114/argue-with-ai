@@ -100,14 +100,20 @@ class ScreenTimeOverlay(
     }
 
     private fun render(nowMs: Long) {
-        overlayView?.text = if (currentAppLabel == "NONE") {
+        overlayView?.text = if(currentScreenLabel == "NONE") {
             "NONE"
+        } else if (currentAppLabel == "NONE") {
+            val sinceUpdate = nowMs - baseAtMs
+            val liveScreenElapsed = baseScreenElapsedMs + sinceUpdate
+
+            "$currentScreenLabel: ${formatElapsed(liveScreenElapsed)}"
         } else {
             val sinceUpdate = nowMs - baseAtMs
             val liveScreenElapsed = baseScreenElapsedMs + sinceUpdate
             val liveAppElapsed = baseAppElapsedMs + sinceUpdate
-            "$currentAppLabel (${formatElapsed(liveAppElapsed)})\n" +
-                    "$currentScreenLabel (${formatElapsed(liveScreenElapsed)})"
+
+            "$currentScreenLabel: ${formatElapsed(liveScreenElapsed)}\n" +
+                    "TOTAL: ${formatElapsed(liveAppElapsed)}"
         }
     }
 

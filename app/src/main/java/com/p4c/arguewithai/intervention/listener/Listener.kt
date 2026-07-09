@@ -15,8 +15,8 @@ class SMListener {
     private var appMismatchSinceMs: Long? = null
 
     companion object {
-        private const val PKG_NULL_RESET_THRESHOLD_MS = 500L
-        private const val APP_MISMATCH_RESET_THRESHOLD_MS = 500L
+        private const val PKG_NULL_RESET_THRESHOLD_MS = 300L
+        private const val APP_MISMATCH_RESET_THRESHOLD_MS = 300L
     }
 
     fun onEvent(
@@ -73,9 +73,9 @@ class SMListener {
         val appElapsedMs = appDurationTracker.update(appName, nowMs)
         val screenElapsedMs = screenDurationTracker.update(screenName, nowMs)
 
-//        Logger.d(
-//            "screen: $screenName (${screenElapsedMs}ms), app: $appName (${appElapsedMs}ms)"
-//        )
+        Logger.d(
+            "screen: $screenName (${screenElapsedMs}ms), app: $appName (${appElapsedMs}ms)"
+        )
 
         onUpdate?.invoke(
             screenName?.toString() ?: "NONE",
