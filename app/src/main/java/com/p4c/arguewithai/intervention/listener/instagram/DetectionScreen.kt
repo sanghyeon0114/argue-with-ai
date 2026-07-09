@@ -16,9 +16,13 @@ data class PassiveDetectionResult(
 class DetectionScreen {
     private var lastScreen: InstagramScreen = InstagramScreen.NONE
     private var lastScreenSinceMs: Long = 0L
+    private var pendingNoneSinceMs: Long? = null
 
     private var passiveSinceMs: Long = 0L
     private var isPassiveActive: Boolean = false
+    companion object {
+        private const val NONE_GRACE_PERIOD_MS = 100L
+    }
 
     private val passiveScreen = setOf(
         InstagramScreen.FEED,
@@ -40,10 +44,25 @@ class DetectionScreen {
     fun detectScreen(root: AccessibilityNodeInfo, nowMs: Long): InstagramScreen {
         val cached = lastScreen
         if (cached != InstagramScreen.NONE && InstagramLogics.isStillOnScreen(cached, root)) {
+            pendingNoneSinceMs = null
             return cached
         }
 
         val screen = InstagramLogics.resolveScreen(root)
+
+        if (screen == InstagramScreen.NONE && lastScreen != InstagramScreen.NONE) {
+            val pendingSince = pendingNoneSinceMs
+            if (pendingSince == null) {
+                pendingNoneSinceMs = nowMs
+                return lastScreen
+            }
+            if (nowMs - pendingSince < NONE_GRACE_PERIOD_MS) {
+                return lastScreen
+            }
+        } else {
+            pendingNoneSinceMs = null
+        }
+
         if (screen != lastScreen) {
             val elapsed = if (lastScreen == InstagramScreen.NONE) 0L else nowMs - lastScreenSinceMs
             Logger.d("$lastScreen -> $screen : $elapsed")

@@ -9,12 +9,14 @@ object Feed {
 
     private fun hasFeedActionButton(root: AccessibilityNodeInfo): Boolean {
         val buttonIds = listOf(
+            "row_feed_photo_imageview",
             "row_feed_button_like",
             "row_feed_button_comment",
             "row_feed_button_share",
             "row_feed_button_save",
             "row_feed_photo_profile_imageview",
-            "row_feed_photo_profile_name"
+            "row_feed_photo_profile_name",
+            "row_feed_profile_header"
         )
         return buttonIds.any { hasVisibleNodeById(root, it) }
     }

@@ -88,7 +88,8 @@ class MyAccessibilityService (
         val nowMs = time.nowMs()
         val result = smListener.onEvent(event, root) ?: return
 
-        //Logger.d("$result")
+        Logger.d("$result")
+        Logger.d("${result.app.pkg}")
         if (debugOverlayEnabled) {
             debugOverlay.update(
                 screenLabel = result.screen.name,

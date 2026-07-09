@@ -26,21 +26,15 @@ object Reels {
     }
 
     fun isReelsAudioMenuScreen(root: AccessibilityNodeInfo): Boolean {
-        val labelId = "${InstagramLogics.INSTAGRAM_PKG}:id/context_menu_item_label"
         val subLabelId = "${InstagramLogics.INSTAGRAM_PKG}:id/context_menu_item_sub_label"
-        val labelNodes = root.findAccessibilityNodeInfosByViewId(labelId)
         val subLabelNodes = root.findAccessibilityNodeInfosByViewId(subLabelId)
 
-        val labelTargets = setOf("리믹스 및 시퀀스")
         val subLabelTargets = setOf("오디오")
-        val hasLabel = labelNodes.any { node ->
-            node.isVisibleToUser && node.text?.toString() in labelTargets
-        }
         val hasSubLabel = subLabelNodes.any { node ->
             node.isVisibleToUser && node.text?.toString() in subLabelTargets
         }
 
-        return hasLabel && hasSubLabel
+        return  hasSubLabel
     }
 
     fun hasVisibleNodeById(root: AccessibilityNodeInfo, idSuffix: String): Boolean {
