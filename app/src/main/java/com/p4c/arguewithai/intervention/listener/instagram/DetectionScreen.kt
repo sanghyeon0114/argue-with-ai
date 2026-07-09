@@ -45,7 +45,8 @@ class DetectionScreen {
 
         val screen = InstagramLogics.resolveScreen(root)
         if (screen != lastScreen) {
-            Logger.d("$lastScreen -> $screen : ${nowMs - lastScreenSinceMs}")
+            val elapsed = if (lastScreen == InstagramScreen.NONE) 0L else nowMs - lastScreenSinceMs
+            Logger.d("$lastScreen -> $screen : $elapsed")
             lastScreen = screen
             lastScreenSinceMs = nowMs
         }

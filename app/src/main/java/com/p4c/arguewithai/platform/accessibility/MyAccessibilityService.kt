@@ -60,8 +60,7 @@ class MyAccessibilityService (
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Logger.d("[AccessibilityService] 연결됨")
-
+        //Logger.d("[AccessibilityService] 연결됨")
         prefs = getSharedPreferences("argue_prefs", MODE_PRIVATE).also {
             interventionEnabled = it.getBoolean("intervention_enabled", true)
             debugOverlayEnabled = it.getBoolean("debug_overlay_enabled", false)
@@ -89,7 +88,7 @@ class MyAccessibilityService (
         val nowMs = time.nowMs()
         val result = smListener.onEvent(event, root) ?: return
 
-        Logger.d("$result")
+        //Logger.d("$result")
         if (debugOverlayEnabled) {
             debugOverlay.update(
                 screenLabel = result.screen.name,
