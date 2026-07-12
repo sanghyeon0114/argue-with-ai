@@ -88,7 +88,7 @@ class MyAccessibilityService (
         val nowMs = time.nowMs()
         val result = smListener.onEvent(event, root) ?: return
 
-        //Logger.d("$result")
+        Logger.d("$result")
         if (debugOverlayEnabled) {
             displayDebugOverlay(result, nowMs)
         }
