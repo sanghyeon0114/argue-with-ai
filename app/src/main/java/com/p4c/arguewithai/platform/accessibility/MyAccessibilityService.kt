@@ -7,7 +7,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.intervention.listener.SMListener
-import com.p4c.arguewithai.intervention.listener.SocialMediaApp
+import com.p4c.arguewithai.intervention.listener.instagram.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.prompt.Prompt
 import com.p4c.arguewithai.platform.overlay.ScreenTimeOverlay
 import com.p4c.arguewithai.repository.SessionId
@@ -31,7 +31,7 @@ class MyAccessibilityService (
     private val prompt by lazy { Prompt(applicationContext) }
 
     companion object {
-        private const val PASSIVE_THRESHOLD_MS = 3 * 1000L
+        private const val PASSIVE_THRESHOLD_MS = 5 * 1000L
         private const val NON_PASSIVE_DEBOUNCE_MS = 500L
     }
 
@@ -88,16 +88,9 @@ class MyAccessibilityService (
         val nowMs = time.nowMs()
         val result = smListener.onEvent(event, root) ?: return
 
-        Logger.d("$result")
-        Logger.d("${result.app.pkg}")
+        //Logger.d("$result")
         if (debugOverlayEnabled) {
-            debugOverlay.update(
-                screenLabel = result.screen.name,
-                screenElapsedMs = nowMs - result.screenSinceMs,
-                appLabel = result.app.name,
-                appElapsedMs = nowMs - result.passiveSinceMs,
-                hasIntervened = hasIntervened
-            )
+            displayDebugOverlay(result, nowMs)
         }
 
         if (!result.isPassive) {
@@ -126,6 +119,15 @@ class MyAccessibilityService (
         }
     }
 
+    private fun displayDebugOverlay(result: PassiveDetectionResult, nowMs: Long) {
+        debugOverlay.update(
+            screenLabel = result.screen.name,
+            screenElapsedMs = nowMs - result.screenSinceMs,
+            appLabel = result.app.name,
+            appElapsedMs = nowMs - result.passiveSinceMs,
+            hasIntervened = hasIntervened
+        )
+    }
 
     override fun onInterrupt() {
         // pass

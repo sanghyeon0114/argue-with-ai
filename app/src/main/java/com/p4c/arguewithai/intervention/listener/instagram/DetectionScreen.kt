@@ -20,8 +20,12 @@ class DetectionScreen {
 
     private var passiveSinceMs: Long = 0L
     private var isPassiveActive: Boolean = false
+    private var passiveHitStreak: Int = 0
+    private var noneHitStreak: Int = 0
     companion object {
         private const val NONE_GRACE_PERIOD_MS = 100L
+        private const val PASSIVE_ENTER_CONFIRM_COUNT = 5
+        private const val PASSIVE_EXIT_CONFIRM_COUNT = 5
     }
 
     private val passiveScreen = setOf(
@@ -75,27 +79,36 @@ class DetectionScreen {
     fun detectPassiveApp(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult {
         val screen = detectScreen(root, nowMs)
         var app: SocialMediaApp = SocialMediaApp.resolve(pkg)
-        val isPassive = screen in passiveScreen
-                || SocialMediaApp.resolve(pkg) == SocialMediaApp.INTERVENTION
-                || SocialMediaApp.resolve(pkg) == SocialMediaApp.KEYBOARD
-                || SocialMediaApp.resolve(pkg) == SocialMediaApp.SYSTEM
-        if (isPassive) {
-            if (!isPassiveActive) {
-                passiveSinceMs = nowMs
-                isPassiveActive = true
-            }
+        val rawPassive = if (!isPassiveActive) {
+            screen in passiveScreen
         } else {
+            screen in passiveScreen || SocialMediaApp.resolve(pkg) == SocialMediaApp.INTERVENTION || SocialMediaApp.resolve(pkg) == SocialMediaApp.KEYBOARD || SocialMediaApp.resolve(pkg) == SocialMediaApp.SYSTEM
+        }
+
+        if (rawPassive) {
+            passiveHitStreak++
+            noneHitStreak = 0
+        } else {
+            noneHitStreak++
+            passiveHitStreak = 0
+        }
+
+        if (!isPassiveActive && passiveHitStreak >= PASSIVE_ENTER_CONFIRM_COUNT) {
+            isPassiveActive = true
+            passiveSinceMs = nowMs
+        } else if (isPassiveActive && noneHitStreak >= PASSIVE_EXIT_CONFIRM_COUNT) {
             isPassiveActive = false
         }
-        app =  if (isPassive) SocialMediaApp.PASSIVE_INSTAGRAM else app
-        val resultPassiveSinceMs = if (isPassive) passiveSinceMs else nowMs
+
+        app = if (isPassiveActive) SocialMediaApp.PASSIVE_INSTAGRAM else app
+        val resultPassiveSinceMs = if (isPassiveActive) passiveSinceMs else nowMs
 
         return PassiveDetectionResult(
             screen = screen,
             screenSinceMs = lastScreenSinceMs,
             passiveSinceMs = resultPassiveSinceMs,
             app = app,
-            isPassive = isPassive
+            isPassive = isPassiveActive
         )
     }
 }

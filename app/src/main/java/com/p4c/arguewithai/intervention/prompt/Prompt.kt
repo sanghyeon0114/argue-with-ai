@@ -29,11 +29,11 @@ class Prompt(
 
     fun show(sessionId: SessionId?): Boolean {
         if (!InterventionPrefs.isEnabled(context)) {
-            Logger.d("❌ showPrompt: intervention disabled, skip")
+            //Logger.d("❌ showPrompt: intervention disabled, skip")
             return false
         }
         if (sessionId != null && sessionId == lastShownSessionId) {
-            Logger.d("❌ showPrompt: already shown for sessionId=$sessionId, skip")
+            //Logger.d("❌ showPrompt: already shown for sessionId=$sessionId, skip")
             return true
         }
 

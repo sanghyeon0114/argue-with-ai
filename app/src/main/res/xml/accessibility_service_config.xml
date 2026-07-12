@@ -3,7 +3,7 @@
     android:description="@string/service_desc"
     android:summary="@string/service_summary"
 
-    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
     android:accessibilityFeedbackType="feedbackAllMask"
     android:notificationTimeout="50"
 
