@@ -7,7 +7,7 @@ import com.p4c.arguewithai.intervention.listener.instagram.InstagramScreen
 object InstagramLogics {
     val INSTAGRAM_PKG = SocialMediaApp.INSTAGRAM.pkg
 
-    fun resolveScreen(root: AccessibilityNodeInfo): InstagramScreen {
+    fun getScreenName(root: AccessibilityNodeInfo): InstagramScreen {
         return when {
             Feed.isFeedScreen(root) -> InstagramScreen.FEED
             Feed.isFeedMenuScreen(root) -> InstagramScreen.FEED_MENU
@@ -27,7 +27,7 @@ object InstagramLogics {
             else -> InstagramScreen.NONE
         }
     }
-    fun isStillOnScreen(screen: InstagramScreen, root: AccessibilityNodeInfo): Boolean {
+    fun isCurrentScreen(screen: InstagramScreen, root: AccessibilityNodeInfo): Boolean {
         return when (screen) {
             InstagramScreen.FEED -> Feed.isFeedScreen(root)
             InstagramScreen.FEED_MENU -> Feed.isFeedMenuScreen(root)

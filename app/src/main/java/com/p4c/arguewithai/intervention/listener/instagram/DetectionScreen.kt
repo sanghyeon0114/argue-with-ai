@@ -23,9 +23,13 @@ class DetectionScreen {
     private var passiveHitStreak: Int = 0
     private var noneHitStreak: Int = 0
     companion object {
-        private const val NONE_GRACE_PERIOD_MS = 100L
         private const val PASSIVE_ENTER_CONFIRM_COUNT = 5
         private const val PASSIVE_EXIT_CONFIRM_COUNT = 5
+        private val PASSIVE_TOLERATED_APPS = setOf(
+            SocialMediaApp.INTERVENTION,
+            SocialMediaApp.KEYBOARD,
+            SocialMediaApp.SYSTEM
+        )
     }
 
     private val passiveScreen = setOf(
@@ -45,27 +49,14 @@ class DetectionScreen {
         InstagramScreen.STORY
     )
 
-    fun detectScreen(root: AccessibilityNodeInfo, nowMs: Long): InstagramScreen {
+    private fun getScreen(root: AccessibilityNodeInfo, nowMs: Long): InstagramScreen {
         val cached = lastScreen
-        if (cached != InstagramScreen.NONE && InstagramLogics.isStillOnScreen(cached, root)) {
+        if (cached != InstagramScreen.NONE && InstagramLogics.isCurrentScreen(cached, root)) {
             pendingNoneSinceMs = null
             return cached
         }
 
-        val screen = InstagramLogics.resolveScreen(root)
-
-        if (screen == InstagramScreen.NONE && lastScreen != InstagramScreen.NONE) {
-            val pendingSince = pendingNoneSinceMs
-            if (pendingSince == null) {
-                pendingNoneSinceMs = nowMs
-                return lastScreen
-            }
-            if (nowMs - pendingSince < NONE_GRACE_PERIOD_MS) {
-                return lastScreen
-            }
-        } else {
-            pendingNoneSinceMs = null
-        }
+        val screen = InstagramLogics.getScreenName(root)
 
         if (screen != lastScreen) {
             val elapsed = if (lastScreen == InstagramScreen.NONE) 0L else nowMs - lastScreenSinceMs
@@ -75,39 +66,31 @@ class DetectionScreen {
         }
         return screen
     }
+    fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult {
+        val screen = getScreen(root, nowMs)
+        val currentApp: SocialMediaApp = SocialMediaApp.find(pkg)
+        val isPassiveScreen = screen in passiveScreen || (isPassiveActive && currentApp in PASSIVE_TOLERATED_APPS)
 
-    fun detectPassiveApp(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult {
-        val screen = detectScreen(root, nowMs)
-        var app: SocialMediaApp = SocialMediaApp.resolve(pkg)
-        val rawPassive = if (!isPassiveActive) {
-            screen in passiveScreen
-        } else {
-            screen in passiveScreen || SocialMediaApp.resolve(pkg) == SocialMediaApp.INTERVENTION || SocialMediaApp.resolve(pkg) == SocialMediaApp.KEYBOARD || SocialMediaApp.resolve(pkg) == SocialMediaApp.SYSTEM
-        }
-
-        if (rawPassive) {
+        if (isPassiveScreen) {
             passiveHitStreak++
             noneHitStreak = 0
         } else {
             noneHitStreak++
             passiveHitStreak = 0
         }
-
         if (!isPassiveActive && passiveHitStreak >= PASSIVE_ENTER_CONFIRM_COUNT) {
             isPassiveActive = true
             passiveSinceMs = nowMs
         } else if (isPassiveActive && noneHitStreak >= PASSIVE_EXIT_CONFIRM_COUNT) {
             isPassiveActive = false
         }
-
-        app = if (isPassiveActive) SocialMediaApp.PASSIVE_INSTAGRAM else app
         val resultPassiveSinceMs = if (isPassiveActive) passiveSinceMs else nowMs
 
         return PassiveDetectionResult(
             screen = screen,
             screenSinceMs = lastScreenSinceMs,
             passiveSinceMs = resultPassiveSinceMs,
-            app = app,
+            app = currentApp,
             isPassive = isPassiveActive
         )
     }

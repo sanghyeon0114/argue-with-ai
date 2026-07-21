@@ -85,14 +85,20 @@ class MyAccessibilityService (
             return
         }
 
-        val nowMs = time.nowMs()
-        val result = smListener.onEvent(event, root) ?: return
+        val nowMs: Long = time.nowMs()
+        val result: PassiveDetectionResult = smListener.onEvent(event, root) ?: return
 
         Logger.d("$result")
+        debug(result, nowMs)
+        intervention(result, nowMs)
+    }
+
+    private fun debug(result: PassiveDetectionResult, nowMs: Long) {
         if (debugOverlayEnabled) {
             displayDebugOverlay(result, nowMs)
         }
-
+    }
+    private fun intervention(result: PassiveDetectionResult, nowMs: Long) {
         if (!result.isPassive) {
             val since = nonPassiveSinceMs ?: nowMs.also { nonPassiveSinceMs = it }
             val nonPassiveElapsedMs = nowMs - since

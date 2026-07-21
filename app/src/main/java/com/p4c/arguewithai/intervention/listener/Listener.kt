@@ -18,6 +18,6 @@ class SMListener {
             return null
         }
 
-        return screenTracker.detectPassiveApp(pkg, root, nowMs)
+        return screenTracker.getScreenInformation(pkg, root, nowMs)
     }
 }
