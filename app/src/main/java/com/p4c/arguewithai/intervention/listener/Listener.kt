@@ -20,7 +20,7 @@ class SMListener {
         if(pkg == null) {
             return null
         }
-        //Logger.d("$pkg")
+        Logger.d("$pkg")
         return screenTracker.getScreenInformation(pkg, root, window, nowMs)
     }
 }
