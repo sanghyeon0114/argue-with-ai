@@ -22,6 +22,7 @@ class ScreenTimeOverlay(
     private var currentScreenLabel: String = "NONE"
     private var currentAppLabel: String = "NONE"
     private var currentHasIntervened: Boolean = false
+    private var currentIsPassive: Boolean = false
 
     private var baseScreenElapsedMs: Long = 0L
     private var baseAppElapsedMs: Long = 0L
@@ -74,11 +75,13 @@ class ScreenTimeOverlay(
         screenElapsedMs: Long,
         appLabel: String,
         appElapsedMs: Long,
-        hasIntervened: Boolean
+        hasIntervened: Boolean,
+        isPassive: Boolean
     ) {
         currentScreenLabel = screenLabel
         currentAppLabel = appLabel
         currentHasIntervened = hasIntervened
+        currentIsPassive = isPassive
         baseScreenElapsedMs = screenElapsedMs
         baseAppElapsedMs = appElapsedMs
         baseAtMs = System.currentTimeMillis()
@@ -115,7 +118,7 @@ class ScreenTimeOverlay(
         } else {
             val sinceUpdate = nowMs - baseAtMs
             val liveScreenElapsed = baseScreenElapsedMs + sinceUpdate
-            val liveAppElapsed = baseAppElapsedMs + sinceUpdate
+            val liveAppElapsed = if (currentIsPassive) baseAppElapsedMs + sinceUpdate else baseAppElapsedMs
 
             "$currentScreenLabel: ${formatElapsed(liveScreenElapsed)}\n" +
                     "TOTAL: ${formatElapsed(liveAppElapsed)}\n" +

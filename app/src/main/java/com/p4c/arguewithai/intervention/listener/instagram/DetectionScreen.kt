@@ -1,14 +1,15 @@
 package com.p4c.arguewithai.intervention.listener.instagram
 
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.detection_logics.InstagramLogics
 import com.p4c.arguewithai.utils.Logger
 
 data class PassiveDetectionResult(
     val screen: InstagramScreen,
-    val screenSinceMs: Long,
-    val passiveSinceMs: Long,
+    val screenElapsedMs: Long,
+    val passiveElapsedMs: Long,
     val app: SocialMediaApp,
     val isPassive: Boolean
 )
@@ -23,8 +24,8 @@ class DetectionScreen {
     private var passiveHitStreak: Int = 0
     private var noneHitStreak: Int = 0
     companion object {
-        private const val PASSIVE_ENTER_CONFIRM_COUNT = 5
-        private const val PASSIVE_EXIT_CONFIRM_COUNT = 5
+        private const val PASSIVE_ENTER_CONFIRM_COUNT = 10
+        private const val PASSIVE_EXIT_CONFIRM_COUNT = 10
         private val PASSIVE_TOLERATED_APPS = setOf(
             SocialMediaApp.INTERVENTION,
             SocialMediaApp.KEYBOARD,
@@ -66,10 +67,12 @@ class DetectionScreen {
         }
         return screen
     }
-    fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult {
+    fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, window: AccessibilityWindowInfo?, nowMs: Long): PassiveDetectionResult {
         val screen = getScreen(root, nowMs)
         val currentApp: SocialMediaApp = SocialMediaApp.find(pkg)
-        val isPassiveScreen = screen in passiveScreen || (isPassiveActive && currentApp in PASSIVE_TOLERATED_APPS)
+        val isKeyboardVisible = window?.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
+        val isPassiveScreen = screen in passiveScreen ||
+            (isPassiveActive && (currentApp in PASSIVE_TOLERATED_APPS || isKeyboardVisible))
 
         if (isPassiveScreen) {
             passiveHitStreak++
@@ -84,12 +87,14 @@ class DetectionScreen {
         } else if (isPassiveActive && noneHitStreak >= PASSIVE_EXIT_CONFIRM_COUNT) {
             isPassiveActive = false
         }
-        val resultPassiveSinceMs = if (isPassiveActive) passiveSinceMs else nowMs
+        if (!isPassiveActive) {
+            passiveSinceMs = nowMs
+        }
 
         return PassiveDetectionResult(
             screen = screen,
-            screenSinceMs = lastScreenSinceMs,
-            passiveSinceMs = resultPassiveSinceMs,
+            screenElapsedMs = nowMs - lastScreenSinceMs,
+            passiveElapsedMs = nowMs - passiveSinceMs,
             app = currentApp,
             isPassive = isPassiveActive
         )

@@ -3,6 +3,7 @@ package com.p4c.arguewithai.platform.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
@@ -37,7 +38,7 @@ class MyAccessibilityService (
 
     private var hasIntervened: Boolean = false
     private var sessionId: SessionId? = null
-    private var trackedPassiveSinceMs: Long? = null
+    private var wasPassive: Boolean = false
     private var nonPassiveSinceMs: Long? = null
 
     private val prefListener =
@@ -85,8 +86,10 @@ class MyAccessibilityService (
             return
         }
 
+        val imeWindow = windows?.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+
         val nowMs: Long = time.nowMs()
-        val result: PassiveDetectionResult = smListener.onEvent(event, root) ?: return
+        val result: PassiveDetectionResult = smListener.onEvent(event, root, imeWindow, nowMs) ?: return
 
         Logger.d("$result")
         debug(result, nowMs)
@@ -100,26 +103,25 @@ class MyAccessibilityService (
     }
     private fun intervention(result: PassiveDetectionResult, nowMs: Long) {
         if (!result.isPassive) {
+            wasPassive = false
             val since = nonPassiveSinceMs ?: nowMs.also { nonPassiveSinceMs = it }
             val nonPassiveElapsedMs = nowMs - since
 
             if (nonPassiveElapsedMs >= NON_PASSIVE_DEBOUNCE_MS) {
                 hasIntervened = false
                 sessionId = null
-                trackedPassiveSinceMs = null
             }
             return
         }
 
         nonPassiveSinceMs = null
 
-        if (trackedPassiveSinceMs != result.passiveSinceMs) {
-            trackedPassiveSinceMs = result.passiveSinceMs
+        if (!wasPassive) {
+            wasPassive = true
             sessionId = SessionId(UUID.randomUUID().toString())
         }
 
-        val passiveElapsedMs = nowMs - result.passiveSinceMs
-        if (!hasIntervened && passiveElapsedMs >= PASSIVE_THRESHOLD_MS) {
+        if (!hasIntervened && result.passiveElapsedMs >= PASSIVE_THRESHOLD_MS) {
             val intervened = prompt.show(sessionId)
             hasIntervened = intervened
         }
@@ -128,10 +130,11 @@ class MyAccessibilityService (
     private fun displayDebugOverlay(result: PassiveDetectionResult, nowMs: Long) {
         debugOverlay.update(
             screenLabel = result.screen.name,
-            screenElapsedMs = nowMs - result.screenSinceMs,
+            screenElapsedMs = result.screenElapsedMs,
             appLabel = result.app.name,
-            appElapsedMs = nowMs - result.passiveSinceMs,
-            hasIntervened = hasIntervened
+            appElapsedMs = result.passiveElapsedMs,
+            hasIntervened = hasIntervened,
+            isPassive = result.isPassive
         )
     }
 

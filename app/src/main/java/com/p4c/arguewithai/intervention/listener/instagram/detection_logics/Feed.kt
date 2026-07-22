@@ -4,7 +4,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 
 object Feed {
     fun isFeedScreen(root: AccessibilityNodeInfo): Boolean {
-        return hasFeedActionButton(root) || isFollowingFeedScreen(root) || isBookmarkFeedScreen(root)
+        return hasFeedActionButton(root) || isFeedChat(root) || isFollowingFeedScreen(root) || isBookmarkFeedScreen(root)
     }
 
     private fun hasFeedActionButton(root: AccessibilityNodeInfo): Boolean {
@@ -57,6 +57,15 @@ object Feed {
         val nodes = root.findAccessibilityNodeInfosByViewId(titleId) ?: return false
         return nodes.any { it.isVisibleToUser && it.text?.toString() == "즐겨찾기" }
     }
+
+    fun isFeedChat(root: AccessibilityNodeInfo): Boolean {
+        val labels = root.findAccessibilityNodeInfosByViewId("${InstagramLogics.INSTAGRAM_PKG}:id/title_logo")
+            ?.filter { it.isVisibleToUser } ?: return false
+        val targets = setOf("Instagram 홈 피드")
+        val foundTexts = labels.mapNotNull { it.contentDescription?.toString() }.toSet()
+        return foundTexts.containsAll(targets)
+    }
+
     fun hasVisibleNodeById(root: AccessibilityNodeInfo, idSuffix: String): Boolean {
         val fullId = "${InstagramLogics.INSTAGRAM_PKG}:id/$idSuffix"
         val nodes = root.findAccessibilityNodeInfosByViewId(fullId) ?: return false
