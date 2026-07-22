@@ -86,12 +86,15 @@ class MyAccessibilityService (
             return
         }
 
-        val imeWindow = windows?.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        // windows 조회는 비용이 큰 IPC 호출이라, 실제로 필요할 때만(지연 평가) 실행되도록 람다로 넘긴다
+        val imeWindow: () -> AccessibilityWindowInfo? = {
+            windows?.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        }
 
         val nowMs: Long = time.nowMs()
         val result: PassiveDetectionResult = smListener.onEvent(event, root, imeWindow, nowMs) ?: return
 
-        Logger.d("$result")
+        //Logger.d("$result")
         debug(result, nowMs)
         intervention(result, nowMs)
     }
@@ -129,7 +132,7 @@ class MyAccessibilityService (
 
     private fun displayDebugOverlay(result: PassiveDetectionResult, nowMs: Long) {
         debugOverlay.update(
-            screenLabel = result.screen.name,
+            screenLabel = result.screen?.name ?: "NOT_INSTAGRAM",
             screenElapsedMs = result.screenElapsedMs,
             appLabel = result.app.name,
             appElapsedMs = result.passiveElapsedMs,

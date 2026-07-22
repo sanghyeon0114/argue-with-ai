@@ -13,14 +13,14 @@ class SMListener {
     fun onEvent(
         event: AccessibilityEvent,
         root: AccessibilityNodeInfo,
-        window: AccessibilityWindowInfo?,
+        window: () -> AccessibilityWindowInfo?,
         nowMs: Long = System.currentTimeMillis(),
     ): PassiveDetectionResult? {
         val pkg = event.packageName?.toString()
         if(pkg == null) {
             return null
         }
-        Logger.d("$pkg")
+        //Logger.d("$pkg")
         return screenTracker.getScreenInformation(pkg, root, window, nowMs)
     }
 }
