@@ -10,7 +10,6 @@ import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.intervention.listener.SMListener
 import com.p4c.arguewithai.intervention.listener.instagram.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.prompt.Prompt
-import com.p4c.arguewithai.platform.overlay.ScreenTimeOverlay
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.utils.Logger
 import com.p4c.arguewithai.utils.SystemTimeProvider
@@ -27,19 +26,17 @@ class MyAccessibilityService (
 ) : AccessibilityService() {
     private var interventionEnabled: Boolean = true
     private lateinit var prefs: SharedPreferences
-    private var debugOverlayEnabled: Boolean = false
-    private val debugOverlay by lazy { ScreenTimeOverlay(applicationContext) }
     private val prompt by lazy { Prompt(applicationContext) }
 
     companion object {
         private const val PASSIVE_THRESHOLD_MS = 5 * 1000L
-        private const val NON_PASSIVE_DEBOUNCE_MS = 500L
+        private const val NON_PASSIVE_RESET_STREAK = 10
     }
 
     private var hasIntervened: Boolean = false
     private var sessionId: SessionId? = null
     private var wasPassive: Boolean = false
-    private var nonPassiveSinceMs: Long? = null
+    private var nonPassiveHitStreak: Int = 0
 
     private val prefListener =
         SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
@@ -47,12 +44,6 @@ class MyAccessibilityService (
                 "intervention_enabled" -> {
                     interventionEnabled = InterventionPrefs.isEnabled(this)
                     Logger.d("🟢 Intervention enabled = $interventionEnabled")
-                }
-                "debug_overlay_enabled" -> {
-                    val enabled = sp.getBoolean("debug_overlay_enabled", false)
-                    debugOverlayEnabled = enabled
-                    if (enabled) debugOverlay.start() else debugOverlay.stop()
-                    Logger.d("🟣 Debug overlay enabled = $enabled")
                 }
             }
         }
@@ -64,11 +55,7 @@ class MyAccessibilityService (
         //Logger.d("[AccessibilityService] 연결됨")
         prefs = getSharedPreferences("argue_prefs", MODE_PRIVATE).also {
             interventionEnabled = it.getBoolean("intervention_enabled", true)
-            debugOverlayEnabled = it.getBoolean("debug_overlay_enabled", false)
             it.registerOnSharedPreferenceChangeListener(prefListener)
-        }
-        if (debugOverlayEnabled) {
-            debugOverlay.start()
         }
 
         FirebaseApp.initializeApp(this)
@@ -95,29 +82,22 @@ class MyAccessibilityService (
         val result: PassiveDetectionResult = smListener.onEvent(event, root, imeWindow, nowMs) ?: return
 
         //Logger.d("$result")
-        debug(result, nowMs)
-        intervention(result, nowMs)
+        intervention(result)
     }
 
-    private fun debug(result: PassiveDetectionResult, nowMs: Long) {
-        if (debugOverlayEnabled) {
-            displayDebugOverlay(result, nowMs)
-        }
-    }
-    private fun intervention(result: PassiveDetectionResult, nowMs: Long) {
+    private fun intervention(result: PassiveDetectionResult) {
         if (!result.isPassive) {
             wasPassive = false
-            val since = nonPassiveSinceMs ?: nowMs.also { nonPassiveSinceMs = it }
-            val nonPassiveElapsedMs = nowMs - since
+            nonPassiveHitStreak++
 
-            if (nonPassiveElapsedMs >= NON_PASSIVE_DEBOUNCE_MS) {
-                hasIntervened = false
+            if (nonPassiveHitStreak >= NON_PASSIVE_RESET_STREAK) {
+                setHasIntervened(false)
                 sessionId = null
             }
             return
         }
 
-        nonPassiveSinceMs = null
+        nonPassiveHitStreak = 0
 
         if (!wasPassive) {
             wasPassive = true
@@ -126,19 +106,14 @@ class MyAccessibilityService (
 
         if (!hasIntervened && result.passiveElapsedMs >= PASSIVE_THRESHOLD_MS) {
             val intervened = prompt.show(sessionId)
-            hasIntervened = intervened
+            setHasIntervened(intervened)
         }
     }
 
-    private fun displayDebugOverlay(result: PassiveDetectionResult, nowMs: Long) {
-        debugOverlay.update(
-            screenLabel = result.screen?.name ?: "NOT_INSTAGRAM",
-            screenElapsedMs = result.screenElapsedMs,
-            appLabel = result.app.name,
-            appElapsedMs = result.passiveElapsedMs,
-            hasIntervened = hasIntervened,
-            isPassive = result.isPassive
-        )
+    private fun setHasIntervened(value: Boolean) {
+        if (hasIntervened == value) return
+        hasIntervened = value
+        Logger.d("🔔 hasIntervened = $hasIntervened")
     }
 
     override fun onInterrupt() {

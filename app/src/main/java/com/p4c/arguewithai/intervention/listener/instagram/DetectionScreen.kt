@@ -24,8 +24,8 @@ class DetectionScreen {
     private var passiveHitStreak: Int = 0
     private var noneHitStreak: Int = 0
     companion object {
-        private const val PASSIVE_ENTER_CONFIRM_COUNT = 3
-        private const val PASSIVE_EXIT_CONFIRM_COUNT = 3
+        private const val PASSIVE_ENTER_CONFIRM_COUNT = 5
+        private const val PASSIVE_EXIT_CONFIRM_COUNT = 5
         private val PASSIVE_TOLERATED_APPS = setOf(
             SocialMediaApp.INTERVENTION,
             SocialMediaApp.KEYBOARD,
@@ -65,7 +65,7 @@ class DetectionScreen {
 
         if (screen != lastScreen) {
             val elapsed = if (lastScreen == InstagramScreen.NONE) 0L else nowMs - lastScreenSinceMs
-            Logger.d("$lastScreen -> $screen : $elapsed")
+            Logger.d("-------------- $lastScreen -> $screen : $elapsed --------------")
             lastScreen = screen
             lastScreenSinceMs = nowMs
         }
