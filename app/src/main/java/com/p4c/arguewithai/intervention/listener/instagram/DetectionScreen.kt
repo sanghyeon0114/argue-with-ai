@@ -10,6 +10,7 @@ data class PassiveDetectionResult(
     val screen: InstagramScreen?,
     val screenElapsedMs: Long,
     val passiveElapsedMs: Long,
+    val totalPassiveMs: Long,
     val app: SocialMediaApp,
     val isPassive: Boolean
 )
@@ -23,6 +24,9 @@ class DetectionScreen {
     private var isPassiveActive: Boolean = false
     private var passiveHitStreak: Int = 0
     private var noneHitStreak: Int = 0
+
+    private var totalPassiveMs: Long = 0L
+    private var lastTickMs: Long? = null
     companion object {
         private const val PASSIVE_ENTER_CONFIRM_COUNT = 5
         private const val PASSIVE_EXIT_CONFIRM_COUNT = 5
@@ -50,7 +54,7 @@ class DetectionScreen {
         InstagramScreen.STORY
     )
 
-    private fun getScreen(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): InstagramScreen? {
+    private fun getScreen(pkg: String, root: AccessibilityNodeInfo, window: () -> AccessibilityWindowInfo?, nowMs: Long): InstagramScreen? {
         if (pkg != InstagramLogics.INSTAGRAM_PKG) {
             return null
         }
@@ -63,6 +67,13 @@ class DetectionScreen {
 
         val screen = InstagramLogics.getScreenName(root)
 
+        // 키보드 처리 조건문
+        if (screen == InstagramScreen.NONE && lastScreen != InstagramScreen.NONE &&
+            window()?.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
+        ) {
+            return lastScreen
+        }
+
         if (screen != lastScreen) {
             val elapsed = if (lastScreen == InstagramScreen.NONE) 0L else nowMs - lastScreenSinceMs
             Logger.d("-------------- $lastScreen -> $screen : $elapsed --------------")
@@ -72,11 +83,12 @@ class DetectionScreen {
         return screen
     }
     fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, window: () -> AccessibilityWindowInfo?, nowMs: Long): PassiveDetectionResult {
-        val screen = getScreen(pkg, root, nowMs)
+        val screen = getScreen(pkg, root, window, nowMs)
         val currentApp: SocialMediaApp = SocialMediaApp.find(pkg)
         val isToleratedWhilePassive = isPassiveActive &&
             (currentApp in PASSIVE_TOLERATED_APPS || window()?.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD)
         val isPassiveScreen = (screen != null && screen in passiveScreen) || isToleratedWhilePassive
+        val wasActive = isPassiveActive
 
         if (isPassiveScreen) {
             passiveHitStreak++
@@ -95,10 +107,20 @@ class DetectionScreen {
             passiveSinceMs = nowMs
         }
 
+        val tickDelta = lastTickMs?.let { nowMs - it } ?: 0L
+        lastTickMs = nowMs
+        if (isPassiveActive) {
+            totalPassiveMs += tickDelta
+        }
+        if (wasActive && !isPassiveActive) {
+            Logger.d("-------------- passive 종료, 누적 passive 시간 = ${totalPassiveMs}ms --------------")
+        }
+
         return PassiveDetectionResult(
             screen = screen,
             screenElapsedMs = nowMs - lastScreenSinceMs,
             passiveElapsedMs = nowMs - passiveSinceMs,
+            totalPassiveMs = totalPassiveMs,
             app = currentApp,
             isPassive = isPassiveActive
         )

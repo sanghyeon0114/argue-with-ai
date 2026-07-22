@@ -52,7 +52,6 @@ class MyAccessibilityService (
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        //Logger.d("[AccessibilityService] 연결됨")
         prefs = getSharedPreferences("argue_prefs", MODE_PRIVATE).also {
             interventionEnabled = it.getBoolean("intervention_enabled", true)
             it.registerOnSharedPreferenceChangeListener(prefListener)
@@ -73,7 +72,6 @@ class MyAccessibilityService (
             return
         }
 
-        // windows 조회는 비용이 큰 IPC 호출이라, 실제로 필요할 때만(지연 평가) 실행되도록 람다로 넘긴다
         val imeWindow: () -> AccessibilityWindowInfo? = {
             windows?.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
         }
