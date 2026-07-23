@@ -3,11 +3,11 @@ package com.p4c.arguewithai.platform.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityWindowInfo
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.intervention.listener.SMListener
+import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.prompt.Prompt
 import com.p4c.arguewithai.repository.SessionId
@@ -30,7 +30,7 @@ class MyAccessibilityService (
 
     companion object {
         private const val PASSIVE_THRESHOLD_MS = 5 * 1000L
-        private const val NON_PASSIVE_RESET_STREAK = 10
+        private const val NON_PASSIVE_RESET_STREAK = 15
     }
 
     private var hasIntervened: Boolean = false
@@ -72,19 +72,17 @@ class MyAccessibilityService (
             return
         }
 
-        val imeWindow: () -> AccessibilityWindowInfo? = {
-            windows?.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
-        }
-
         val nowMs: Long = time.nowMs()
-        val result: PassiveDetectionResult = smListener.onEvent(event, root, imeWindow, nowMs) ?: return
+        val result: PassiveDetectionResult = smListener.onEvent(event, root, nowMs) ?: return
 
-        //Logger.d("$result")
+        Logger.d("$result")
         intervention(result)
     }
 
     private fun intervention(result: PassiveDetectionResult) {
-        if (!result.isPassive) {
+        val isPassive = result.isPassive || result.app == SocialMediaApp.INTERVENTION
+
+        if (!isPassive) {
             wasPassive = false
             nonPassiveHitStreak++
 
@@ -102,7 +100,7 @@ class MyAccessibilityService (
             sessionId = SessionId(UUID.randomUUID().toString())
         }
 
-        if (!hasIntervened && result.passiveElapsedMs >= PASSIVE_THRESHOLD_MS) {
+        if (!hasIntervened && result.passiveMs >= PASSIVE_THRESHOLD_MS) {
             val intervened = prompt.show(sessionId)
             setHasIntervened(intervened)
         }
