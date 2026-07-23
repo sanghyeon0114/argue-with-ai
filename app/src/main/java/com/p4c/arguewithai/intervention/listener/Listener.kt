@@ -2,12 +2,12 @@ package com.p4c.arguewithai.intervention.listener
 
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.p4c.arguewithai.intervention.listener.instagram.DetectionScreen
-import com.p4c.arguewithai.intervention.listener.instagram.PassiveDetectionResult
+import com.p4c.arguewithai.intervention.listener.instagram.InstagramTracker
+import com.p4c.arguewithai.intervention.listener.youtube.YoutubeTracker
 
 class SMListener {
-    private val screenTracker = DetectionScreen()
-
+    private val instagramTracker = InstagramTracker()
+    private val youtubeTracker = YoutubeTracker()
     fun onEvent(
         event: AccessibilityEvent,
         root: AccessibilityNodeInfo,
@@ -17,6 +17,11 @@ class SMListener {
         if(pkg == null) {
             return null
         }
-        return screenTracker.getScreenInformation(pkg, root, nowMs)
+
+        var result: PassiveDetectionResult? = instagramTracker.getScreenInformation(pkg, root, nowMs)
+        if(result == null) {
+            result = youtubeTracker.getScreenInformation(pkg, root, nowMs)
+        }
+        return result
     }
 }

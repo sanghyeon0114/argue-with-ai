@@ -1,6 +1,7 @@
 package com.p4c.arguewithai.intervention.listener.instagram
 
 import android.view.accessibility.AccessibilityNodeInfo
+import com.p4c.arguewithai.intervention.listener.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.detection_logics.InstagramLogics
 import kotlin.Boolean
@@ -11,15 +12,7 @@ data class ScreenData(
     val isPassive: Boolean
 )
 
-data class PassiveDetectionResult(
-    val app: SocialMediaApp,
-    val screen: InstagramScreen?,
-    val screenMs: Long,
-    val passiveMs: Long,
-    val isPassive: Boolean
-)
-
-class DetectionScreen {
+class InstagramTracker {
     private var lastScreen: InstagramScreen = InstagramScreen.NONE
     private var currentScreen: InstagramScreen = InstagramScreen.NONE
     private var currentScreenSinceMs: Long = 0L

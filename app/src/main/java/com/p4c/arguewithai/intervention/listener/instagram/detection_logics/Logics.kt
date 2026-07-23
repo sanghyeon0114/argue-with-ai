@@ -5,7 +5,7 @@ import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.InstagramScreen
 
 object InstagramLogics {
-    val INSTAGRAM_PKG = SocialMediaApp.INSTAGRAM.pkg
+    val INSTAGRAM_PKG: String = SocialMediaApp.INSTAGRAM.pkg
 
     fun getScreenName(root: AccessibilityNodeInfo): InstagramScreen {
         return when {

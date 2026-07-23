@@ -6,9 +6,9 @@ import android.view.accessibility.AccessibilityEvent
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.InterventionPrefs
+import com.p4c.arguewithai.intervention.listener.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.listener.SMListener
 import com.p4c.arguewithai.intervention.listener.SocialMediaApp
-import com.p4c.arguewithai.intervention.listener.instagram.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.prompt.Prompt
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.utils.Logger
@@ -30,7 +30,7 @@ class MyAccessibilityService (
 
     companion object {
         private const val PASSIVE_THRESHOLD_MS = 5 * 1000L
-        private const val NON_PASSIVE_RESET_STREAK = 15
+        private const val NON_PASSIVE_RESET_STREAK = 10
     }
 
     private var hasIntervened: Boolean = false
@@ -73,14 +73,14 @@ class MyAccessibilityService (
         }
 
         val nowMs: Long = time.nowMs()
-        val result: PassiveDetectionResult = smListener.onEvent(event, root, nowMs) ?: return
+        val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs)
 
-        Logger.d("$result")
+        //Logger.d("$result")
         intervention(result)
     }
 
-    private fun intervention(result: PassiveDetectionResult) {
-        val isPassive = result.isPassive || result.app == SocialMediaApp.INTERVENTION
+    private fun intervention(result: PassiveDetectionResult?) {
+        val isPassive = result != null && (result.isPassive || result.app == SocialMediaApp.INTERVENTION)
 
         if (!isPassive) {
             wasPassive = false
@@ -100,7 +100,7 @@ class MyAccessibilityService (
             sessionId = SessionId(UUID.randomUUID().toString())
         }
 
-        if (!hasIntervened && result.passiveMs >= PASSIVE_THRESHOLD_MS) {
+        if (!hasIntervened && result!!.passiveMs >= PASSIVE_THRESHOLD_MS) {
             val intervened = prompt.show(sessionId)
             setHasIntervened(intervened)
         }
