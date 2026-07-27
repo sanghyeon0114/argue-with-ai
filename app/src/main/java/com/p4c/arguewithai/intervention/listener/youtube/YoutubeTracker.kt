@@ -37,7 +37,6 @@ class YoutubeTracker {
 
     fun getScreen(pkg: String, root: AccessibilityNodeInfo): ScreenData {
         val screen = YoutubeLogics.getScreenName(root)
-        Logger.d("$screen")
         return ScreenData(
             false,
             YoutubeScreen.NONE,

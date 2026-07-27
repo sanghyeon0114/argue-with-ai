@@ -10,12 +10,14 @@ object YoutubeLogics {
     fun getScreenName(root: AccessibilityNodeInfo): YoutubeScreen {
         return when {
             Search.isSearchScreen(root) -> YoutubeScreen.SEARCH
+            Main.isMainScreen(root) -> YoutubeScreen.MAIN
             else -> YoutubeScreen.NONE
         }
     }
     fun isCurrentScreen(screen: YoutubeScreen, root: AccessibilityNodeInfo): Boolean {
         return when (screen) {
             YoutubeScreen.SEARCH -> Search.isSearchScreen(root)
+            YoutubeScreen.MAIN -> Main.isMainScreen(root)
             YoutubeScreen.NONE -> false
         }
     }

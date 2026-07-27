@@ -75,7 +75,7 @@ class MyAccessibilityService (
         val nowMs: Long = time.nowMs()
         val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs)
 
-        //Logger.d("$result")
+        Logger.d("$result")
         intervention(result)
     }
 

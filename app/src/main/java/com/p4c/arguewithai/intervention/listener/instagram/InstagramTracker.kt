@@ -4,6 +4,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.p4c.arguewithai.intervention.listener.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.listener.SocialMediaApp
 import com.p4c.arguewithai.intervention.listener.instagram.detection_logics.InstagramLogics
+import com.p4c.arguewithai.utils.Logger
 import kotlin.Boolean
 
 data class ScreenData(
@@ -105,7 +106,6 @@ class InstagramTracker {
     fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult? {
         val data: ScreenData = getScreen(pkg, root)
         val isInstagram = data.isInstagram
-
         if(!isInstagram) {
             return null
         }
