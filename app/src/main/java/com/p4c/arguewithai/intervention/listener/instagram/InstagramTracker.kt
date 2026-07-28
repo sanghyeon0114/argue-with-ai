@@ -71,14 +71,15 @@ class InstagramTracker {
         val socialApp = SocialMediaApp.find(pkg)
         val isOwnAppPkg = socialApp == SocialMediaApp.INTERVENTION
         val isSystemPkg = socialApp == SocialMediaApp.SYSTEM
-        if (!isOwnAppPkg && !isSystemPkg) {
+        val isKeyboardPkg = socialApp == SocialMediaApp.KEYBOARD
+        if (!isOwnAppPkg && !isSystemPkg && !isKeyboardPkg) {
             updateInstagramActive(isInstagramPkg)
         }
         if (!isInstagramPkg) {
             return ScreenData(
                 isInstagram = isInstagramActive,
-                screen = if (isSystemPkg) lastScreen else InstagramScreen.NONE,
-                isPassive = if (isSystemPkg) isPassive(lastScreen) else false
+                screen = if (isSystemPkg || isKeyboardPkg) lastScreen else InstagramScreen.NONE,
+                isPassive = if (isSystemPkg || isKeyboardPkg) isPassive(lastScreen) else false
             )
         }
         if(InstagramLogics.isCurrentScreen(lastScreen, root)) {
@@ -105,11 +106,6 @@ class InstagramTracker {
             isPassive = isPassive(lastScreen)
         )
     }
-
-    /*
-    * currentApp pkg가 Instagram이 아니더라도, currentScreen를 보장한다.
-    * 만약 pkg가 Instagram이 아니라면, null을 반환한다.
-    * */
     fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult? {
         val data: ScreenData = getScreen(pkg, root)
         if (!data.isInstagram) {
@@ -143,7 +139,7 @@ class InstagramTracker {
                     passiveSinceMs = nowMs
                 }
             }
-            SocialMediaApp.SYSTEM -> {
+            SocialMediaApp.SYSTEM, SocialMediaApp.KEYBOARD -> {
             }
             else -> { /* ignore */ }
         }
@@ -154,7 +150,10 @@ class InstagramTracker {
             screenMs = nowMs - currentScreenSinceMs,
             passiveMs = if (isPassive) nowMs - passiveSinceMs else 0,
             isPassive = isPassive,
-            isInvervention = isPassive || pkg == SocialMediaApp.INTERVENTION.pkg  || pkg == SocialMediaApp.SYSTEM.pkg
+            isInvervention = isPassive ||
+                pkg == SocialMediaApp.INTERVENTION.pkg ||
+                pkg == SocialMediaApp.SYSTEM.pkg ||
+                pkg == SocialMediaApp.KEYBOARD.pkg
         )
     }
 }

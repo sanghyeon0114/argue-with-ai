@@ -29,7 +29,7 @@ class MyAccessibilityService (
     private val prompt by lazy { Prompt(applicationContext) }
 
     companion object {
-        private const val PASSIVE_THRESHOLD_MS = 10 * 60 * 1000L
+        private const val PASSIVE_THRESHOLD_MS = 30  * 1000L
         private const val NON_PASSIVE_RESET_STREAK = 20
     }
 
