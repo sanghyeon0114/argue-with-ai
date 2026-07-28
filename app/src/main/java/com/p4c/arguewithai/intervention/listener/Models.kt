@@ -7,5 +7,6 @@ data class PassiveDetectionResult(
     val screen: AppScreen?,
     val screenMs: Long,
     val passiveMs: Long,
-    val isPassive: Boolean
+    val isPassive: Boolean,
+    val isInvervention: Boolean,
 )

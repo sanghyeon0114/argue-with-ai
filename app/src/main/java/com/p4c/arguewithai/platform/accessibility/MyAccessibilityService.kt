@@ -30,7 +30,7 @@ class MyAccessibilityService (
 
     companion object {
         private const val PASSIVE_THRESHOLD_MS = 5 * 1000L
-        private const val NON_PASSIVE_RESET_STREAK = 10
+        private const val NON_PASSIVE_RESET_STREAK = 20
     }
 
     private var hasIntervened: Boolean = false
@@ -80,12 +80,11 @@ class MyAccessibilityService (
     }
 
     private fun intervention(result: PassiveDetectionResult?) {
-        val isPassive = result != null && (result.isPassive || result.app == SocialMediaApp.INTERVENTION)
+        val isIntervention = result != null && (result.isInvervention)
 
-        if (!isPassive) {
+        if (!isIntervention) {
             wasPassive = false
             nonPassiveHitStreak++
-
             if (nonPassiveHitStreak >= NON_PASSIVE_RESET_STREAK) {
                 setHasIntervened(false)
                 sessionId = null
