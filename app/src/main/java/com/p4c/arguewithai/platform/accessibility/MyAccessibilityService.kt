@@ -29,7 +29,7 @@ class MyAccessibilityService (
     private val prompt by lazy { Prompt(applicationContext) }
 
     companion object {
-        private const val PASSIVE_THRESHOLD_MS = 5 * 1000L
+        private const val PASSIVE_THRESHOLD_MS = 10 * 60 * 1000L
         private const val NON_PASSIVE_RESET_STREAK = 20
     }
 
@@ -37,7 +37,7 @@ class MyAccessibilityService (
     private var sessionId: SessionId? = null
     private var wasPassive: Boolean = false
     private var nonPassiveHitStreak: Int = 0
-
+    private val debugOverlay by lazy { ResultDebugOverlay(this) }
     private val prefListener =
         SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
             when (key) {
@@ -77,6 +77,7 @@ class MyAccessibilityService (
 
         Logger.d("$result")
         intervention(result)
+        debugOverlay.show(result, hasIntervened)
     }
 
     private fun intervention(result: PassiveDetectionResult?) {
@@ -117,6 +118,7 @@ class MyAccessibilityService (
 
     override fun onDestroy() {
         super.onDestroy()
+        debugOverlay.hide()
         if (::prefs.isInitialized) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         }
