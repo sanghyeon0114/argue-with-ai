@@ -139,7 +139,13 @@ class InstagramTracker {
                     passiveSinceMs = nowMs
                 }
             }
-            SocialMediaApp.SYSTEM, SocialMediaApp.KEYBOARD -> {
+            SocialMediaApp.KEYBOARD -> {
+                if (lastKnownApp != SocialMediaApp.INTERVENTION) {
+                    currentScreenSinceMs = nowMs
+                    passiveSinceMs = nowMs
+                }
+            }
+            SocialMediaApp.SYSTEM -> {
             }
             else -> { /* ignore */ }
         }
@@ -147,7 +153,7 @@ class InstagramTracker {
         return PassiveDetectionResult(
             app = lastKnownApp,
             screen = currentScreen,
-            screenMs = nowMs - currentScreenSinceMs,
+            screenMs = if(lastKnownApp == SocialMediaApp.INTERVENTION) 0 else nowMs - currentScreenSinceMs,
             passiveMs = if (isPassive) nowMs - passiveSinceMs else 0,
             isPassive = isPassive,
             isInvervention = isPassive ||
