@@ -143,7 +143,7 @@ class YoutubeTracker {
         return PassiveDetectionResult(
             app = lastKnownApp,
             screen = currentScreen,
-            screenMs = nowMs - currentScreenSinceMs,
+            screenMs = if(lastKnownApp == SocialMediaApp.INTERVENTION) 0 else nowMs - currentScreenSinceMs,
             passiveMs = if (isPassive) nowMs - passiveSinceMs else 0,
             isPassive = isPassive,
             isInvervention = isPassive ||
