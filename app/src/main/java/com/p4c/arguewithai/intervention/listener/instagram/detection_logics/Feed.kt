@@ -4,7 +4,30 @@ import android.view.accessibility.AccessibilityNodeInfo
 
 object Feed {
     fun isFeedScreen(root: AccessibilityNodeInfo): Boolean {
+        return isFeedContentScreen(root) || isFeedTabScreen(root)
+    }
+
+    fun isFeedContentScreen(root: AccessibilityNodeInfo): Boolean {
         return hasFeedActionButton(root) || isFeedChat(root) || isFollowingFeedScreen(root) || isBookmarkFeedScreen(root)
+    }
+
+    fun isFeedTabScreen(root: AccessibilityNodeInfo): Boolean {
+        return isMainScreen(root) &&
+                !Reels.isReelsScreen(root) &&
+                !Direct.isDirectScreen(root) &&
+                !Search.isSearchScreen(root) &&
+                !Profile.isProfileScreen(root)
+    }
+
+    fun isMainScreen(root: AccessibilityNodeInfo): Boolean {
+        val tabIds = listOf(
+            "tab_icon",
+            "clips_tab",
+            "direct_tab",
+            "search_tab",
+            "profile_tab"
+        )
+        return tabIds.all { hasVisibleNodeById(root, it) }
     }
 
     private fun hasFeedActionButton(root: AccessibilityNodeInfo): Boolean {

@@ -8,22 +8,28 @@ object InstagramLogics {
     val INSTAGRAM_PKG: String = SocialMediaApp.INSTAGRAM.pkg
 
     fun getScreenName(root: AccessibilityNodeInfo): InstagramScreen {
+        val isReels by lazy { Reels.isReelsScreen(root) }
+        val isDirect by lazy { Direct.isDirectScreen(root) }
+        val isSearch by lazy { Search.isSearchScreen(root) }
+        val isProfile by lazy { Profile.isProfileScreen(root) }
+
         return when {
-            Feed.isFeedScreen(root) -> InstagramScreen.FEED
+            Feed.isFeedContentScreen(root) -> InstagramScreen.FEED
             Feed.isFeedMenuScreen(root) -> InstagramScreen.FEED_MENU
             Feed.isWebviewMenuScreen(root) -> InstagramScreen.FEED_WEB_VIEW
             Notification.isNotificationScreen(root) -> InstagramScreen.NOTIFICATION
             ReplyMenu.isReplyMenuScreen(root) -> InstagramScreen.REPLY
-            Reels.isReelsScreen(root) -> InstagramScreen.REELS
+            isReels -> InstagramScreen.REELS
             Reels.isReelsMenuScreen(root) -> InstagramScreen.REELS_MENU
             Reels.isReelsAudioMenuScreen(root) -> InstagramScreen.REELS_AUDIO_MENU
-            Direct.isDirectScreen(root) -> InstagramScreen.DM
-            Search.isSearchScreen(root) -> InstagramScreen.SEARCH
-            Profile.isProfileScreen(root) -> InstagramScreen.MY_PROFILE
+            isDirect -> InstagramScreen.DM
+            isSearch -> InstagramScreen.SEARCH
+            isProfile -> InstagramScreen.MY_PROFILE
             Profile.isSubscriberListScreen(root) -> InstagramScreen.MY_SUBSCRIBE_LIST
             Profile.isOtherProfileScreen(root) -> InstagramScreen.OTHER_PROFILE
             Profile.isOtherSubscribeListScreen(root) -> InstagramScreen.OTHER_SUBSCRIBE_LIST
             Story.isStoryScreen(root) -> InstagramScreen.STORY
+            Feed.isMainScreen(root) && !isReels && !isDirect && !isSearch && !isProfile -> InstagramScreen.FEED
             else -> InstagramScreen.NONE
         }
     }
