@@ -18,6 +18,7 @@ class SMListener {
         if(pkg == null) {
             return null
         }
+        Logger.d("$pkg")
         var result: PassiveDetectionResult? = instagramTracker.getScreenInformation(pkg, root, nowMs)
         if(result == null) {
             result = youtubeTracker.getScreenInformation(pkg, root, nowMs)

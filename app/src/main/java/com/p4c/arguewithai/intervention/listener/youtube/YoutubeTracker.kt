@@ -22,12 +22,14 @@ class YoutubeTracker {
     private var youtubeHitStreak: Int = 0
     private var notYoutubeHitStreak: Int = 0
     private var passiveSinceMs: Long = 0L
+    private var noneScreenStreak: Int = 0
     private var lastKnownApp: SocialMediaApp = SocialMediaApp.YOUTUBE
 
 
     companion object {
         private const val YOUTUBE_ENTER_CONFIRM_COUNT = 10
         private const val YOUTUBE_EXIT_CONFIRM_COUNT = 10
+        private const val NONE_SCREEN_CONFIRM_COUNT = 3
         private val PASSIVE_SCREEN = setOf(
             YoutubeScreen.MAIN,
             YoutubeScreen.SIDE_BAR,
@@ -109,15 +111,15 @@ class YoutubeTracker {
         when (currentApp) {
             SocialMediaApp.YOUTUBE -> {
                 lastKnownApp = SocialMediaApp.YOUTUBE
-                if (screen != YoutubeScreen.NONE) {
-                    if (screen != currentScreen) {
-                        currentScreen = screen
-                        currentScreenSinceMs = nowMs
-                    }
-                    if (isP != isPassive) {
-                        isPassive = isP
-                        passiveSinceMs = nowMs
-                    }
+                if (screen == YoutubeScreen.NONE) noneScreenStreak++ else noneScreenStreak = 0
+                val canUpdate = screen != YoutubeScreen.NONE || noneScreenStreak >= NONE_SCREEN_CONFIRM_COUNT
+                if (canUpdate && screen != currentScreen) {
+                    currentScreen = screen
+                    currentScreenSinceMs = nowMs
+                }
+                if (canUpdate && isP != isPassive) {
+                    isPassive = isP
+                    passiveSinceMs = nowMs
                 }
             }
             SocialMediaApp.INTERVENTION -> {
