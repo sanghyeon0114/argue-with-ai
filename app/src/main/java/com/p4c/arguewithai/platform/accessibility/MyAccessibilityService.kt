@@ -1,6 +1,10 @@
 package com.p4c.arguewithai.platform.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.view.accessibility.AccessibilityEvent
 import com.google.firebase.FirebaseApp
@@ -37,7 +41,23 @@ class MyAccessibilityService (
     private var sessionId: SessionId? = null
     private var wasPassive: Boolean = false
     private var nonPassiveHitStreak: Int = 0
+    private var isScreenOn: Boolean = true
+    private var screenReceiverRegistered: Boolean = false
     private val debugOverlay by lazy { ResultDebugOverlay(this) }
+    private val screenStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    isScreenOn = false
+                    Logger.d("🔒 Screen OFF")
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    isScreenOn = true
+                    Logger.d("🔓 Screen ON")
+                }
+            }
+        }
+    }
     private val prefListener =
         SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
             when (key) {
@@ -63,6 +83,15 @@ class MyAccessibilityService (
                 .addOnSuccessListener { Logger.d("Firebase login ok") }
                 .addOnFailureListener { Logger.e("Firebase login fail", it) }
         }
+
+        if (!screenReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+            }
+            registerReceiver(screenStateReceiver, filter)
+            screenReceiverRegistered = true
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -74,8 +103,10 @@ class MyAccessibilityService (
 
         val nowMs: Long = time.nowMs()
         val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs)
+            .takeIf { isScreenOn }
 
         //Logger.d("$result")
+        // todo : firebase 처리
         intervention(result)
         debugOverlay.show(result, hasIntervened)
     }
@@ -121,6 +152,10 @@ class MyAccessibilityService (
         debugOverlay.hide()
         if (::prefs.isInitialized) {
             prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
+        }
+        if (screenReceiverRegistered) {
+            unregisterReceiver(screenStateReceiver)
+            screenReceiverRegistered = false
         }
         serviceScope.launch { sessionId = null }
         serviceScope.cancel()
