@@ -31,6 +31,7 @@ class YoutubeTracker {
         private const val NONE_SCREEN_CONFIRM_COUNT = 3
         private val PASSIVE_SCREEN = setOf(
             YoutubeScreen.MAIN,
+            YoutubeScreen.SIDE_BAR,
         )
         private fun isPassive(screen: YoutubeScreen): Boolean {
             return screen in PASSIVE_SCREEN
