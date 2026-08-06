@@ -6,5 +6,7 @@ enum class YoutubeScreen : AppScreen {
     MAIN,
     SEARCH,
     SIDE_BAR,
+    SETTING,
+    CREATION,
     NONE
 }

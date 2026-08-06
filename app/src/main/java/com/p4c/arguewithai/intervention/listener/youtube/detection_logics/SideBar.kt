@@ -4,7 +4,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 
 object SideBar {
     fun isSideBar(root: AccessibilityNodeInfo): Boolean {
-        return hasListItemText(root) || hasListItemText2(root) || hasListItemText3(root)
+        return hasListItemText(root) || hasListItemText2(root) || hasListItemText3(root) || hasCommentSortMenu(root)
     }
     fun hasListItemText(root: AccessibilityNodeInfo): Boolean {
         val listItemTextId = "${YoutubeLogics.YOUTUBE_PKG}:id/list_item_text"
@@ -21,5 +21,18 @@ object SideBar {
         val listItemTextId = "${YoutubeLogics.YOUTUBE_PKG}:id/title"
         val nodes = root.findAccessibilityNodeInfosByViewId(listItemTextId) ?: return false
         return nodes.any { it.isVisibleToUser }
+    }
+
+    fun hasCommentSortMenu(root: AccessibilityNodeInfo): Boolean {
+        val textId = "${YoutubeLogics.YOUTUBE_PKG}:id/text"
+
+        val texts = root.findAccessibilityNodeInfosByViewId(textId)
+            ?.filter { it.isVisibleToUser }
+            ?.mapNotNull { it.text?.toString() }
+            ?: emptyList()
+
+        val hasSortOptions = texts.contains("인기순") && texts.contains("최신순")
+
+        return hasSortOptions
     }
 }
