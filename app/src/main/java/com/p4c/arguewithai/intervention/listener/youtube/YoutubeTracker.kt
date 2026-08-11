@@ -130,13 +130,7 @@ class YoutubeTracker {
                     passiveSinceMs = nowMs
                 }
             }
-            SocialMediaApp.KEYBOARD -> {
-                if (lastKnownApp != SocialMediaApp.INTERVENTION) {
-                    currentScreenSinceMs = nowMs
-                    passiveSinceMs = nowMs
-                }
-            }
-            SocialMediaApp.SYSTEM -> {
+            SocialMediaApp.SYSTEM, SocialMediaApp.KEYBOARD -> {
             }
             else -> { /* ignore */ }
         }

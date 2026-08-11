@@ -11,6 +11,10 @@ object FirebaseConfig {
             const val ACCESSIBILITY = "accessibility"
         }
 
+        object Sessions {
+            const val SCREENS = "screens"
+        }
+
         const val BLOCKING = "blocking"
         const val AFFIRMATION = "affirmation"
         const val JUSTIFICATION = "justification"
