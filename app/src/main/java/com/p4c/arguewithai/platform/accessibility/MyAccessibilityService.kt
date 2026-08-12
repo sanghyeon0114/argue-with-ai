@@ -9,6 +9,7 @@ import android.content.SharedPreferences
 import android.view.accessibility.AccessibilityEvent
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.p4c.arguewithai.app.DebugOverlayPrefs
 import com.p4c.arguewithai.app.InterventionPrefs
 import com.p4c.arguewithai.intervention.listener.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.listener.SMListener
@@ -44,6 +45,7 @@ class MyAccessibilityService (
     private var nonPassiveHitStreak: Int = 0
     private var isScreenOn: Boolean = true
     private var screenReceiverRegistered: Boolean = false
+    private var debugOverlayEnabled: Boolean = true
 
     private var firebaseSessionId: SessionId? = null
     private var firebaseSessionStarting: Boolean = false
@@ -77,6 +79,11 @@ class MyAccessibilityService (
                     interventionEnabled = InterventionPrefs.isEnabled(this)
                     Logger.d("🟢 Intervention enabled = $interventionEnabled")
                 }
+                DebugOverlayPrefs.KEY -> {
+                    debugOverlayEnabled = DebugOverlayPrefs.isEnabled(this)
+                    if (!debugOverlayEnabled) debugOverlay.hide()
+                    Logger.d("🟢 Debug overlay enabled = $debugOverlayEnabled")
+                }
             }
         }
     private val smListener = SMListener()
@@ -87,6 +94,7 @@ class MyAccessibilityService (
             interventionEnabled = it.getBoolean("intervention_enabled", true)
             it.registerOnSharedPreferenceChangeListener(prefListener)
         }
+        debugOverlayEnabled = DebugOverlayPrefs.isEnabled(this)
 
         FirebaseApp.initializeApp(this)
         if (FirebaseAuth.getInstance().currentUser == null) {
@@ -116,10 +124,14 @@ class MyAccessibilityService (
         val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs)
             .takeIf { isScreenOn }
 
-        Logger.d("$result")
+        //Logger.d("$result")
         checkUsage(result, nowMs)
         intervention(result)
-        debugOverlay.show(result, hasIntervened)
+        if (debugOverlayEnabled) {
+            debugOverlay.show(result, hasIntervened)
+        } else {
+            debugOverlay.hide()
+        }
     }
 
     private fun checkUsage(result: PassiveDetectionResult?, nowMs: Long) {
