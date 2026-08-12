@@ -45,11 +45,9 @@ class MyAccessibilityService (
     private var isScreenOn: Boolean = true
     private var screenReceiverRegistered: Boolean = false
 
-    // Firebase 세션(수동적 사용의 시작~종료) 저장용 상태
     private var firebaseSessionId: SessionId? = null
     private var firebaseSessionStarting: Boolean = false
 
-    // 세션 동안의 화면 방문 기록(재방문도 별도 세그먼트로) 트래킹용 상태
     private var trackedScreenName: String? = null
     private var trackedScreenStartMs: Long = 0L
     private var trackedScreenLastMs: Long = 0L
@@ -58,16 +56,16 @@ class MyAccessibilityService (
 
     private val debugOverlay by lazy { ResultDebugOverlay(this) }
     private val sessionRepository by lazy { FirestoreSessionRepository() }
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     isScreenOn = false
-                    Logger.d("🔒 Screen OFF")
+                    smListener.resetPassive(time.nowMs())
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenOn = true
-                    Logger.d("🔓 Screen ON")
                 }
             }
         }
@@ -81,7 +79,6 @@ class MyAccessibilityService (
                 }
             }
         }
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val smListener = SMListener()
 
     override fun onServiceConnected() {
@@ -120,56 +117,53 @@ class MyAccessibilityService (
             .takeIf { isScreenOn }
 
         Logger.d("$result")
-        handleFirebaseSession(result, nowMs)
+        checkUsage(result, nowMs)
         intervention(result)
         debugOverlay.show(result, hasIntervened)
     }
 
-    // isInvervention(수동적 사용) 상태가 시작/종료될 때 Firestore에 세션(시작~종료 시간)과
-    // 세션 동안 머문 화면별 체류시간/시작·종료 시각을 별도 문서로 기록한다.
-    private fun handleFirebaseSession(result: PassiveDetectionResult?, nowMs: Long) {
-        val isIntervention = result != null && result.isInvervention
+    private fun checkUsage(result: PassiveDetectionResult?, nowMs: Long) {
+        if (result == null) {
+            endFirebaseSession()
+            return
+        }
 
-        if (isIntervention) {
-            trackScreen(result!!, nowMs)
+        trackScreen(result, nowMs)
 
-            if (firebaseSessionId == null && !firebaseSessionStarting) {
-                firebaseSessionStarting = true
-                val app = result.app.label
-                serviceScope.launch {
-                    runCatching { sessionRepository.startSession(app) }
-                        .onSuccess {
-                            firebaseSessionId = it
-                            Logger.d("🔥 Firebase session started: ${it.value}")
-                        }
-                        .onFailure { Logger.e("🔥 Firebase startSession failed", it) }
-                    firebaseSessionStarting = false
-                }
-            }
-        } else {
-            val endingSessionId = firebaseSessionId
-            if (endingSessionId != null) {
-                firebaseSessionId = null
-                flushTrackedScreen()
-                val screensSnapshot = buildScreenUsageSummaries()
-
-                serviceScope.launch {
-                    runCatching { sessionRepository.endSession(endingSessionId) }
-                        .onSuccess { ended ->
-                            Logger.d("🔥 Firebase session ended: ${endingSessionId.value} (${ended.durationSec}s)")
-                            // 1초 미만 세션은 endSession에서 문서가 삭제되므로 화면 기록도 남기지 않는다.
-                            if ((ended.durationSec ?: 0) >= 1 && screensSnapshot.isNotEmpty()) {
-                                runCatching { sessionRepository.saveScreenUsage(endingSessionId, screensSnapshot) }
-                                    .onFailure { Logger.e("🔥 Firebase saveScreenUsage failed", it) }
-                            }
-                        }
-                        .onFailure { Logger.e("🔥 Firebase endSession failed", it) }
-                }
+        if (firebaseSessionId == null && !firebaseSessionStarting) {
+            firebaseSessionStarting = true
+            val app = result.app.label
+            serviceScope.launch {
+                runCatching { sessionRepository.startSession(app) }
+                    .onSuccess {
+                        firebaseSessionId = it
+                        Logger.d("🔥 Firebase session started: ${it.value}")
+                    }
+                    .onFailure { Logger.e("🔥 Firebase startSession failed", it) }
+                firebaseSessionStarting = false
             }
         }
     }
 
-    // 화면이 바뀔 때마다 이전 화면의 체류시간/종료 시각을 누적시킨다.
+    private fun endFirebaseSession() {
+        val endingSessionId = firebaseSessionId ?: return
+        firebaseSessionId = null
+        flushTrackedScreen()
+        val screensSnapshot = buildScreenUsageSummaries()
+
+        serviceScope.launch {
+            runCatching { sessionRepository.endSession(endingSessionId) }
+                .onSuccess { ended ->
+                    Logger.d("🔥 Firebase session ended: ${endingSessionId.value} (${ended.durationSec}s)")
+                    if (screensSnapshot.isNotEmpty()) {
+                        runCatching { sessionRepository.saveScreenUsage(endingSessionId, screensSnapshot) }
+                            .onFailure { Logger.e("🔥 Firebase saveScreenUsage failed", it) }
+                    }
+                }
+                .onFailure { Logger.e("🔥 Firebase endSession failed", it) }
+        }
+    }
+
     private fun trackScreen(result: PassiveDetectionResult, nowMs: Long) {
         val screenName = result.screen?.toString() ?: return
         if (screenName != trackedScreenName) {
@@ -183,7 +177,7 @@ class MyAccessibilityService (
 
     private fun flushTrackedScreen() {
         val screen = trackedScreenName ?: return
-        if (trackedScreenDurationMs > 0) {
+        if (screen != "NONE" && trackedScreenDurationMs > 0) {
             screenVisits.add(
                 ScreenUsageSummary(
                     screen = screen,
@@ -251,23 +245,8 @@ class MyAccessibilityService (
             unregisterReceiver(screenStateReceiver)
             screenReceiverRegistered = false
         }
-        val openSessionId = firebaseSessionId
-        firebaseSessionId = null
-        flushTrackedScreen()
-        val screensSnapshot = buildScreenUsageSummaries()
-        serviceScope.launch {
-            sessionId = null
-            if (openSessionId != null) {
-                runCatching { sessionRepository.endSession(openSessionId) }
-                    .onSuccess { ended ->
-                        if ((ended.durationSec ?: 0) >= 1 && screensSnapshot.isNotEmpty()) {
-                            runCatching { sessionRepository.saveScreenUsage(openSessionId, screensSnapshot) }
-                                .onFailure { Logger.e("🔥 Firebase saveScreenUsage failed", it) }
-                        }
-                    }
-                    .onFailure { Logger.e("🔥 Firebase endSession failed", it) }
-            }
-        }
+        endFirebaseSession()
+        sessionId = null
         serviceScope.cancel()
     }
 }

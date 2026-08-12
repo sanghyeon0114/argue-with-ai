@@ -6,7 +6,8 @@ enum class SocialMediaApp(val pkg: String, val label: String) {
     SYSTEM("com.android.systemui", "system"),
     KEYBOARD("com.samsung.android.honeyboard", "keyboard"),
     INTERVENTION("com.p4c.arguewithai", "arguewithai"),
-    NONE("NONE", "none");
+    NOT_DETECTION("not.detection", "notDetection"),
+    NONE("none", "none");
 
     companion object {
         fun find(pkg: String): SocialMediaApp {

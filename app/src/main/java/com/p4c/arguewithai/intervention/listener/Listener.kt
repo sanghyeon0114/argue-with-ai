@@ -9,6 +9,12 @@ import com.p4c.arguewithai.utils.Logger
 class SMListener {
     private val instagramTracker = InstagramTracker()
     private val youtubeTracker = YoutubeTracker()
+    private var lastResult: PassiveDetectionResult? = null
+    fun resetPassive(nowMs: Long) {
+        instagramTracker.resetPassive(nowMs)
+        youtubeTracker.resetPassive(nowMs)
+    }
+
     fun onEvent(
         event: AccessibilityEvent,
         root: AccessibilityNodeInfo,
@@ -16,12 +22,13 @@ class SMListener {
     ): PassiveDetectionResult? {
         val pkg = event.packageName?.toString()
         if(pkg == null) {
-            return null
+            return lastResult
         }
         var result: PassiveDetectionResult? = instagramTracker.getScreenInformation(pkg, root, nowMs)
         if(result == null) {
             result = youtubeTracker.getScreenInformation(pkg, root, nowMs)
         }
+        lastResult = result
         return result
     }
 }

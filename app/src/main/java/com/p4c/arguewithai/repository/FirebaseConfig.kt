@@ -4,6 +4,8 @@ object FirebaseConfig {
     const val ROOT_COLLECTION = "users"
 
     object User {
+        const val INSTAGRAM_SESSIONS = "instagram_sessions"
+        const val YOUTUBE_SESSIONS = "youtube_sessions"
         const val SESSIONS = "sessions"
         const val PROFILES = "profiles"
 

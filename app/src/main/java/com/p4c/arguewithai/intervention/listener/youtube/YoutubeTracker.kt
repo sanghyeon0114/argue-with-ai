@@ -52,6 +52,11 @@ class YoutubeTracker {
         }
     }
 
+    fun resetPassive(nowMs: Long) {
+        isPassive = false
+        passiveSinceMs = nowMs
+    }
+
     fun getScreen(pkg: String, root: AccessibilityNodeInfo): ScreenData {
         val isYoutubePkg = pkg == YoutubeLogics.YOUTUBE_PKG
         val socialApp = SocialMediaApp.find(pkg)
@@ -95,7 +100,6 @@ class YoutubeTracker {
 
     fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult? {
         val data: ScreenData = getScreen(pkg, root)
-        Logger.d("$data")
         if (!data.isYoutube) {
             currentScreenSinceMs = nowMs
             passiveSinceMs = nowMs
