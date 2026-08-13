@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.app.DebugOverlayPrefs
@@ -121,7 +122,8 @@ class MyAccessibilityService (
         }
 
         val nowMs: Long = time.nowMs()
-        val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs)
+        val isKeyboardVisible = isImeWindowVisible()
+        val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs, isKeyboardVisible)
             .takeIf { isScreenOn }
 
         //Logger.d("$result")
@@ -131,6 +133,19 @@ class MyAccessibilityService (
             debugOverlay.show(result, hasIntervened)
         } else {
             debugOverlay.hide()
+        }
+    }
+
+    /**
+     * 특정 키보드 앱의 패키지명을 하드코딩해서 비교하는 대신, 현재 떠 있는
+     * 윈도우 목록에 IME 타입 윈도우가 있는지로 키보드 노출 여부를 판정한다.
+     * 어떤 키보드 앱(Gboard, 삼성 키보드 등)을 쓰든 동일하게 동작한다.
+     */
+    private fun isImeWindowVisible(): Boolean {
+        return try {
+            windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        } catch (e: SecurityException) {
+            false
         }
     }
 

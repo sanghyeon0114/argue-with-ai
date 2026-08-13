@@ -72,20 +72,19 @@ class InstagramTracker {
         passiveSinceMs = nowMs
     }
 
-    fun getScreen(pkg: String, root: AccessibilityNodeInfo): ScreenData {
+    fun getScreen(pkg: String, root: AccessibilityNodeInfo, isKeyboardVisible: Boolean): ScreenData {
         val isInstagramPkg = pkg == InstagramLogics.INSTAGRAM_PKG
         val socialApp = SocialMediaApp.find(pkg)
         val isOwnAppPkg = socialApp == SocialMediaApp.INTERVENTION
         val isSystemPkg = socialApp == SocialMediaApp.SYSTEM
-        val isKeyboardPkg = socialApp == SocialMediaApp.KEYBOARD
-        if (!isOwnAppPkg && !isSystemPkg && !isKeyboardPkg) {
+        if (!isOwnAppPkg && !isSystemPkg && !isKeyboardVisible) {
             updateInstagramActive(isInstagramPkg)
         }
         if (!isInstagramPkg) {
             return ScreenData(
                 isInstagram = isInstagramActive,
-                screen = if (isSystemPkg || isKeyboardPkg) lastScreen else InstagramScreen.NONE,
-                isPassive = if (isSystemPkg || isKeyboardPkg) isPassive(lastScreen) else false
+                screen = if (isSystemPkg || isKeyboardVisible) lastScreen else InstagramScreen.NONE,
+                isPassive = if (isSystemPkg || isKeyboardVisible) isPassive(lastScreen) else false
             )
         }
         if(InstagramLogics.isCurrentScreen(lastScreen, root)) {
@@ -112,8 +111,8 @@ class InstagramTracker {
             isPassive = isPassive(lastScreen)
         )
     }
-    fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult? {
-        val data: ScreenData = getScreen(pkg, root)
+    fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long, isKeyboardVisible: Boolean): PassiveDetectionResult? {
+        val data: ScreenData = getScreen(pkg, root, isKeyboardVisible)
         //Logger.d("$data")
         if (!data.isInstagram) {
             currentScreenSinceMs = nowMs
@@ -146,7 +145,7 @@ class InstagramTracker {
                     passiveSinceMs = nowMs
                 }
             }
-            SocialMediaApp.SYSTEM, SocialMediaApp.KEYBOARD -> {
+            SocialMediaApp.SYSTEM -> {
             }
             else -> { /* ignore */ }
         }
@@ -160,7 +159,7 @@ class InstagramTracker {
             isInvervention = isPassive ||
                 pkg == SocialMediaApp.INTERVENTION.pkg ||
                 pkg == SocialMediaApp.SYSTEM.pkg ||
-                pkg == SocialMediaApp.KEYBOARD.pkg
+                isKeyboardVisible
         )
     }
 }

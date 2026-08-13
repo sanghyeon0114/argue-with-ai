@@ -19,14 +19,15 @@ class SMListener {
         event: AccessibilityEvent,
         root: AccessibilityNodeInfo,
         nowMs: Long = System.currentTimeMillis(),
+        isKeyboardVisible: Boolean = false,
     ): PassiveDetectionResult? {
         val pkg = event.packageName?.toString()
         if(pkg == null) {
             return lastResult
         }
-        var result: PassiveDetectionResult? = instagramTracker.getScreenInformation(pkg, root, nowMs)
+        var result: PassiveDetectionResult? = instagramTracker.getScreenInformation(pkg, root, nowMs, isKeyboardVisible)
         if(result == null) {
-            result = youtubeTracker.getScreenInformation(pkg, root, nowMs)
+            result = youtubeTracker.getScreenInformation(pkg, root, nowMs, isKeyboardVisible)
         }
         lastResult = result
         return result

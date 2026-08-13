@@ -57,20 +57,19 @@ class YoutubeTracker {
         passiveSinceMs = nowMs
     }
 
-    fun getScreen(pkg: String, root: AccessibilityNodeInfo): ScreenData {
+    fun getScreen(pkg: String, root: AccessibilityNodeInfo, isKeyboardVisible: Boolean): ScreenData {
         val isYoutubePkg = pkg == YoutubeLogics.YOUTUBE_PKG
         val socialApp = SocialMediaApp.find(pkg)
         val isOwnAppPkg = socialApp == SocialMediaApp.INTERVENTION
         val isSystemPkg = socialApp == SocialMediaApp.SYSTEM
-        val isKeyboardPkg = socialApp == SocialMediaApp.KEYBOARD
-        if (!isOwnAppPkg && !isSystemPkg && !isKeyboardPkg) {
+        if (!isOwnAppPkg && !isSystemPkg && !isKeyboardVisible) {
             updateYoutubeActive(isYoutubePkg)
         }
         if (!isYoutubePkg) {
             return ScreenData(
                 isYoutube = isYoutubeActive,
-                screen = if (isSystemPkg || isKeyboardPkg) lastScreen else YoutubeScreen.NONE,
-                isPassive = if (isSystemPkg || isKeyboardPkg) isPassive(lastScreen) else false
+                screen = if (isSystemPkg || isKeyboardVisible) lastScreen else YoutubeScreen.NONE,
+                isPassive = if (isSystemPkg || isKeyboardVisible) isPassive(lastScreen) else false
             )
         }
         if (YoutubeLogics.isCurrentScreen(lastScreen, root)) {
@@ -98,8 +97,8 @@ class YoutubeTracker {
         )
     }
 
-    fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long): PassiveDetectionResult? {
-        val data: ScreenData = getScreen(pkg, root)
+    fun getScreenInformation(pkg: String, root: AccessibilityNodeInfo, nowMs: Long, isKeyboardVisible: Boolean): PassiveDetectionResult? {
+        val data: ScreenData = getScreen(pkg, root, isKeyboardVisible)
         if (!data.isYoutube) {
             currentScreenSinceMs = nowMs
             passiveSinceMs = nowMs
@@ -134,7 +133,7 @@ class YoutubeTracker {
                     passiveSinceMs = nowMs
                 }
             }
-            SocialMediaApp.SYSTEM, SocialMediaApp.KEYBOARD -> {
+            SocialMediaApp.SYSTEM -> {
             }
             else -> { /* ignore */ }
         }
@@ -148,7 +147,7 @@ class YoutubeTracker {
             isInvervention = isPassive ||
                     pkg == SocialMediaApp.INTERVENTION.pkg ||
                     pkg == SocialMediaApp.SYSTEM.pkg ||
-                    pkg == SocialMediaApp.KEYBOARD.pkg
+                    isKeyboardVisible
         )
     }
 }
