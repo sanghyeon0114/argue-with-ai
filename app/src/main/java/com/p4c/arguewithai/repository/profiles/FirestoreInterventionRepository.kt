@@ -25,14 +25,16 @@ class FirestoreInterventionRepository(
     private fun userDoc() =
         db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
 
-    suspend fun setEnabled(enabled: Boolean) {
+    private fun nowTimestamp(): Timestamp {
         val ms = time.nowMs()
-        val ts = Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+        return Timestamp(ms / 1000, ((ms % 1000) * 1_000_000).toInt())
+    }
 
+    suspend fun setEnabled(enabled: Boolean) {
         val data = mapOf(
             "intervention" to mapOf(
                 "enabled" to enabled,
-                "updatedAt" to ts
+                "updatedAt" to nowTimestamp()
             )
         )
 
@@ -44,6 +46,24 @@ class FirestoreInterventionRepository(
         @Suppress("UNCHECKED_CAST")
         val intervention = snap.get("intervention") as? Map<String, Any>
         return intervention?.get("enabled") as? Boolean
+    }
+
+    suspend fun setInterventionType(type: Int) {
+        val data = mapOf(
+            "intervention" to mapOf(
+                "type" to type,
+                "updatedAt" to nowTimestamp()
+            )
+        )
+
+        userDoc().set(data, SetOptions.merge()).await()
+    }
+
+    suspend fun getInterventionTypeOrNull(): Int? {
+        val snap = userDoc().get().await()
+        @Suppress("UNCHECKED_CAST")
+        val intervention = snap.get("intervention") as? Map<String, Any>
+        return (intervention?.get("type") as? Long)?.toInt()
     }
 
     fun Context.isOnline(): Boolean {

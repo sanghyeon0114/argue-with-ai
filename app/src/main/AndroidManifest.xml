@@ -27,7 +27,7 @@
         android:theme="@style/Theme.ArgueWithAi"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".app.MainActivity"
+            android:name=".app.OnboardingActivity"
             android:exported="true"
             android:theme="@style/Theme.ArgueWithAi">
             <intent-filter>
@@ -35,6 +35,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".app.MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ArgueWithAi" />
         <activity
             android:name=".app.SettingsActivity"
             android:exported="false" />
