@@ -15,6 +15,7 @@ object FirebaseConfig {
 
         object Sessions {
             const val SCREENS = "screens"
+            const val KEYBOARD = "keyboard"
         }
 
         const val BLOCKING = "blocking"

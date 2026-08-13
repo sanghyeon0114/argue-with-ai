@@ -1,6 +1,7 @@
 package com.p4c.arguewithai.platform.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,6 +17,7 @@ import com.p4c.arguewithai.intervention.listener.PassiveDetectionResult
 import com.p4c.arguewithai.intervention.listener.SMListener
 import com.p4c.arguewithai.intervention.prompt.Prompt
 import com.p4c.arguewithai.repository.FirestoreSessionRepository
+import com.p4c.arguewithai.repository.KeyboardUsageSummary
 import com.p4c.arguewithai.repository.ScreenUsageSummary
 import com.p4c.arguewithai.repository.SessionId
 import com.p4c.arguewithai.utils.Logger
@@ -57,18 +59,39 @@ class MyAccessibilityService (
     private var trackedScreenDurationMs: Long = 0L
     private val screenVisits = mutableListOf<ScreenUsageSummary>()
 
+    private var trackedKeyboardVisible: Boolean = false
+    private var trackedKeyboardStartMs: Long = 0L
+    private var trackedKeyboardLastMs: Long = 0L
+    private val keyboardVisits = mutableListOf<KeyboardUsageSummary>()
+
     private val debugOverlay by lazy { ResultDebugOverlay(this) }
     private val sessionRepository by lazy { FirestoreSessionRepository() }
+    private val keyguardManager by lazy { getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager }
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+
+    private fun isDeviceLocked(): Boolean {
+        return try {
+            keyguardManager.isKeyguardLocked
+        } catch (e: SecurityException) {
+            false
+        }
+    }
+
     private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     isScreenOn = false
                     smListener.resetPassive(time.nowMs())
+                    Logger.d("screen off")
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenOn = true
+                    Logger.d("screen on (locked=${isDeviceLocked()})")
+                }
+                Intent.ACTION_USER_PRESENT -> {
+                    smListener.resetPassive(time.nowMs())
+                    Logger.d("user present (unlocked)")
                 }
             }
         }
@@ -108,6 +131,7 @@ class MyAccessibilityService (
             val filter = IntentFilter().apply {
                 addAction(Intent.ACTION_SCREEN_OFF)
                 addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
             }
             registerReceiver(screenStateReceiver, filter)
             screenReceiverRegistered = true
@@ -124,10 +148,10 @@ class MyAccessibilityService (
         val nowMs: Long = time.nowMs()
         val isKeyboardVisible = isImeWindowVisible()
         val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs, isKeyboardVisible)
-            .takeIf { isScreenOn }
+            .takeIf { isScreenOn && !isDeviceLocked() }
 
-        //Logger.d("$result")
-        checkUsage(result, nowMs)
+        Logger.d("$result")
+        checkUsage(result, nowMs, isKeyboardVisible)
         intervention(result)
         if (debugOverlayEnabled) {
             debugOverlay.show(result, hasIntervened)
@@ -136,11 +160,6 @@ class MyAccessibilityService (
         }
     }
 
-    /**
-     * 특정 키보드 앱의 패키지명을 하드코딩해서 비교하는 대신, 현재 떠 있는
-     * 윈도우 목록에 IME 타입 윈도우가 있는지로 키보드 노출 여부를 판정한다.
-     * 어떤 키보드 앱(Gboard, 삼성 키보드 등)을 쓰든 동일하게 동작한다.
-     */
     private fun isImeWindowVisible(): Boolean {
         return try {
             windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
@@ -149,13 +168,14 @@ class MyAccessibilityService (
         }
     }
 
-    private fun checkUsage(result: PassiveDetectionResult?, nowMs: Long) {
+    private fun checkUsage(result: PassiveDetectionResult?, nowMs: Long, isKeyboardVisible: Boolean) {
         if (result == null) {
             endFirebaseSession()
             return
         }
 
         trackScreen(result, nowMs)
+        trackKeyboard(isKeyboardVisible, nowMs)
 
         if (firebaseSessionId == null && !firebaseSessionStarting) {
             firebaseSessionStarting = true
@@ -176,7 +196,9 @@ class MyAccessibilityService (
         val endingSessionId = firebaseSessionId ?: return
         firebaseSessionId = null
         flushTrackedScreen()
+        flushTrackedKeyboard()
         val screensSnapshot = buildScreenUsageSummaries()
+        val keyboardSnapshot = buildKeyboardUsageSummaries()
 
         serviceScope.launch {
             runCatching { sessionRepository.endSession(endingSessionId) }
@@ -185,6 +207,10 @@ class MyAccessibilityService (
                     if (screensSnapshot.isNotEmpty()) {
                         runCatching { sessionRepository.saveScreenUsage(endingSessionId, screensSnapshot) }
                             .onFailure { Logger.e("🔥 Firebase saveScreenUsage failed", it) }
+                    }
+                    if (keyboardSnapshot.isNotEmpty()) {
+                        runCatching { sessionRepository.saveKeyboardUsage(endingSessionId, keyboardSnapshot) }
+                            .onFailure { Logger.e("🔥 Firebase saveKeyboardUsage failed", it) }
                     }
                 }
                 .onFailure { Logger.e("🔥 Firebase endSession failed", it) }
@@ -223,6 +249,42 @@ class MyAccessibilityService (
     private fun buildScreenUsageSummaries(): List<ScreenUsageSummary> {
         val summaries = screenVisits.toList()
         screenVisits.clear()
+        return summaries
+    }
+
+    private fun trackKeyboard(isKeyboardVisible: Boolean, nowMs: Long) {
+        if (isKeyboardVisible) {
+            if (!trackedKeyboardVisible) {
+                trackedKeyboardVisible = true
+                trackedKeyboardStartMs = nowMs
+            }
+            trackedKeyboardLastMs = nowMs
+        } else {
+            flushTrackedKeyboard()
+        }
+    }
+
+    private fun flushTrackedKeyboard() {
+        if (trackedKeyboardVisible) {
+            val durationMs = trackedKeyboardLastMs - trackedKeyboardStartMs
+            if (durationMs > 0) {
+                keyboardVisits.add(
+                    KeyboardUsageSummary(
+                        durationMs = durationMs,
+                        startEpochMs = trackedKeyboardStartMs,
+                        endEpochMs = trackedKeyboardLastMs
+                    )
+                )
+            }
+        }
+        trackedKeyboardVisible = false
+        trackedKeyboardStartMs = 0L
+        trackedKeyboardLastMs = 0L
+    }
+
+    private fun buildKeyboardUsageSummaries(): List<KeyboardUsageSummary> {
+        val summaries = keyboardVisits.toList()
+        keyboardVisits.clear()
         return summaries
     }
 

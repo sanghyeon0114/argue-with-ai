@@ -55,10 +55,35 @@ data class ScreenUsageSummary(
     val endEpochMs: Long
 )
 
+data class KeyboardUsage(
+    val durationMs: Long? = null,
+    val startTime: Timestamp? = null,
+    val endTime: Timestamp? = null,
+    val startEpoch: Long? = null,
+    val endEpoch: Long? = null,
+    val order: Int? = null
+) {
+    companion object Fields {
+        const val DURATION_MS = "durationMs"
+        const val START_TIME = "startTime"
+        const val END_TIME = "endTime"
+        const val START_EPOCH = "startEpoch"
+        const val END_EPOCH = "endEpoch"
+        const val ORDER = "order"
+    }
+}
+
+data class KeyboardUsageSummary(
+    val durationMs: Long,
+    val startEpochMs: Long,
+    val endEpochMs: Long
+)
+
 interface SessionRepository {
     suspend fun startSession(app: String): SessionId
     suspend fun endSession(sessionId: SessionId): ShortformSession
     suspend fun saveScreenUsage(sessionId: SessionId, screens: List<ScreenUsageSummary>)
+    suspend fun saveKeyboardUsage(sessionId: SessionId, keyboardUsages: List<KeyboardUsageSummary>)
 }
 
 class FirestoreSessionRepository(
@@ -79,6 +104,9 @@ class FirestoreSessionRepository(
 
     private fun screensCollection(sessionId: SessionId) =
         sessionsCollection(sessionId.app).document(sessionId.value).collection(FirebaseConfig.User.Sessions.SCREENS)
+
+    private fun keyboardCollection(sessionId: SessionId) =
+        sessionsCollection(sessionId.app).document(sessionId.value).collection(FirebaseConfig.User.Sessions.KEYBOARD)
 
     override suspend fun startSession(app: String): SessionId {
         val startMs = time.nowMs()
@@ -146,6 +174,29 @@ class FirestoreSessionRepository(
                     ScreenUsage.START_EPOCH to s.startEpochMs,
                     ScreenUsage.END_EPOCH to s.endEpochMs,
                     ScreenUsage.ORDER to order
+                )
+            )
+        }
+        batch.commit().await()
+    }
+
+    override suspend fun saveKeyboardUsage(sessionId: SessionId, keyboardUsages: List<KeyboardUsageSummary>) {
+        if (keyboardUsages.isEmpty()) return
+
+        val col = keyboardCollection(sessionId)
+        val batch = db.batch()
+        keyboardUsages.forEachIndexed { index, k ->
+            val order = index + 1
+            val ref = col.document(order.toString())
+            batch.set(
+                ref,
+                mapOf(
+                    KeyboardUsage.DURATION_MS to k.durationMs,
+                    KeyboardUsage.START_TIME to Timestamp(Date(k.startEpochMs)),
+                    KeyboardUsage.END_TIME to Timestamp(Date(k.endEpochMs)),
+                    KeyboardUsage.START_EPOCH to k.startEpochMs,
+                    KeyboardUsage.END_EPOCH to k.endEpochMs,
+                    KeyboardUsage.ORDER to order
                 )
             )
         }
