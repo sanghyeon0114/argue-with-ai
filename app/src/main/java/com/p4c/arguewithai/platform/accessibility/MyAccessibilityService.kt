@@ -180,8 +180,9 @@ class MyAccessibilityService (
         if (firebaseSessionId == null && !firebaseSessionStarting) {
             firebaseSessionStarting = true
             val app = result.app.label
+            val week = InterventionPrefs.getWeek(this)
             serviceScope.launch {
-                runCatching { sessionRepository.startSession(app) }
+                runCatching { sessionRepository.startSession(app, week) }
                     .onSuccess {
                         firebaseSessionId = it
                         Logger.d("🔥 Firebase session started: ${it.value}")

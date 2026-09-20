@@ -3,6 +3,9 @@ package com.p4c.arguewithai.repository
 object FirebaseConfig {
     const val ROOT_COLLECTION = "users"
 
+    /** 주차 폴더 문서 ID. 예: week1, week2, week3 */
+    fun weekDocId(week: Int): String = "week$week"
+
     object User {
         const val INSTAGRAM_SESSIONS = "instagram_sessions"
         const val YOUTUBE_SESSIONS = "youtube_sessions"

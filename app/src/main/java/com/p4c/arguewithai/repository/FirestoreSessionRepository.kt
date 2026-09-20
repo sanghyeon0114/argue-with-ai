@@ -15,7 +15,8 @@ data class ShortformSession(
     val startEpoch: Long? = null,
     val endEpoch: Long? = null,
     val day: String? = null,
-    val app: String? = null
+    val app: String? = null,
+    val week: Int? = null
 ) {
     companion object Fields {
         const val START_TIME = "startTime"
@@ -25,6 +26,7 @@ data class ShortformSession(
         const val END_EPOCH = "endEpoch"
         const val DAY = "day"
         const val APP = "app"
+        const val WEEK = "week"
     }
 }
 
@@ -80,7 +82,7 @@ data class KeyboardUsageSummary(
 )
 
 interface SessionRepository {
-    suspend fun startSession(app: String): SessionId
+    suspend fun startSession(app: String, week: Int): SessionId
     suspend fun endSession(sessionId: SessionId): ShortformSession
     suspend fun saveScreenUsage(sessionId: SessionId, screens: List<ScreenUsageSummary>)
     suspend fun saveKeyboardUsage(sessionId: SessionId, keyboardUsages: List<KeyboardUsageSummary>)
@@ -99,16 +101,30 @@ class FirestoreSessionRepository(
         else -> FirebaseConfig.User.SESSIONS
     }
 
-    private fun sessionsCollection(app: String) =
-        db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid()).collection(sessionsCollectionName(app))
+    /**
+     * instagram / youtube 세션은 주차별로 구분해서 저장한다.
+     *   users/{uid}/instagram_sessions/week{N}/sessions/{sessionId}
+     *   users/{uid}/youtube_sessions/week{N}/sessions/{sessionId}
+     * 그 외 앱은 기존 경로(users/{uid}/sessions/{sessionId})를 그대로 사용한다.
+     */
+    private fun sessionsCollection(app: String, week: Int) =
+        db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid()).let { userDoc ->
+            when (app.lowercase()) {
+                "instagram", "youtube" ->
+                    userDoc.collection(sessionsCollectionName(app))
+                        .document(FirebaseConfig.weekDocId(week))
+                        .collection(FirebaseConfig.User.SESSIONS)
+                else -> userDoc.collection(sessionsCollectionName(app))
+            }
+        }
 
     private fun screensCollection(sessionId: SessionId) =
-        sessionsCollection(sessionId.app).document(sessionId.value).collection(FirebaseConfig.User.Sessions.SCREENS)
+        sessionsCollection(sessionId.app, sessionId.week).document(sessionId.value).collection(FirebaseConfig.User.Sessions.SCREENS)
 
     private fun keyboardCollection(sessionId: SessionId) =
-        sessionsCollection(sessionId.app).document(sessionId.value).collection(FirebaseConfig.User.Sessions.KEYBOARD)
+        sessionsCollection(sessionId.app, sessionId.week).document(sessionId.value).collection(FirebaseConfig.User.Sessions.KEYBOARD)
 
-    override suspend fun startSession(app: String): SessionId {
+    override suspend fun startSession(app: String, week: Int): SessionId {
         val startMs = time.nowMs()
 
         val data = hashMapOf(
@@ -117,16 +133,17 @@ class FirestoreSessionRepository(
             ShortformSession.DURATION_SEC to null,
             ShortformSession.START_EPOCH to startMs,
             ShortformSession.DAY to time.dayUTC(startMs),
-            ShortformSession.APP to app
+            ShortformSession.APP to app,
+            ShortformSession.WEEK to week
         )
 
-        val ref = sessionsCollection(app).add(data).await()
-        return SessionId(ref.id, app)
+        val ref = sessionsCollection(app, week).add(data).await()
+        return SessionId(ref.id, app, week)
     }
 
     override suspend fun endSession(sessionId: SessionId): ShortformSession {
         val endMs = time.nowMs()
-        val ref = sessionsCollection(sessionId.app).document(sessionId.value)
+        val ref = sessionsCollection(sessionId.app, sessionId.week).document(sessionId.value)
 
         return db.runTransaction { tx ->
             val snap = tx.get(ref)
@@ -151,7 +168,8 @@ class FirestoreSessionRepository(
                 startEpoch = startMs,
                 endEpoch = endMs,
                 day = snap.getString(ShortformSession.DAY),
-                app = snap.getString(ShortformSession.APP)
+                app = snap.getString(ShortformSession.APP),
+                week = sessionId.week
             )
         }.await()
     }
