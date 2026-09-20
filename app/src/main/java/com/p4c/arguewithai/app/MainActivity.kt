@@ -35,8 +35,12 @@ class MainActivity : ComponentActivity() {
     private val interventionRepo by lazy { FirestoreInterventionRepository() }
 
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val startIVCode: String = "start2026"
-    private val stopIVCode: String = "stop"
+    // 주차 설정 코드: 1주차(baseline, 개입 X) / 2주차(개입 O) / 3주차(개입 제거 후 관찰, 개입 X)
+    private val weekCodes: Map<String, Int> = mapOf(
+        "w11011" to InterventionPrefs.WEEK_BASELINE,
+        "w20202" to InterventionPrefs.WEEK_INTERVENTION,
+        "w30333" to InterventionPrefs.WEEK_WASHOUT,
+    )
     private val SETTINGS_PASSWORD: String = "qwe123"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,20 +77,18 @@ class MainActivity : ComponentActivity() {
                 uiScope.launch(Dispatchers.IO) {
                     runCatching {
                         interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
-                        val remoteValue = interventionRepo.getEnabledOrNull()
-                        val localValue = InterventionPrefs.isEnabled(this@MainActivity)
+                        val remoteWeek = interventionRepo.getWeekOrNull()
+                        val localWeek = InterventionPrefs.getWeek(this@MainActivity)
 
-                        val finalEnabled = remoteValue ?: localValue
+                        val finalWeek = remoteWeek ?: localWeek
 
-                        if (remoteValue == null) {
-                            interventionRepo.setEnabled(finalEnabled)
+                        // Firestore 에 기록이 없을 때만 현재 주차를 채워 넣는다 (updatedAt 이 매 실행마다 바뀌지 않도록)
+                        if (remoteWeek == null) {
+                            interventionRepo.setWeek(finalWeek)
                         }
 
-                        if (finalEnabled) {
-                            InterventionPrefs.enable(this@MainActivity)
-                        } else {
-                            InterventionPrefs.disable(this@MainActivity)
-                        }
+                        // 개입 여부는 주차에서 파생 (2주차일 때만 ON)
+                        InterventionPrefs.setWeek(this@MainActivity, finalWeek)
                     }.onSuccess {
                         launch(Dispatchers.Main) {
                             if (::interventionText.isInitialized) {
@@ -156,30 +158,35 @@ class MainActivity : ComponentActivity() {
         val etInterventionCode = findViewById<EditText>(R.id.etInterventionCode)
         findViewById<Button>(R.id.btnToggleIntervention).setOnClickListener {
             val code = etInterventionCode.text.toString().trim()
-            val nowEnabled = InterventionPrefs.isEnabled(this@MainActivity)
+            val targetWeek = weekCodes[code]
+            val currentWeek = InterventionPrefs.getWeek(this@MainActivity)
 
-            if (nowEnabled && code == stopIVCode) {
-                InterventionPrefs.disable(this@MainActivity)
-                updateInterventionState(false)
-            } else if (!nowEnabled && code == startIVCode) {
-                InterventionPrefs.enable(this@MainActivity)
-                updateInterventionState(true)
+            if (targetWeek == null) {
+                Toast.makeText(this@MainActivity, "코드가 올바르지 않습니다.", Toast.LENGTH_SHORT).show()
+            } else if (targetWeek == currentWeek) {
+                Toast.makeText(this@MainActivity, "이미 ${currentWeek}주차입니다.", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this@MainActivity, "코드가 올바르지 않거나 상태가 맞지 않습니다.", Toast.LENGTH_SHORT).show()
+                InterventionPrefs.setWeek(this@MainActivity, targetWeek)
+                updateInterventionState(targetWeek)
+                etInterventionCode.text.clear()
             }
         }
     }
 
-    private fun updateInterventionState(isEnabled: Boolean) {
+    private fun updateInterventionState(week: Int) {
         uiScope.launch(Dispatchers.IO) {
             runCatching {
-                interventionRepo.setEnabled(isEnabled)
+                interventionRepo.setWeek(week)
             }.onFailure { e ->
-                Logger.e("Failed to save intervention to Firestore", e)
+                Logger.e("Failed to save intervention week to Firestore", e)
             }
         }
         interventionText.text = getInterventionText()
-        val msg = if (isEnabled) "개입이 켜졌습니다." else "개입이 꺼졌습니다."
+        val msg = if (InterventionPrefs.isEnabledForWeek(week)) {
+            "${week}주차로 설정되었습니다. 개입이 켜졌습니다."
+        } else {
+            "${week}주차로 설정되었습니다. 개입이 꺼졌습니다."
+        }
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
@@ -212,10 +219,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun getInterventionText(): String {
-        return if (InterventionPrefs.isEnabled(this)) {
-            "✅ 개입 기능이 활성화되어 있습니다."
+        val week = InterventionPrefs.getWeek(this)
+        return if (InterventionPrefs.isEnabledForWeek(week)) {
+            "✅ ${week}주차 - 개입 기능이 활성화되어 있습니다."
         } else {
-            "❌ 개입 기능이 비활성화되어 있습니다."
+            "❌ ${week}주차 - 개입 기능이 비활성화되어 있습니다."
         }
     }
 }
