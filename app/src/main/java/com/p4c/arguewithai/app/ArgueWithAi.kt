@@ -6,5 +6,6 @@ class ArgueWithAi : Application() {
     override fun onCreate() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
+        AppCheckInstaller.install()
     }
 }

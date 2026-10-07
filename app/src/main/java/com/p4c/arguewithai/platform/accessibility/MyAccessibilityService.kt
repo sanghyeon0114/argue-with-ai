@@ -38,7 +38,7 @@ class MyAccessibilityService (
     private val prompt by lazy { Prompt(applicationContext) }
 
     companion object {
-        private const val PASSIVE_THRESHOLD_MS = 30  * 1000L
+        private const val PASSIVE_THRESHOLD_MS = 3  * 1000L
         private const val NON_PASSIVE_RESET_STREAK = 20
     }
 
@@ -150,7 +150,7 @@ class MyAccessibilityService (
         val result: PassiveDetectionResult? = smListener.onEvent(event, root, nowMs, isKeyboardVisible)
             .takeIf { isScreenOn && !isDeviceLocked() }
 
-        Logger.d("$result")
+        //Logger.d("$result")
         checkUsage(result, nowMs, isKeyboardVisible)
         intervention(result)
         if (debugOverlayEnabled) {
