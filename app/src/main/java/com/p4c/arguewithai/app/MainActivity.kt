@@ -46,12 +46,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        if (!OnboardingPrefs.isOnboardingComplete(this)) {
-            startActivity(Intent(this, OnboardingActivity::class.java))
-            finish()
-            return
-        }
-
         setContentView(R.layout.activity_main)
 
         Logger.setLoggerEnabled(true)
@@ -67,48 +61,55 @@ class MainActivity : ComponentActivity() {
             Logger.e("FirebaseApp.getInstance() FAILED", e)
         }
 
-        FirebaseAuth.getInstance().signInAnonymously()
-            .addOnSuccessListener {
-                Logger.d("✅[Firebase] Logged in: ${it.user?.uid}")
+        val auth = FirebaseAuth.getInstance()
+        if (auth.currentUser != null) {
+            onFirebaseReady()
+        } else {
+            auth.signInAnonymously()
+                .addOnSuccessListener { onFirebaseReady() }
+                .addOnFailureListener {
+                    Logger.e("❌[Firebase] Login failed", it)
+                    setupViews()
+                    if (::interventionText.isInitialized) {
+                        interventionText.text = getInterventionText()
+                    }
+                }
+        }
+    }
 
-                setupViews()
+    private fun onFirebaseReady() {
+        Logger.d("✅[Firebase] Logged in: ${FirebaseAuth.getInstance().currentUser?.uid}")
 
-                uiScope.launch(Dispatchers.IO) {
-                    runCatching {
-                        interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
-                        val remoteWeek = interventionRepo.getWeekOrNull()
-                        val localWeek = InterventionPrefs.getWeek(this@MainActivity)
+        setupViews()
 
-                        val finalWeek = remoteWeek ?: localWeek
+        uiScope.launch(Dispatchers.IO) {
+            runCatching {
+                interventionRepo.syncLocalFromRemoteIfExists(this@MainActivity)
+                val remoteWeek = interventionRepo.getWeekOrNull()
+                val localWeek = InterventionPrefs.getWeek(this@MainActivity)
 
-                        if (remoteWeek == null) {
-                            interventionRepo.setWeek(finalWeek)
-                        }
+                val finalWeek = remoteWeek ?: localWeek
 
-                        InterventionPrefs.setWeek(this@MainActivity, finalWeek)
-                    }.onSuccess {
-                        launch(Dispatchers.Main) {
-                            if (::interventionText.isInitialized) {
-                                interventionText.text = getInterventionText()
-                            }
-                        }
-                    }.onFailure { e ->
-                        Logger.e("Intervention remote sync failed", e)
-                        launch(Dispatchers.Main) {
-                            if (::interventionText.isInitialized) {
-                                interventionText.text = getInterventionText()
-                            }
-                        }
+                if (remoteWeek == null) {
+                    interventionRepo.setWeek(finalWeek)
+                }
+
+                InterventionPrefs.setWeek(this@MainActivity, finalWeek)
+            }.onSuccess {
+                launch(Dispatchers.Main) {
+                    if (::interventionText.isInitialized) {
+                        interventionText.text = getInterventionText()
+                    }
+                }
+            }.onFailure { e ->
+                Logger.e("Intervention remote sync failed", e)
+                launch(Dispatchers.Main) {
+                    if (::interventionText.isInitialized) {
+                        interventionText.text = getInterventionText()
                     }
                 }
             }
-            .addOnFailureListener {
-                Logger.e("❌[Firebase] Login failed", it)
-                setupViews()
-                if (::interventionText.isInitialized) {
-                    interventionText.text = getInterventionText()
-                }
-            }
+        }
     }
 
     override fun onResume() {

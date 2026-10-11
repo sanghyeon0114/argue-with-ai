@@ -84,7 +84,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
                     android:layout_marginHorizontal="24dp"
-                    android:text="저장"
+                    android:text="다음"
                     android:textStyle="bold"
                     android:background="@drawable/bg_button_blue"
                     app:backgroundTint="@null" />
@@ -106,13 +106,6 @@
                     android:textStyle="bold"
                     android:textSize="16sp"
                     android:textAlignment="center"
-                    android:layout_marginBottom="8dp" />
-                <TextView
-                    android:id="@+id/tvOverlayStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="상태: 확인 중..."
-                    android:textStyle="bold"
                     android:layout_marginBottom="12dp" />
                 <Button
                     android:id="@+id/btnOverlay"
@@ -193,18 +186,27 @@
                     android:layout_height="50dp"
                     android:layout_marginHorizontal="24dp"
                     android:text="인스타그램 PIP 설정"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="16dp"
                     android:textStyle="bold"
                     android:background="@drawable/bg_button_blue"
                     app:backgroundTint="@null" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="두 앱 모두 PIP 권한을 끄면\n다음 버튼이 나타납니다."
+                    android:text="두 앱 모두 PIP 권한을 껐다면 완료를 눌러주세요."
                     android:textSize="13sp"
                     android:textColor="#800A192F"
-                    android:textAlignment="center" />
+                    android:textAlignment="center"
+                    android:layout_marginBottom="12dp" />
+                <Button
+                    android:id="@+id/btnPipDone"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:layout_marginHorizontal="24dp"
+                    android:text="완료"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_button_blue"
+                    app:backgroundTint="@null" />
             </LinearLayout>
 
             <!-- STEP 5: 개입 타입 설정 -->
@@ -240,7 +242,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
                     android:layout_marginHorizontal="24dp"
-                    android:text="저장"
+                    android:text="저장하고 시작하기"
                     android:textStyle="bold"
                     android:background="@drawable/bg_button_blue"
                     app:backgroundTint="@null" />
@@ -248,49 +250,4 @@
 
         </LinearLayout>
     </ScrollView>
-
-    <!-- 현재 단계의 Firebase 기록 상태 -->
-    <TextView
-        android:id="@+id/tvServerStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingHorizontal="24dp"
-        android:gravity="center"
-        android:text=""
-        android:textSize="13sp"
-        android:textColor="#0A192F" />
-
-    <!-- 하단 이동 버튼: 조건 충족 여부와 상관없이 자유롭게 이동 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingHorizontal="24dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="48dp"
-        android:clipToPadding="false"
-        android:clipChildren="false">
-
-        <Button
-            android:id="@+id/btnPrev"
-            android:layout_width="0dp"
-            android:layout_height="50dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:text="이전"
-            android:textStyle="bold"
-            android:background="@drawable/bg_button_blue"
-            app:backgroundTint="@null" />
-
-        <Button
-            android:id="@+id/btnNext"
-            android:layout_width="0dp"
-            android:layout_height="50dp"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_button_blue"
-            android:text="다음"
-            android:textStyle="bold"
-            app:backgroundTint="@null" />
-    </LinearLayout>
 </LinearLayout>

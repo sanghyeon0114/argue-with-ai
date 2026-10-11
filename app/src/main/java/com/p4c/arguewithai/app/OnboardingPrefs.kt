@@ -17,7 +17,6 @@ object OnboardingPrefs {
     private const val KEY_PARTICIPANT_NAME = "participant_name"
     private const val KEY_PIP_CONFIRMED = "pip_setup_confirmed"
     private const val KEY_INTERVENTION_TYPE = "intervention_type"
-    private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -55,15 +54,8 @@ object OnboardingPrefs {
         prefs(context).edit { putInt(KEY_INTERVENTION_TYPE, type) }
     }
 
-    fun setOnboardingCompleted(context: Context, completed: Boolean) {
-        prefs(context).edit { putBoolean(KEY_ONBOARDING_COMPLETED, completed) }
-    }
-
     fun isOnboardingComplete(context: Context): Boolean {
-        // 참여자 ID(P1~PN)가 없으면 Firestore 문서를 정할 수 없으므로 온보딩을 다시 거치게 한다.
-        if (!ParticipantId.isValid(getCachedName(context))) return false
-        if (prefs(context).getBoolean(KEY_ONBOARDING_COMPLETED, false)) return true
-        return getCachedName(context) != null &&
+        return ParticipantId.isValid(getCachedName(context)) &&
             isOverlayGranted(context) &&
             isAccessibilityGranted(context) &&
             isPipConfirmed(context) &&
