@@ -1,5 +1,6 @@
 package com.p4c.arguewithai.repository.profiles
 
+import com.p4c.arguewithai.repository.ParticipantId
 import android.os.Build
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
@@ -16,8 +17,8 @@ class FirestoreAccessibilityRepository(
     private val db = FirebaseFirestore.getInstance()
     private val auth get() = FirebaseAuth.getInstance()
 
-    private fun uid(): String =
-        auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
+    /** 문서 ID = 참여자 ID (P1~PN) */
+    private fun uid(): String = ParticipantId.current()
 
     private fun userDoc() =
         db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())

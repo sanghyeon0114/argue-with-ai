@@ -1,5 +1,6 @@
 package com.p4c.arguewithai.repository.profiles
 
+import com.p4c.arguewithai.repository.ParticipantId
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -19,8 +20,8 @@ class FirestoreInterventionRepository(
     private val db = FirebaseFirestore.getInstance()
     private val auth get() = FirebaseAuth.getInstance()
 
-    private fun uid(): String =
-        auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
+    /** 문서 ID = 참여자 ID (P1~PN) */
+    private fun uid(): String = ParticipantId.current()
 
     private fun userDoc() =
         db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
@@ -32,7 +33,7 @@ class FirestoreInterventionRepository(
 
     /**
      * 실험 주차를 저장한다. enabled 는 2주차일 때만 true.
-     * Firestore: users/{uid}.intervention = { week, enabled, updatedAt }
+     * Firestore: users/{참여자 ID}.intervention = { week, enabled, updatedAt }
      */
     suspend fun setWeek(week: Int) {
         require(week in 1..3) { "week must be 1..3 but was $week" }
@@ -70,15 +71,6 @@ class FirestoreInterventionRepository(
         userDoc().set(data, SetOptions.merge()).await()
     }
 
-    /** 서버에 개입 타입을 저장하고, 캐시가 아닌 서버에서 다시 읽어 일치하는지 확인한다. */
-    suspend fun setInterventionTypeAndVerify(type: Int): Boolean {
-        setInterventionType(type)
-        val snap = userDoc().get(Source.SERVER).await()
-        @Suppress("UNCHECKED_CAST")
-        val intervention = snap.get("intervention") as? Map<String, Any>
-        return (intervention?.get("type") as? Long)?.toInt() == type
-    }
-
     suspend fun getInterventionTypeOrNull(): Int? {
         val snap = userDoc().get().await()
         @Suppress("UNCHECKED_CAST")
@@ -95,7 +87,7 @@ class FirestoreInterventionRepository(
 
     suspend fun syncLocalFromRemoteIfExists(context: Context) {
         val user = FirebaseAuth.getInstance().currentUser ?: return
-        val docRef = db.collection(FirebaseConfig.ROOT_COLLECTION).document(user.uid)
+        val docRef = db.collection(FirebaseConfig.ROOT_COLLECTION).document(ParticipantId.current())
 
         try {
             if (context.isOnline()) {

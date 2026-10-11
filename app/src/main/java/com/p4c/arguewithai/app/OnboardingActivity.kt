@@ -1,6 +1,7 @@
 package com.p4c.arguewithai.app
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -14,20 +15,28 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.p4c.arguewithai.R
-import com.p4c.arguewithai.repository.profiles.FirestoreInterventionRepository
-import com.p4c.arguewithai.repository.profiles.FirestoreUserRepository
+import com.p4c.arguewithai.repository.ParticipantId
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository.Companion.ACCESSIBILITY
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository.Companion.COMPLETED
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository.Companion.NAME
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository.Companion.OVERLAY
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository.Companion.PIP
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository.Companion.TYPE
+import com.p4c.arguewithai.repository.profiles.FirestoreOnboardingRepository.WriteMode
 import com.p4c.arguewithai.utils.Logger
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
 class OnboardingActivity : ComponentActivity() {
 
-    private val userRepo by lazy { FirestoreUserRepository() }
-    private val interventionRepo by lazy { FirestoreInterventionRepository() }
+    private val repo by lazy { FirestoreOnboardingRepository() }
 
     private lateinit var stepName: LinearLayout
     private lateinit var stepOverlay: LinearLayout
@@ -37,25 +46,27 @@ class OnboardingActivity : ComponentActivity() {
     private lateinit var tvStepProgress: TextView
     private lateinit var tvAccessibilityStatus: TextView
     private lateinit var tvOverlayStatus: TextView
+    private lateinit var tvServerStatus: TextView
     private lateinit var etNameInput: EditText
     private lateinit var etTypeInput: EditText
     private lateinit var btnPrev: Button
     private lateinit var btnNext: Button
     private lateinit var btnSaveName: Button
     private lateinit var btnSaveType: Button
-    private lateinit var tvNameServerStatus: TextView
-    private lateinit var tvTypeServerStatus: TextView
-
-    private var verifiedName: String? = null
-    private var verifiedType: Int? = null
-    private var saving = false
-    private var saveStage = ""
-    private var pipYoutubeOpened = false
-    private var pipInstagramOpened = false
 
     private val steps by lazy { listOf(stepName, stepOverlay, stepAccessibility, stepPip, stepType) }
 
     private var currentStep = 0
+
+    private var verifiedName: String? = null
+    private var verifiedType: Int? = null
+
+    private var saving = false
+    private var saveStage = ""
+    private var pipYoutubeOpened = false
+    private var pipInstagramOpened = false
+    private var loadJob: Job? = null
+    private var lastWriteMode: WriteMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,14 +81,13 @@ class OnboardingActivity : ComponentActivity() {
         tvStepProgress = findViewById(R.id.tvStepProgress)
         tvAccessibilityStatus = findViewById(R.id.tvAccessibilityStatus)
         tvOverlayStatus = findViewById(R.id.tvOverlayStatus)
+        tvServerStatus = findViewById(R.id.tvServerStatus)
         etNameInput = findViewById(R.id.etNameInput)
         etTypeInput = findViewById(R.id.etTypeInput)
         btnPrev = findViewById(R.id.btnPrev)
         btnNext = findViewById(R.id.btnNext)
         btnSaveName = findViewById(R.id.btnSaveName)
         btnSaveType = findViewById(R.id.btnSaveType)
-        tvNameServerStatus = findViewById(R.id.tvNameServerStatus)
-        tvTypeServerStatus = findViewById(R.id.tvTypeServerStatus)
 
         currentStep = savedInstanceState?.getInt(KEY_STEP, 0) ?: 0
         pipYoutubeOpened = savedInstanceState?.getBoolean(KEY_PIP_YT, false) ?: false
@@ -90,7 +100,6 @@ class OnboardingActivity : ComponentActivity() {
         setupTypeStep()
         setupNavigation()
 
-        ensureSignedInThenResolveName()
         showStep(currentStep)
     }
 
@@ -107,65 +116,33 @@ class OnboardingActivity : ComponentActivity() {
         outState.putBoolean(KEY_PIP_IG, pipInstagramOpened)
     }
 
-    private fun ensureSignedInThenResolveName() {
-        val auth = FirebaseAuth.getInstance()
-        if (auth.currentUser != null) {
-            resolveCachedOrRemoteName()
-            return
-        }
-        auth.signInAnonymously()
-            .addOnCompleteListener {
-                resolveCachedOrRemoteName()
-            }
-    }
-
-    private fun resolveCachedOrRemoteName() {
-        if (OnboardingPrefs.getCachedName(this) != null) return
-        if (FirebaseAuth.getInstance().currentUser == null) return
-        userRepo.getUserName { name ->
-            if (!name.isNullOrBlank()) {
-                OnboardingPrefs.setCachedName(this, name)
-                runOnUiThread {
-                    verifiedName = name
-                    if (!isFinishing && etNameInput.text.isNullOrBlank()) {
-                        etNameInput.setText(name)
-                    }
-                    updateNextButton()
-                }
-            }
-        }
-    }
+    // ───────────────────────── 단계별 UI ─────────────────────────
 
     private fun setupNameStep() {
-        OnboardingPrefs.getCachedName(this)?.let { etNameInput.setText(it) }
+        ParticipantId.toNumber(OnboardingPrefs.getCachedName(this))?.let { etNameInput.setText(it.toString()) }
         etNameInput.addTextChangedListener(nextButtonWatcher)
 
         btnSaveName.setOnClickListener {
-            val name = etNameInput.text.toString().trim()
-            if (name.isEmpty()) {
-                Toast.makeText(this, "이름을 입력해주세요.", Toast.LENGTH_SHORT).show()
+            val pid = inputParticipantId()
+            if (pid == null) {
+                toast("1 이상의 자연수를 입력해주세요.")
                 return@setOnClickListener
             }
-            lifecycleScope.launch { saveName(name) }
+            OnboardingPrefs.setCachedName(this, pid)
+            lifecycleScope.launch {
+                if (saveStep(btnSaveName, "참여자 $pid", "userInfo", mapOf(NAME to pid))) {
+                    verifiedName = pid
+                    if (lastWriteMode == WriteMode.UPDATED) {
+                        tvServerStatus.text = "⚠️ $pid 문서가 이미 있어 기존 문서에 이어서 저장했습니다.\n번호가 맞는지 확인해주세요."
+                    }
+                }
+                updateNextButton()
+            }
         }
     }
 
-    private suspend fun saveName(name: String): Boolean {
-        OnboardingPrefs.setCachedName(this, name)
-        tvNameServerStatus.text = "서버 저장 중..."
-        val (ok, err) = runServerSave(btnSaveName) {
-            saveStage = "문서 확인(서버 읽기)"
-            userRepo.ensureUserDoc()
-            saveStage = "이름 쓰기·검증"
-            userRepo.setUserNameAndVerify(name)
-        }
-        if (ok) verifiedName = name
-        updateNextButton()
-        tvNameServerStatus.text =
-            if (ok) "서버 등록 확인됨 ✅ ($name)" else "서버 등록 실패 ❌ ($err)"
-        toast(if (ok) "✅ 이름이 서버에 등록되었습니다." else "❌ 이름 서버 등록 실패. 다시 저장해주세요.")
-        return ok
-    }
+    private fun inputParticipantId(): String? =
+        etNameInput.text.toString().trim().toIntOrNull()?.let { ParticipantId.fromNumber(it) }
 
     private fun setupOverlayStep() {
         findViewById<Button>(R.id.btnOverlay).setOnClickListener {
@@ -205,107 +182,23 @@ class OnboardingActivity : ComponentActivity() {
         btnSaveType.setOnClickListener {
             val type = parseType()
             if (type == null) {
-                Toast.makeText(this, "❌ 0, 1, 2 중 하나만 입력해주세요.", Toast.LENGTH_SHORT).show()
+                toast("❌ 0, 1, 2 중 하나만 입력해주세요.")
                 return@setOnClickListener
             }
-            lifecycleScope.launch { saveType(type) }
+            OnboardingPrefs.setInterventionType(this, type)
+            lifecycleScope.launch {
+                if (saveStep(btnSaveType, "개입 타입", "intervention", mapOf(TYPE to type))) {
+                    verifiedType = type
+                }
+                updateNextButton()
+            }
         }
     }
 
     private fun parseType(): Int? =
         etTypeInput.text.toString().trim().toIntOrNull()?.takeIf { it in 0..2 }
 
-    private suspend fun saveType(type: Int): Boolean {
-        OnboardingPrefs.setInterventionType(this, type)
-        tvTypeServerStatus.text = "서버 저장 중..."
-        val (ok, err) = runServerSave(btnSaveType) {
-            saveStage = "문서 확인(서버 읽기)"
-            userRepo.ensureUserDoc()
-            saveStage = "개입 타입 쓰기·검증"
-            interventionRepo.setInterventionTypeAndVerify(type)
-        }
-        if (ok) verifiedType = type
-        updateNextButton()
-        tvTypeServerStatus.text =
-            if (ok) "서버 등록 확인됨 ✅ (타입 $type)" else "서버 등록 실패 ❌ ($err)"
-        toast(if (ok) "✅ 개입 타입이 서버에 등록되었습니다." else "❌ 개입 타입 서버 등록 실패. 다시 저장해주세요.")
-        return ok
-    }
-
-    private suspend fun runServerSave(
-        button: Button,
-        block: suspend () -> Boolean
-    ): Pair<Boolean, String> {
-        setSaving(true, button)
-        try {
-            saveStage = "로그인 확인"
-            return withTimeoutOrNull(SAVE_TIMEOUT_MS) {
-                if (!ensureSignedIn()) return@withTimeoutOrNull false to "로그인 실패"
-                val first = runCatching { block() }
-                if (first.getOrNull() == true) return@withTimeoutOrNull true to ""
-
-                val e = first.exceptionOrNull()
-                if (e != null) Logger.e("Onboarding server save failed", e)
-                if (!isAuthProblem(e)) {
-                    return@withTimeoutOrNull false to (e?.let { describe(it) } ?: "저장 값 불일치")
-                }
-
-                Logger.d("Auth problem on save; re-signing in anonymously and retrying")
-                FirebaseAuth.getInstance().signOut()
-                saveStage = "재로그인"
-                if (!ensureSignedIn()) return@withTimeoutOrNull false to "재로그인 실패"
-                val second = runCatching { block() }
-                second.exceptionOrNull()?.let { Logger.e("Onboarding server save retry failed", it) }
-                if (second.getOrNull() == true) true to ""
-                else false to (second.exceptionOrNull()?.let { describe(it) } ?: "저장 값 불일치")
-            } ?: run {
-                Logger.e("Onboarding server save timed out at stage: $saveStage")
-                false to "시간 초과 – 단계: $saveStage"
-            }
-        } finally {
-            setSaving(false, button)
-        }
-    }
-
-    private fun isAuthProblem(e: Throwable?): Boolean {
-        val code = (e as? FirebaseFirestoreException)?.code ?: return false
-        return code == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
-            code == FirebaseFirestoreException.Code.UNAUTHENTICATED
-    }
-
-    private fun describe(e: Throwable): String {
-        val code = (e as? FirebaseFirestoreException)?.code?.name ?: e.javaClass.simpleName
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: "로그인 안 됨"
-        return "$code: ${e.message}\nuid=$uid"
-    }
-
-    private suspend fun ensureSignedIn(): Boolean {
-        val auth = FirebaseAuth.getInstance()
-        auth.currentUser?.let { user ->
-            saveStage = "로그인 토큰 갱신"
-            val valid = runCatching { user.getIdToken(true).await() }
-                .onFailure { e -> Logger.e("Token refresh failed", e) }
-                .exceptionOrNull()
-                .let { it !is FirebaseAuthInvalidUserException }
-            if (valid) return true
-            auth.signOut()
-        }
-        saveStage = "익명 로그인"
-        return runCatching { auth.signInAnonymously().await() }
-            .onFailure { e -> Logger.e("Anonymous sign-in failed", e) }
-            .isSuccess && auth.currentUser != null
-    }
-
-    private fun setSaving(on: Boolean, button: Button) {
-        saving = on
-        button.isEnabled = !on
-        btnPrev.isEnabled = !on
-        btnNext.isEnabled = !on
-    }
-
-    private fun toast(msg: String) {
-        Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
-    }
+    // ───────────────────────── 이동 ─────────────────────────
 
     private fun setupNavigation() {
         btnPrev.setOnClickListener {
@@ -313,17 +206,37 @@ class OnboardingActivity : ComponentActivity() {
         }
         btnNext.setOnClickListener {
             if (saving || !isStepDone(currentStep)) return@setOnClickListener
-            if (currentStep < steps.lastIndex) {
-                showStep(currentStep + 1)
-            } else {
-                OnboardingPrefs.setOnboardingCompleted(this, true)
-                goToMain()
+            lifecycleScope.launch {
+                val ok = when (currentStep) {
+                    1 -> saveStep(btnNext, "오버레이 권한", "onboarding", mapOf(OVERLAY to true))
+                    2 -> saveStep(
+                        btnNext, "접근성 서비스", "accessibility", mapOf(ACCESSIBILITY to true),
+                        extra = mapOf(
+                            "accessibility.device" to mapOf(
+                                "manufacturer" to Build.MANUFACTURER,
+                                "model" to Build.MODEL,
+                                "sdkInt" to Build.VERSION.SDK_INT
+                            )
+                        )
+                    )
+                    3 -> saveStep(btnNext, "PIP 설정", "onboarding", mapOf(PIP to true))
+                    4 -> saveStep(btnNext, "온보딩 완료", "onboarding", mapOf(COMPLETED to true))
+                    else -> true
+                }
+                if (!ok) return@launch
+
+                if (currentStep < steps.lastIndex) {
+                    showStep(currentStep + 1)
+                } else {
+                    OnboardingPrefs.setOnboardingCompleted(this@OnboardingActivity, true)
+                    goToMain()
+                }
             }
         }
     }
 
     private fun isStepDone(step: Int): Boolean = when (step) {
-        0 -> verifiedName != null && etNameInput.text.toString().trim() == verifiedName
+        0 -> verifiedName != null && inputParticipantId() == verifiedName
         1 -> OnboardingPrefs.isOverlayGranted(this)
         2 -> OnboardingPrefs.isAccessibilityGranted(this)
         3 -> OnboardingPrefs.isPipConfirmed(this)
@@ -353,6 +266,7 @@ class OnboardingActivity : ComponentActivity() {
         btnNext.text = if (currentStep == steps.lastIndex) "시작하기" else "다음"
         refreshStatus()
         updateNextButton()
+        loadServerState(currentStep)
     }
 
     private fun refreshStatus() {
@@ -362,6 +276,151 @@ class OnboardingActivity : ComponentActivity() {
             if (OnboardingPrefs.isOverlayGranted(this)) "상태: 허용됨 ✅" else "상태: 허용 안 됨 ❌"
     }
 
+    // ───────────────────────── 서버 확인 ─────────────────────────
+
+    private fun loadServerState(step: Int) {
+        loadJob?.cancel()
+        if (saving) return
+        val pid = if (step == 0) inputParticipantId() else ParticipantId.currentOrNull()
+        if (pid == null) {
+            tvServerStatus.text = "참여자 번호를 입력하고 저장해주세요. (예: 1 → P1)"
+            return
+        }
+        tvServerStatus.text = "서버 기록 확인 중... ($pid)"
+        loadJob = lifecycleScope.launch {
+            val snap: DocumentSnapshot? = withTimeoutOrNull(SAVE_TIMEOUT_MS) {
+                if (!ensureSignedIn()) return@withTimeoutOrNull null
+                catchNonCancel { repo.fetchFromServer(pid) }
+                    .onFailure { e -> Logger.e("Onboarding fetch failed", e) }
+                    .getOrNull()
+            }
+            if (step != currentStep || saving) return@launch
+
+            val path = when (step) {
+                0 -> NAME; 1 -> OVERLAY; 2 -> ACCESSIBILITY; 3 -> PIP; else -> TYPE
+            }
+            val value = snap?.get(path)
+            tvServerStatus.text =
+                if (value == null) "$pid: 서버 기록 없음 – 저장 시 새로 생성됩니다."
+                else "$pid: 서버 기록 있음 ($value) – 저장 시 수정됩니다."
+
+            when (step) {
+                0 -> if (value == pid && pid == ParticipantId.currentOrNull()) verifiedName = pid
+                4 -> (value as? Number)?.toInt()?.takeIf { it in 0..2 }?.let { type ->
+                    if (etTypeInput.text.isNullOrBlank()) {
+                        etTypeInput.setText(type.toString())
+                        OnboardingPrefs.setInterventionType(this@OnboardingActivity, type)
+                    }
+                    if (parseType() == type) verifiedType = type
+                }
+            }
+            updateNextButton()
+        }
+    }
+
+    // ───────────────────────── 서버 저장 ─────────────────────────
+
+    private suspend fun saveStep(
+        button: Button,
+        label: String,
+        section: String,
+        fields: Map<String, Any>,
+        extra: Map<String, Any> = emptyMap()
+    ): Boolean {
+        loadJob?.cancel()
+        tvServerStatus.text = "$label 서버 저장 중..."
+        var mode: WriteMode? = null
+        lastWriteMode = null
+        val (ok, err) = runServerSave(button) {
+            saveStage = "$label 확인·저장·검증"
+            val outcome = repo.upsertAndVerify(fields, section, extra)
+            mode = outcome.mode
+            outcome.verified
+        }
+        lastWriteMode = mode
+        val how = when (mode) {
+            WriteMode.CREATED -> "새로 생성"
+            WriteMode.UPDATED -> "기존 기록 수정"
+            null -> ""
+        }
+        tvServerStatus.text =
+            if (ok) "✅ $label 서버 등록 확인됨 ($how)" else "❌ $label 서버 등록 실패 ($err)"
+        toast(if (ok) "✅ $label 저장됨 ($how)" else "❌ $label 저장 실패. 다시 시도해주세요.")
+        return ok
+    }
+
+    private suspend fun runServerSave(
+        button: Button,
+        block: suspend () -> Boolean
+    ): Pair<Boolean, String> {
+        setSaving(true, button)
+        try {
+            saveStage = "로그인 확인"
+            return withTimeoutOrNull(SAVE_TIMEOUT_MS) {
+                if (!ensureSignedIn()) return@withTimeoutOrNull false to "로그인 실패"
+                val first = catchNonCancel { block() }
+                if (first.getOrNull() == true) return@withTimeoutOrNull true to ""
+
+                val e = first.exceptionOrNull()
+                if (e != null) Logger.e("Onboarding server save failed", e)
+                if (!isAuthProblem(e)) {
+                    return@withTimeoutOrNull false to (e?.let { describe(it) } ?: "저장 값 불일치")
+                }
+
+                Logger.d("Auth problem on save; re-signing in anonymously and retrying")
+                FirebaseAuth.getInstance().signOut()
+                saveStage = "재로그인"
+                if (!ensureSignedIn()) return@withTimeoutOrNull false to "재로그인 실패"
+                val second = catchNonCancel { block() }
+                second.exceptionOrNull()?.let { Logger.e("Onboarding server save retry failed", it) }
+                if (second.getOrNull() == true) true to ""
+                else false to (second.exceptionOrNull()?.let { describe(it) } ?: "저장 값 불일치")
+            } ?: run {
+                Logger.e("Onboarding server save timed out at stage: $saveStage")
+                false to "시간 초과 – 단계: $saveStage"
+            }
+        } finally {
+            setSaving(false, button)
+        }
+    }
+
+    private inline fun <T> catchNonCancel(block: () -> T): Result<T> = try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }
+
+    private fun isAuthProblem(e: Throwable?): Boolean =
+        (e as? FirebaseFirestoreException)?.code == FirebaseFirestoreException.Code.UNAUTHENTICATED
+
+    private fun describe(e: Throwable): String {
+        val code = (e as? FirebaseFirestoreException)?.code?.name ?: e.javaClass.simpleName
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: "로그인 안 됨"
+        return "$code: ${e.message}\nuid=$uid"
+    }
+
+    private suspend fun ensureSignedIn(): Boolean {
+        val auth = FirebaseAuth.getInstance()
+        if (auth.currentUser != null) return true
+        saveStage = "익명 로그인"
+        return catchNonCancel { auth.signInAnonymously().await() }
+            .onFailure { e -> Logger.e("Anonymous sign-in failed", e) }
+            .isSuccess && auth.currentUser != null
+    }
+
+    private fun setSaving(on: Boolean, button: Button) {
+        saving = on
+        button.isEnabled = !on
+        btnPrev.isEnabled = !on
+        btnNext.isEnabled = !on
+    }
+
+    private fun toast(msg: String) {
+        Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
+    }
+
     private fun goToMain() {
         startActivity(Intent(this, MainActivity::class.java))
         finish()
@@ -369,8 +428,8 @@ class OnboardingActivity : ComponentActivity() {
 
     companion object {
         private const val KEY_STEP = "onboarding_step"
-        private const val SAVE_TIMEOUT_MS = 15_000L
         private const val KEY_PIP_YT = "pip_youtube_opened"
         private const val KEY_PIP_IG = "pip_instagram_opened"
+        private const val SAVE_TIMEOUT_MS = 15_000L
     }
 }

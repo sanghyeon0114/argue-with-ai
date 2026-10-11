@@ -10,6 +10,7 @@ import android.view.accessibility.AccessibilityManager
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.p4c.arguewithai.platform.accessibility.MyAccessibilityService
+import com.p4c.arguewithai.repository.ParticipantId
 
 object OnboardingPrefs {
     private const val PREFS = "app_prefs"
@@ -59,6 +60,8 @@ object OnboardingPrefs {
     }
 
     fun isOnboardingComplete(context: Context): Boolean {
+        // 참여자 ID(P1~PN)가 없으면 Firestore 문서를 정할 수 없으므로 온보딩을 다시 거치게 한다.
+        if (!ParticipantId.isValid(getCachedName(context))) return false
         if (prefs(context).getBoolean(KEY_ONBOARDING_COMPLETED, false)) return true
         return getCachedName(context) != null &&
             isOverlayGranted(context) &&

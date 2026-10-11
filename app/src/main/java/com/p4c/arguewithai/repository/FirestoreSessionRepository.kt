@@ -93,7 +93,8 @@ class FirestoreSessionRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val time: TimeProvider = SystemTimeProvider()
 ) : SessionRepository {
-    private fun uid(): String = auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
+    /** 문서 ID = 참여자 ID (P1~PN) */
+    private fun uid(): String = ParticipantId.current()
 
     private fun sessionsCollectionName(app: String): String = when (app.lowercase()) {
         "instagram" -> FirebaseConfig.User.INSTAGRAM_SESSIONS
@@ -103,9 +104,9 @@ class FirestoreSessionRepository(
 
     /**
      * instagram / youtube 세션은 주차별로 구분해서 저장한다.
-     *   users/{uid}/instagram_sessions/week{N}/sessions/{sessionId}
-     *   users/{uid}/youtube_sessions/week{N}/sessions/{sessionId}
-     * 그 외 앱은 기존 경로(users/{uid}/sessions/{sessionId})를 그대로 사용한다.
+     *   users/{참여자 ID}/instagram_sessions/week{N}/sessions/{sessionId}
+     *   users/{참여자 ID}/youtube_sessions/week{N}/sessions/{sessionId}
+     * 그 외 앱은 기존 경로(users/{참여자 ID}/sessions/{sessionId})를 그대로 사용한다.
      */
     private fun sessionsCollection(app: String, week: Int) =
         db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid()).let { userDoc ->

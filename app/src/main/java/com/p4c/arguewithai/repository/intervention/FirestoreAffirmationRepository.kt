@@ -1,5 +1,6 @@
 package com.p4c.arguewithai.repository.intervention
 
+import com.p4c.arguewithai.repository.ParticipantId
 import com.p4c.arguewithai.utils.SystemTimeProvider
 import com.p4c.arguewithai.utils.TimeProvider
 import com.google.firebase.Timestamp
@@ -23,8 +24,8 @@ class FirestoreAffirmationRepository(
     private val db = FirebaseFirestore.getInstance()
     private val auth get() = FirebaseAuth.getInstance()
 
-    private fun uid(): String =
-        auth.currentUser?.uid ?: throw IllegalStateException("FirebaseAuth not logged in")
+    /** 문서 ID = 참여자 ID (P1~PN) */
+    private fun uid(): String = ParticipantId.current()
     private fun userRoot() = db.collection(FirebaseConfig.ROOT_COLLECTION).document(uid())
 
     private fun chatSessionDoc(sessionId: String) =
