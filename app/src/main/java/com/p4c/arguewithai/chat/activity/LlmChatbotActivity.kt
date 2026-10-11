@@ -18,6 +18,7 @@ import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ChatAdapter
 import com.p4c.arguewithai.chat.Message
+import com.p4c.arguewithai.chat.prompts.FirstQuestionCache
 import com.p4c.arguewithai.chat.prompts.JustificationPrompts
 import com.p4c.arguewithai.chat.ui.*
 import com.p4c.arguewithai.platform.ai.ChatContract
@@ -55,6 +56,7 @@ class LlmChatbotActivity : ComponentActivity() {
 
     private val messages = mutableListOf<Message>()
     private val maxIndex: Int = 3
+    private val CACHED_FIRST_MESSAGE_DELAY_MS: Long = 1000L
     private val _chatHistory = mutableListOf<Content>()
 
     private val repo = FirestoreJustificationRepository()
@@ -100,8 +102,16 @@ class LlmChatbotActivity : ComponentActivity() {
     private fun sendFirstChatbotMessage() {
         lifecycleScope.launch {
             try {
-                val response = getChatbotMessage { getFirstJustificationResponse() }
-                showMessage(Sender.CHATBOT, response.text, state.order, state.index)
+                // 미리 생성해 둔 첫 질문이 있으면 그것을 쓰고, 없으면 기존처럼 실시간 생성한다.
+                val cached = FirstQuestionCache.take(this@LlmChatbotActivity)
+                val firstText = if (cached != null) {
+                    simulateTypingDelay { delay(CACHED_FIRST_MESSAGE_DELAY_MS); cached }
+                } else {
+                    getChatbotMessage { getFirstJustificationResponse() }.text
+                }
+                Logger.d("first message source=${if (cached != null) "cache" else "live"}")
+                FirstQuestionCache.refillAsync(this@LlmChatbotActivity)
+                showMessage(Sender.CHATBOT, firstText, state.order, state.index)
                 state.isUserTurn = true
                 handleTurnTransition()
             } catch (_: Exception) {

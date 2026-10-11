@@ -70,6 +70,15 @@ class FirestoreInterventionRepository(
         userDoc().set(data, SetOptions.merge()).await()
     }
 
+    /** 서버에 개입 타입을 저장하고, 캐시가 아닌 서버에서 다시 읽어 일치하는지 확인한다. */
+    suspend fun setInterventionTypeAndVerify(type: Int): Boolean {
+        setInterventionType(type)
+        val snap = userDoc().get(Source.SERVER).await()
+        @Suppress("UNCHECKED_CAST")
+        val intervention = snap.get("intervention") as? Map<String, Any>
+        return (intervention?.get("type") as? Long)?.toInt() == type
+    }
+
     suspend fun getInterventionTypeOrNull(): Int? {
         val snap = userDoc().get().await()
         @Suppress("UNCHECKED_CAST")

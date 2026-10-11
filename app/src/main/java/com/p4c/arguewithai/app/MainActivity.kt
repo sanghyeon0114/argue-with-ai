@@ -35,7 +35,6 @@ class MainActivity : ComponentActivity() {
     private val interventionRepo by lazy { FirestoreInterventionRepository() }
 
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    // 주차 설정 코드: 1주차(baseline, 개입 X) / 2주차(개입 O) / 3주차(개입 제거 후 관찰, 개입 X)
     private val weekCodes: Map<String, Int> = mapOf(
         "w11011" to InterventionPrefs.WEEK_BASELINE,
         "w20202" to InterventionPrefs.WEEK_INTERVENTION,
@@ -82,12 +81,10 @@ class MainActivity : ComponentActivity() {
 
                         val finalWeek = remoteWeek ?: localWeek
 
-                        // Firestore 에 기록이 없을 때만 현재 주차를 채워 넣는다 (updatedAt 이 매 실행마다 바뀌지 않도록)
                         if (remoteWeek == null) {
                             interventionRepo.setWeek(finalWeek)
                         }
 
-                        // 개입 여부는 주차에서 파생 (2주차일 때만 ON)
                         InterventionPrefs.setWeek(this@MainActivity, finalWeek)
                     }.onSuccess {
                         launch(Dispatchers.Main) {
@@ -126,7 +123,7 @@ class MainActivity : ComponentActivity() {
         val enabled = OnboardingPrefs.isAccessibilityGranted(this)
         val last = prefs.getBoolean(accKey, false)
 
-        if (last != enabled) {
+        if (last != enabled && FirebaseAuth.getInstance().currentUser != null) {
             accessRepo.setAccessibilityEnabled(enabled) { ok ->
                 if (ok) prefs.edit {
                     putBoolean(accKey, enabled)
@@ -142,11 +139,13 @@ class MainActivity : ComponentActivity() {
         // [1. 참여자 이름 표시]
         val nameText = findViewById<TextView>(R.id.tvNameDisplay)
         OnboardingPrefs.getCachedName(this)?.let { nameText.text = it }
-        userRepo.getUserName { name ->
-            runOnUiThread {
-                if (!name.isNullOrBlank()) {
-                    OnboardingPrefs.setCachedName(this@MainActivity, name)
-                    nameText.text = name
+        if (FirebaseAuth.getInstance().currentUser != null) {
+            userRepo.getUserName { name ->
+                runOnUiThread {
+                    if (!name.isNullOrBlank()) {
+                        OnboardingPrefs.setCachedName(this@MainActivity, name)
+                        nameText.text = name
+                    }
                 }
             }
         }
