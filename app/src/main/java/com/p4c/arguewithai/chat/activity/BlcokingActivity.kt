@@ -11,11 +11,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.p4c.arguewithai.R
-import com.p4c.arguewithai.chat.prompts.AffirmationPrompts
-import com.p4c.arguewithai.repository.intervention.BlockingMessage
 import com.p4c.arguewithai.repository.intervention.ExitMethod
 import com.p4c.arguewithai.repository.intervention.FirestoreBlockingRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -24,32 +21,29 @@ object BlockingActivityStatus {
 }
 
 class BlockingActivity : ComponentActivity() {
-    val countPage: Int = 3
-    val secondPerPage: Int = 3
+    private val countdownSeconds = 15
 
     private val repo = FirestoreBlockingRepository()
     private val sessionId: String by lazy {
         intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
     }
 
-    private var finished: Boolean = false
+    private var finished = false
 
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
-        lifecycleScope.launch {
-            runCatching { repo.logStart(sessionId) }.onFailure { it.printStackTrace() }
-        }
         BlockingActivityStatus.isOpen = true
         setContentView(R.layout.activity_blocking)
         hideSystemUI()
 
-        val tvCenterMessage = findViewById<TextView>(R.id.tvCenterMessage)
-        val tvMessagePage   = findViewById<TextView>(R.id.tvMessagePage)
-        val tvMessageTime   = findViewById<TextView>(R.id.tvMessageTime)
+        lifecycleScope.launch {
+            runCatching { repo.logStart(sessionId) }.onFailure { it.printStackTrace() }
+        }
 
-        tvCenterMessage.text = "지금 이 영상을 보게 된 이유가 무엇인지 생각해보세요."
+        findViewById<TextView>(R.id.tvCenterMessage).text = "잠깐 숨 한번 크게 쉬어볼까요?"
+        val tvMessageTime = findViewById<TextView>(R.id.tvMessageTime)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -58,15 +52,9 @@ class BlockingActivity : ComponentActivity() {
         })
 
         lifecycleScope.launch {
-            for (page in 1..countPage) {
-                val currentMessage = AffirmationPrompts.getPrompt(page - 1)
-                tvCenterMessage.text = currentMessage
-                saveBlockingStep(currentMessage, page)
-                for (i in secondPerPage downTo 1) {
-                    tvMessageTime.text = "${i}s"
-                    tvMessagePage.text = "${page}/3"
-                    delay(1000L)
-                }
+            for (i in countdownSeconds downTo 1) {
+                tvMessageTime.text = "${i}s"
+                delay(1000L)
             }
             finished = true
             saveExit(finished = true, method = ExitMethod.COMPLETE)
@@ -76,10 +64,16 @@ class BlockingActivity : ComponentActivity() {
 
     private fun hideSystemUI() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(WindowInsetsCompat.Type.navigationBars())
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.navigationBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        BlockingActivityStatus.isOpen = false
+        if (!finished) saveExit(finished = false, method = ExitMethod.BACKGROUND)
     }
 
     override fun onDestroy() {
@@ -87,28 +81,10 @@ class BlockingActivity : ComponentActivity() {
         BlockingActivityStatus.isOpen = false
     }
 
-    override fun onStop() {
-        super.onStop()
-        BlockingActivityStatus.isOpen = false
-        if (!finished) {
-            saveExit(finished = false, method = ExitMethod.BACKGROUND)
-        }
-    }
-
-    private fun saveBlockingStep(prompt: String, step: Int) {
+    private fun saveExit(finished: Boolean, method: ExitMethod) {
         lifecycleScope.launch {
-            runCatching {
-                val message = BlockingMessage(sessionId, prompt)
-                repo.updateMessage(message, step)
-            }.onFailure { it.printStackTrace() }
-        }
-    }
-
-    private fun saveExit(finished: Boolean, method: ExitMethod, note: String? = null) {
-        lifecycleScope.launch {
-            runCatching {
-                repo.logExit(sessionId, finished, method, note)
-            }.onFailure { it.printStackTrace() }
+            runCatching { repo.logExit(sessionId, finished, method, null) }
+                .onFailure { it.printStackTrace() }
         }
     }
 }
