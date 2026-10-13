@@ -43,22 +43,18 @@ object AffirmationPrompts {
                 keyword.contains(selectedKeyword)
             }
             1 -> {
-                // templateValue의 4가지 경우의 수를 모두 커버하는 정규식 리스트
                 val patterns = listOf(
                     "^나는.+[을를]중요하게생각합니다\\.?$".toRegex(),
                     "^.+[은는]나에게중요합니다\\.?$".toRegex(),
                     "^나는.+[이가]중요하다고생각합니다\\.?$".toRegex(),
                     "^나는내가.+[을를]중요하게여기는사람이라고생각합니다\\.?$".toRegex()
                 )
-                // 입력값이 정규식 중 하나라도 일치하는지 확인
                 val matchesFormat = patterns.any { it.matches(cleanText) }
-                // 이전에 저장한 키워드가 문장에 포함되어 있는지 확인
                 val containsKeyword = savedKeyword != null && cleanText.contains(savedKeyword)
 
                 matchesFormat && containsKeyword
             }
             2 -> {
-                // templateAction의 4가지 경우의 수를 모두 커버하는 정규식 리스트
                 val patterns = listOf(
                     "^나는지금스마트폰사용을멈추고.+[을를]하겠습니다\\.?$".toRegex(),
                     "^나는.+[을를]하기위해스마트폰을덜사용할수있습니다\\.?$".toRegex(),

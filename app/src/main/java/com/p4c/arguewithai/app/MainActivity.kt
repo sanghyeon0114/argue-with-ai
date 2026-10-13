@@ -3,6 +3,7 @@ package com.p4c.arguewithai.app
 import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -13,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.edit
 import com.google.firebase.FirebaseApp
+import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.auth.FirebaseAuth
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.repository.profiles.FirestoreAccessibilityRepository
@@ -23,9 +25,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
     private lateinit var interventionText: TextView
+    private val appCheckText: TextView by lazy { findViewById(R.id.tvAppCheckStatus) }
 
     private val prefs by lazy { getSharedPreferences("app_prefs", MODE_PRIVATE) }
     private val accKey = "last_accessibility_enabled"
@@ -137,6 +142,11 @@ class MainActivity : ComponentActivity() {
         // [0. 세팅 버튼 설정]
         findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettingsMenu() }
 
+        // [App Check 토큰 확인 버튼]
+        findViewById<Button>(R.id.btnCheckAppCheck).setOnClickListener { button ->
+            checkAppCheckToken(button as Button)
+        }
+
         // [1. 참여자 이름 표시]
         val nameText = findViewById<TextView>(R.id.tvNameDisplay)
         OnboardingPrefs.getCachedName(this)?.let { nameText.text = it }
@@ -218,6 +228,35 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
+    private fun checkAppCheckToken(button: Button) {
+        button.isEnabled = false
+        appCheckText.text = "확인 중..."
+        uiScope.launch {
+            val start = SystemClock.elapsedRealtime()
+            val result = runCatching {
+                withTimeoutOrNull(APP_CHECK_TIMEOUT_MS) {
+                    FirebaseAppCheck.getInstance().getAppCheckToken(false).await()
+                }
+            }
+            val elapsed = SystemClock.elapsedRealtime() - start
+
+            result.onSuccess { token ->
+                if (token == null) {
+                    Logger.e("⏱️[AppCheck] No response in ${APP_CHECK_TIMEOUT_MS}ms")
+                    appCheckText.text = "⏱️ 응답 없음 (${APP_CHECK_TIMEOUT_MS / 1000}초 초과)"
+                } else {
+                    val expiresInSec = (token.expireTimeMillis - System.currentTimeMillis()) / 1000
+                    Logger.d("✅[AppCheck] Token OK (${elapsed}ms, expires in ${expiresInSec}s)")
+                    appCheckText.text = "✅ 받음 (${elapsed}ms, 만료까지 ${expiresInSec / 60}분)"
+                }
+            }.onFailure { e ->
+                Logger.e("❌[AppCheck] Token failed (${elapsed}ms)", e)
+                appCheckText.text = "❌ 발급 실패\n${e.javaClass.simpleName}: ${e.message}"
+            }
+            button.isEnabled = true
+        }
+    }
+
     private fun getInterventionText(): String {
         val week = InterventionPrefs.getWeek(this)
         return if (InterventionPrefs.isEnabledForWeek(week)) {
@@ -225,5 +264,9 @@ class MainActivity : ComponentActivity() {
         } else {
             "❌ ${week}주차 - 개입 기능이 비활성화되어 있습니다."
         }
+    }
+
+    companion object {
+        private const val APP_CHECK_TIMEOUT_MS = 8_000L
     }
 }
