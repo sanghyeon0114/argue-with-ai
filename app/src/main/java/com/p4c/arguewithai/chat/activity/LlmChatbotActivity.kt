@@ -195,8 +195,9 @@ class LlmChatbotActivity : ComponentActivity() {
             delay(500)
             sendFinalChatbotMessage()
 
-            delay(3000)
-            closePrompt(reason = "final_ack")
+            // 자동 종료하지 않고, 사용자가 아무 응답이나 보내면 종료한다 (validateInput → CloseFinalAck).
+            state.isUserTurn = true
+            updateSendButtonState()
         } else {
             state.isUserTurn = true
             updateSendButtonState()
@@ -385,12 +386,14 @@ class LlmChatbotActivity : ComponentActivity() {
 
     private fun validateInput(text: String): InputDecision? {
         if (text.isEmpty()) return null
-        if (state.finalMessageShown) return InputDecision.CloseFinalAck
 
+        // 종료 메시지가 화면에 뜨기 전(응답 생성 중)에는 입력을 받지 않는다.
         if (!state.isUserTurn) {
             Logger.d("❌ Not user's turn")
             return null
         }
+
+        if (state.finalMessageShown) return InputDecision.CloseFinalAck
 
         return InputDecision.Accept
     }
