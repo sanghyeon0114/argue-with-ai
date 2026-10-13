@@ -1,8 +1,8 @@
 package com.p4c.arguewithai.chat.prompts
 
 import android.content.Context
-import com.p4c.arguewithai.platform.ai.ChatContract
-import com.p4c.arguewithai.platform.ai.FirebaseAiClient
+import com.p4c.arguewithai.platform.ai.chat.ChatAIClient
+import com.p4c.arguewithai.platform.ai.chat.ChatContract
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,11 +13,6 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * LLM 챗봇의 첫 질문을 미리 생성해 기기에 저장해 두는 큐.
- * 첫 질문은 사용자 입력 없이 startPrompt()만으로 만들어지므로, 개입 시점에 기다리지 않도록 미리 받아 둔다.
- * 큐가 비어 있으면 호출부(LlmChatbotActivity)가 기존처럼 실시간으로 생성한다.
- */
 object FirstQuestionCache {
     private const val PREFS = "first_question_cache"
     private const val KEY_QUEUE = "queue"
@@ -29,7 +24,6 @@ object FirstQuestionCache {
     private val refillMutex = Mutex()
     private val lock = Any()
 
-    /** 저장된 첫 질문을 하나 꺼낸다. 없으면 null. */
     fun take(context: Context): String? = synchronized(lock) {
         val prefs = prefs(context)
         val queue = readQueue(context)
@@ -43,7 +37,6 @@ object FirstQuestionCache {
         first
     }
 
-    /** 큐가 TARGET_SIZE보다 적으면 백그라운드에서 채운다. */
     fun refillAsync(context: Context) {
         val appContext = context.applicationContext
         scope.launch { refill(appContext) }
@@ -53,7 +46,7 @@ object FirstQuestionCache {
         if (!isLlmCondition(context)) return
         refillMutex.withLock {
             try {
-                val client = FirebaseAiClient(JustificationPrompts.SYSTEM_PROMPT)
+                val client = ChatAIClient(JustificationPrompts.SYSTEM_PROMPT)
                 while (readQueue(context).size < TARGET_SIZE) {
                     val text = generate(client, avoid = avoidList(context)) ?: break
                     synchronized(lock) {
@@ -69,7 +62,7 @@ object FirstQuestionCache {
         }
     }
 
-    private suspend fun generate(client: FirebaseAiClient, avoid: List<String>): String? {
+    private suspend fun generate(client: ChatAIClient, avoid: List<String>): String? {
         val prompt = buildString {
             append(JustificationPrompts.startPrompt())
             if (avoid.isNotEmpty()) {

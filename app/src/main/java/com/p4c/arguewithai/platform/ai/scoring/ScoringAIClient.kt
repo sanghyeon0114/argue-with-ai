@@ -1,4 +1,4 @@
-package com.p4c.arguewithai.platform.ai
+package com.p4c.arguewithai.platform.ai.scoring
 
 import com.google.firebase.Firebase
 import com.google.firebase.ai.GenerativeModel
@@ -10,19 +10,17 @@ import com.google.firebase.ai.type.ThinkingLevel
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
 import com.google.firebase.ai.type.thinkingConfig
-import com.p4c.arguewithai.utils.Logger
-import android.os.SystemClock
 
-class FirebaseAiClient(
+class ScoringAIClient(
     private val systemInstruction: String,
     private val modelName: String = "gemini-3.5-flash-lite",
-    private val backend: GenerativeBackend = GenerativeBackend.googleAI(),
+    private val backend: GenerativeBackend = GenerativeBackend.Companion.googleAI(),
 ) {
     private val combinedConfig = generationConfig {
-        thinkingConfig = thinkingConfig { thinkingLevel = ThinkingLevel.MINIMAL }
+        thinkingConfig = thinkingConfig { thinkingLevel = ThinkingLevel.Companion.MINIMAL }
         maxOutputTokens = 600
         responseMimeType = "application/json"
-        responseSchema = ChatContract.schema
+        responseSchema = ScoringContract.schema
     }
 
     private val model: GenerativeModel by lazy {
@@ -35,9 +33,7 @@ class FirebaseAiClient(
 
     suspend fun generateResponse(prompt: String, history: List<Content>): GenerateContentResponse {
         val chat = model.startChat(history = history)
-        val t0 = SystemClock.elapsedRealtime()
         val response = chat.sendMessage(prompt)
-        Logger.d("[TIMING] sendMessage=${SystemClock.elapsedRealtime() - t0}ms history=${history.size}")
         return response
     }
 }

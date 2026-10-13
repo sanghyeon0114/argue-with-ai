@@ -21,14 +21,18 @@ import com.p4c.arguewithai.chat.Message
 import com.p4c.arguewithai.chat.prompts.FirstQuestionCache
 import com.p4c.arguewithai.chat.prompts.JustificationPrompts
 import com.p4c.arguewithai.chat.ui.*
-import com.p4c.arguewithai.platform.ai.ChatContract
-import com.p4c.arguewithai.platform.ai.FirebaseAiClient
+import com.p4c.arguewithai.platform.ai.chat.ChatAIClient
+import com.p4c.arguewithai.platform.ai.chat.ChatContract
+import com.p4c.arguewithai.platform.ai.scoring.ScoringAIClient
+import com.p4c.arguewithai.platform.ai.scoring.ScoringContract
 import com.p4c.arguewithai.repository.intervention.JustificationMessage
 import com.p4c.arguewithai.repository.intervention.ExitMethod
 import com.p4c.arguewithai.repository.intervention.FirestoreJustificationRepository
 import com.p4c.arguewithai.repository.intervention.Sender
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -37,13 +41,18 @@ object LlmChatbotActivityStatus {
     @Volatile var isOpen: Boolean = false
 }
 
+private data class JustificationResult(
+    val text: String,
+    val score: Boolean
+)
+
 private data class LlmChatbotState(
     var isUserTurn: Boolean = false,
     var finalMessageShown: Boolean = false,
     var hasSentResult: Boolean = false,
     var order: Int = 0, // conversation count
     var index: Int = 0, // question level ( 0, 1, 2, 3 )
-    var currentUserMessage: ChatContract.Type = ChatContract.Type("", false)
+    var currentUserMessage: JustificationResult = JustificationResult("", false)
 )
 
 class LlmChatbotActivity : ComponentActivity() {
@@ -73,7 +82,8 @@ class LlmChatbotActivity : ComponentActivity() {
             intent.getParcelableExtra("receiver")
         }
     }
-    private val aiClient = FirebaseAiClient(JustificationPrompts.SYSTEM_PROMPT)
+    private val scoringClient = ScoringAIClient(JustificationPrompts.SCORING_SYSTEM_PROMPT)
+    private val chatClient = ChatAIClient(JustificationPrompts.SYSTEM_PROMPT)
 
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -162,8 +172,8 @@ class LlmChatbotActivity : ComponentActivity() {
     // ---------------------------
     // Process Chat Flow
     // ---------------------------
-    private suspend fun getChatbotMessage(promptFunction: suspend () -> ChatContract.Type): ChatContract.Type {
-        val response: ChatContract.Type = simulateTypingDelay {
+    private suspend fun <T> getChatbotMessage(promptFunction: suspend () -> T): T {
+        val response: T = simulateTypingDelay {
             promptFunction()
         }
         return response
@@ -198,26 +208,55 @@ class LlmChatbotActivity : ComponentActivity() {
     // ---------------------------
     private suspend fun getFirstJustificationResponse(): ChatContract.Type {
         val chatPrompt: String = JustificationPrompts.startPrompt()
-        return getChatbotResponse(chatPrompt)
+        return getChatResponse(chatPrompt)
     }
 
-    private suspend fun getJustificationResponse(currentIdx: Int, prevMessage: String): ChatContract.Type {
-        val chatPrompt: String = JustificationPrompts.getPromptByIndex(currentIdx, prevMessage)
-        return getChatbotResponse(chatPrompt)
+    private suspend fun getJustificationResponse(currentIdx: Int, prevMessage: String): JustificationResult = supervisorScope {
+        if (currentIdx >= maxIndex) {
+            return@supervisorScope JustificationResult(JustificationPrompts.FINAL_MESSAGE, true)
+        }
+
+        val scoring = async { getScoringResponse(JustificationPrompts.scoringPrompt(prevMessage)) }
+        val passReply = async { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = true)) }
+        val retryReply = async { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = false)) }
+
+        val score = scoring.await().score
+        Logger.d("[Justification] idx=$currentIdx score=$score")
+
+        val text = if (score) {
+            retryReply.cancel()
+            passReply.await().text
+        } else {
+            passReply.cancel()
+            retryReply.await().text
+        }
+        JustificationResult(text, score)
     }
 
-     private suspend fun getChatbotResponse(prompt: String): ChatContract.Type {
-        val response = aiClient.generateResponse(prompt, _chatHistory)
-         val raw = response.text ?: return ChatContract.Type("에러가 발생했습니다.", false)
-         return try {
-             val json = JSONObject(raw)
-             ChatContract.Type(
-                 text = json.getString(ChatContract.FIELD_TEXT),
-                 score = json.getBoolean(ChatContract.FIELD_SCORE)
-             )
-         } catch (_: Exception) {
-             ChatContract.Type("데이터 해석 중 오류가 발생했습니다.", false)
-         }
+    private suspend fun getChatResponse(prompt: String): ChatContract.Type {
+        val response = chatClient.generateResponse(prompt, _chatHistory)
+        val raw = response.text ?: return ChatContract.Type("에러가 발생했습니다.")
+        return try {
+            val json = JSONObject(raw)
+            ChatContract.Type(
+                text = json.getString(ChatContract.FIELD_TEXT)
+            )
+        } catch (_: Exception) {
+            ChatContract.Type("데이터 해석 중 오류가 발생했습니다.")
+        }
+    }
+
+    private suspend fun getScoringResponse(prompt: String): ScoringContract.Type {
+        val response = scoringClient.generateResponse(prompt, _chatHistory)
+        val raw = response.text ?: return ScoringContract.Type(false)
+        return try {
+            val json = JSONObject(raw)
+            ScoringContract.Type(
+                score = json.getBoolean(ScoringContract.FIELD_SCORE)
+            )
+        } catch (_: Exception) {
+            ScoringContract.Type(false)
+        }
     }
 
     // ---------------------------
