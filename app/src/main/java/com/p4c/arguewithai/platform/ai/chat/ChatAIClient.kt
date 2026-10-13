@@ -24,7 +24,7 @@ class ChatAIClient(
     }
 
     private val model: GenerativeModel by lazy {
-        Firebase.ai(backend = backend, useLimitedUseAppCheckTokens = true).generativeModel(
+        Firebase.ai(backend = backend, useLimitedUseAppCheckTokens = false).generativeModel(
             modelName = modelName,
             generationConfig = combinedConfig,
             systemInstruction = content { text(systemInstruction) }
