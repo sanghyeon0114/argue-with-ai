@@ -38,6 +38,8 @@ object FirebaseConfig {
         object Justification {
             const val MESSAGES = "messages"
             const val SCORE = "score"
+            /** 챗봇 메시지를 LLM 이 생성했는지 (false: assets 대체 질문·고정 문장) */
+            const val IS_LLM = "isLlm"
             const val EXIT = "exit"
         }
     }

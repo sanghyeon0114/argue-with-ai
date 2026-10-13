@@ -18,6 +18,7 @@ import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ChatAdapter
 import com.p4c.arguewithai.chat.Message
+import com.p4c.arguewithai.chat.prompts.FallbackQuestions
 import com.p4c.arguewithai.chat.prompts.FirstQuestionCache
 import com.p4c.arguewithai.chat.prompts.JustificationPrompts
 import com.p4c.arguewithai.chat.ui.*
@@ -30,9 +31,11 @@ import com.p4c.arguewithai.repository.intervention.ExitMethod
 import com.p4c.arguewithai.repository.intervention.FirestoreJustificationRepository
 import com.p4c.arguewithai.repository.intervention.Sender
 import com.p4c.arguewithai.utils.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -43,7 +46,11 @@ object LlmChatbotActivityStatus {
 
 private data class JustificationResult(
     val text: String,
-    val score: Boolean
+    val score: Boolean,
+    /** score 가 판정 AI 의 실제 결과인지 (false 면 판정 실패로 통과 처리한 값) */
+    val scored: Boolean = true,
+    /** text 를 LLM 이 생성했는지 (false: assets 대체 질문·고정 문장) */
+    val isLlm: Boolean = true
 )
 
 private data class LlmChatbotState(
@@ -66,6 +73,7 @@ class LlmChatbotActivity : ComponentActivity() {
     private val messages = mutableListOf<Message>()
     private val maxIndex: Int = 3
     private val CACHED_FIRST_MESSAGE_DELAY_MS: Long = 1000L
+    private val AI_TIMEOUT_MS: Long = 10_000L
     private val _chatHistory = mutableListOf<Content>()
 
     private val repo = FirestoreJustificationRepository()
@@ -112,20 +120,28 @@ class LlmChatbotActivity : ComponentActivity() {
     private fun sendFirstChatbotMessage() {
         lifecycleScope.launch {
             try {
-                // 미리 생성해 둔 첫 질문이 있으면 그것을 쓰고, 없으면 기존처럼 실시간 생성한다.
                 val cached = FirstQuestionCache.take(this@LlmChatbotActivity)
                 val firstText = if (cached != null) {
                     simulateTypingDelay { delay(CACHED_FIRST_MESSAGE_DELAY_MS); cached }
                 } else {
-                    getChatbotMessage { getFirstJustificationResponse() }.text
+                    getChatbotMessage { callAi("first") { getFirstJustificationResponse() } }?.text
                 }
-                Logger.d("first message source=${if (cached != null) "cache" else "live"}")
+                val source = when {
+                    cached != null -> "cache"
+                    firstText != null -> "live"
+                    else -> "fallback"
+                }
+                Logger.d("first message source=$source")
                 FirstQuestionCache.refillAsync(this@LlmChatbotActivity)
-                showMessage(Sender.CHATBOT, firstText, state.order, state.index)
+                showMessage(Sender.CHATBOT, firstText ?: FallbackQuestions.random(this@LlmChatbotActivity, 0), state.order, state.index, isLlm = firstText != null)
                 state.isUserTurn = true
                 handleTurnTransition()
-            } catch (_: Exception) {
-                showMessage(Sender.CHATBOT, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Logger.e("[LlmChatbot] first message failed → fallback", e)
+                showMessage(Sender.CHATBOT, FallbackQuestions.random(this@LlmChatbotActivity, 0), state.order, state.index, isLlm = false)
+                state.isUserTurn = true
+                updateSendButtonState()
             }
         }
     }
@@ -139,17 +155,22 @@ class LlmChatbotActivity : ComponentActivity() {
 
                 val response = getChatbotMessage { getJustificationResponse(currentIdx, currentMessage.text) }
                 state.currentUserMessage = state.currentUserMessage.copy(score = response.score)
-                saveScoreInFirebase(response.score, currentOrder)
+                if (response.scored) saveScoreInFirebase(response.score, currentOrder)
 
                 if(response.score) { state.index = (state.index + 1).coerceAtMost(maxIndex) }
                 if (state.index >= maxIndex) { state.finalMessageShown = true }
 
                 state.order++
-                showMessage(Sender.CHATBOT, response.text, state.order, state.index)
+                showMessage(Sender.CHATBOT, response.text, state.order, state.index, isLlm = response.isLlm)
 
                 handleTurnTransition()
-            } catch (_: Exception) {
-                showMessage(Sender.CHATBOT, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Logger.e("[LlmChatbot] turn failed → fallback", e)
+                state.order++
+                showMessage(Sender.CHATBOT, fallbackText(state.index), state.order, state.index, isLlm = false)
+                state.isUserTurn = true
+                updateSendButtonState()
             }
         }
     }
@@ -163,9 +184,11 @@ class LlmChatbotActivity : ComponentActivity() {
             saveScoreInFirebase(response.score, state.order)
 
             state.order++
-            showMessage(Sender.CHATBOT, response.text, state.order, state.index)
-        } catch (_: Exception) {
-            showMessage(Sender.CHATBOT, "메시지를 불러오는데 실패했습니다.", state.order, state.index)
+            showMessage(Sender.CHATBOT, response.text, state.order, state.index, isLlm = response.isLlm)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Logger.e("[LlmChatbot] final message failed", e)
+            showMessage(Sender.CHATBOT, JustificationPrompts.FINAL_MESSAGE, state.order, state.index, isLlm = false)
         }
     }
 
@@ -207,57 +230,86 @@ class LlmChatbotActivity : ComponentActivity() {
     // ---------------------------
     // AI
     // ---------------------------
-    private suspend fun getFirstJustificationResponse(): ChatContract.Type {
+    private suspend fun getFirstJustificationResponse(): ChatContract.Type? {
         val chatPrompt: String = JustificationPrompts.startPrompt()
         return getChatResponse(chatPrompt)
     }
 
+    /**
+     * 판정 AI 1개 + 문장 AI 2개(true용 / false용)를 동시에 호출하고, 판정 결과에 맞는 문장을 고른다.
+     * 어느 호출이든 실패(에러·시간 초과·응답 해석 실패)하면 assets 의 대체 질문으로 이어간다.
+     *  - 판정 실패 : 대화가 멈추지 않도록 통과(true)로 처리 (scored = false 로 표시, Firestore 에 기록하지 않음)
+     *  - 문장 실패 : 다음에 보여줄 단계의 대체 질문 (true → 다음 단계, false → 같은 단계)
+     */
     private suspend fun getJustificationResponse(currentIdx: Int, prevMessage: String): JustificationResult = supervisorScope {
         if (currentIdx >= maxIndex) {
-            return@supervisorScope JustificationResult(JustificationPrompts.FINAL_MESSAGE, true)
+            return@supervisorScope JustificationResult(JustificationPrompts.FINAL_MESSAGE, true, isLlm = false)
         }
 
-        val scoring = async { getScoringResponse(JustificationPrompts.scoringPrompt(prevMessage)) }
-        val passReply = async { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = true)) }
-        val retryReply = async { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = false)) }
+        val scoring = async { callAi("scoring") { getScoringResponse(JustificationPrompts.scoringPrompt(prevMessage)) } }
+        val passReply = async { callAi("reply:pass") { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = true)) } }
+        val retryReply = async { callAi("reply:retry") { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = false)) } }
 
-        val score = scoring.await().score
-        Logger.d("[Justification] idx=$currentIdx score=$score")
+        val scoringResult = scoring.await()
+        val score = scoringResult?.score ?: true
+        Logger.d("[Justification] idx=$currentIdx score=$score scored=${scoringResult != null}")
 
         val text = if (score) {
             retryReply.cancel()
-            passReply.await().text
+            passReply.await()?.text
         } else {
             passReply.cancel()
-            retryReply.await().text
+            retryReply.await()?.text
         }
-        JustificationResult(text, score)
+
+        val nextStage = if (score) currentIdx + 1 else currentIdx
+        if (text == null) Logger.w("[Justification] reply failed → fallback (stage=$nextStage)")
+
+        JustificationResult(
+            text = text ?: fallbackText(nextStage),
+            score = score,
+            scored = scoringResult != null,
+            isLlm = text != null
+        )
     }
 
-    private suspend fun getChatResponse(prompt: String): ChatContract.Type {
+    /** stage 0~2 → q1~q3 중 무작위 질문, 모든 단계를 통과한 경우 → 마무리 인사 */
+    private fun fallbackText(stage: Int): String =
+        if (stage >= maxIndex) FallbackQuestions.CLOSING
+        else FallbackQuestions.random(this, stage)
+
+    /** AI 호출을 시간 제한과 함께 실행한다. 에러·시간 초과·해석 실패면 null. */
+    private suspend fun <T : Any> callAi(tag: String, block: suspend () -> T?): T? {
+        return try {
+            val result = withTimeoutOrNull(AI_TIMEOUT_MS) { block() }
+            if (result == null) Logger.w("[AI:$tag] no result (timeout or invalid response)")
+            result
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.e("[AI:$tag] failed", e)
+            null
+        }
+    }
+
+    /** 문장 AI 응답. 비어 있거나 해석에 실패하면 null. */
+    private suspend fun getChatResponse(prompt: String): ChatContract.Type? {
         val response = chatClient.generateResponse(prompt, _chatHistory)
-        val raw = response.text ?: return ChatContract.Type("에러가 발생했습니다.")
-        return try {
-            val json = JSONObject(raw)
-            ChatContract.Type(
-                text = json.getString(ChatContract.FIELD_TEXT)
-            )
-        } catch (_: Exception) {
-            ChatContract.Type("데이터 해석 중 오류가 발생했습니다.")
-        }
+        val raw = response.text ?: return null
+        return runCatching {
+            JSONObject(raw).getString(ChatContract.FIELD_TEXT).trim()
+        }.getOrNull()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { ChatContract.Type(text = it) }
     }
 
-    private suspend fun getScoringResponse(prompt: String): ScoringContract.Type {
+    /** 판정 AI 응답. 해석에 실패하면 null. */
+    private suspend fun getScoringResponse(prompt: String): ScoringContract.Type? {
         val response = scoringClient.generateResponse(prompt, _chatHistory)
-        val raw = response.text ?: return ScoringContract.Type(false)
-        return try {
-            val json = JSONObject(raw)
-            ScoringContract.Type(
-                score = json.getBoolean(ScoringContract.FIELD_SCORE)
-            )
-        } catch (_: Exception) {
-            ScoringContract.Type(false)
-        }
+        val raw = response.text ?: return null
+        return runCatching {
+            ScoringContract.Type(score = JSONObject(raw).getBoolean(ScoringContract.FIELD_SCORE))
+        }.getOrNull()
     }
 
     // ---------------------------
@@ -285,7 +337,8 @@ class LlmChatbotActivity : ComponentActivity() {
         }
     }
 
-    private fun showMessage(sender: Sender, text: String, order: Int, questionIdx: Int) {
+    /** @param isLlm 챗봇 메시지를 LLM 이 생성했는지. 사용자 메시지는 null. */
+    private fun showMessage(sender: Sender, text: String, order: Int, questionIdx: Int, isLlm: Boolean? = null) {
         val prev = messages.lastIndex
         if (prev >= 0) adapter.notifyItemChanged(prev)
 
@@ -297,18 +350,18 @@ class LlmChatbotActivity : ComponentActivity() {
         recycler.post { recycler.scrollToPosition(messages.lastIndex) }
 
         //printChatHistory() // DEBUG CODE
-        saveChatInFirebase(sender, text, order, questionIdx)
+        saveChatInFirebase(sender, text, order, questionIdx, isLlm)
     }
     private fun addMessageInList(sender: Sender, text: String) {
         val role = if (sender == Sender.USER) "user" else "model"
         _chatHistory.add(content(role = role) { text(text) })
     }
 
-    private fun saveChatInFirebase(sender: Sender, text: String, order: Int, questionIdx: Int) {
+    private fun saveChatInFirebase(sender: Sender, text: String, order: Int, questionIdx: Int, isLlm: Boolean?) {
         lifecycleScope.launch(Dispatchers.Main) {
             runCatching {
                 repo.updateMessage(
-                    JustificationMessage(sessionId = sessionId, sender = sender, text = text),
+                    JustificationMessage(sessionId = sessionId, sender = sender, text = text, isLlm = isLlm),
                     order,
                     questionIdx
                 )

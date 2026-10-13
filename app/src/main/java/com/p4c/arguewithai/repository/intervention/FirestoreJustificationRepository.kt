@@ -15,6 +15,8 @@ data class JustificationMessage(
     val sender: Sender = Sender.NONE,
     val text: String = "",
     val score: Boolean? = null,
+    /** 챗봇 메시지를 LLM 이 생성했는지. 사용자 메시지는 null. */
+    val isLlm: Boolean? = null,
     val createdAtMs: Long = System.currentTimeMillis(),
     val createdAt: Timestamp? = null
 )
@@ -49,6 +51,7 @@ class FirestoreJustificationRepository(
                 payload["question"] = msg.text
                 payload["order"] = order
                 payload["questionIdx"] = questionIdx
+                msg.isLlm?.let { payload[FirebaseConfig.User.Justification.IS_LLM] = it }
             }
             Sender.USER -> payload["answer"] = msg.text
             else -> Unit

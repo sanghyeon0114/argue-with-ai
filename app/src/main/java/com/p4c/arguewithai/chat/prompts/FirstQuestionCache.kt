@@ -66,7 +66,7 @@ object FirstQuestionCache {
         val prompt = buildString {
             append(JustificationPrompts.startPrompt())
             if (avoid.isNotEmpty()) {
-                append("\n\n[변주 지침]\n- 아래 문장들과 어휘와 문장 구조가 겹치지 않게 새롭게 작성하세요.\n")
+                append("\n\n[참고]\n- 아래 문장과 똑같은 문장은 피하세요. 단, 표현을 억지로 바꾸지 말고 자연스러움을 우선하세요.\n")
                 avoid.forEach { append("- \"").append(it).append("\"\n") }
             }
         }
