@@ -3,7 +3,7 @@ package com.p4c.arguewithai.utils
 import android.util.Log
 
 object Logger {
-    var enabled = true
+    var enabled = false
     private const val TAG = "Loggers"
 
     fun setLoggerEnabled(enabled: Boolean) {

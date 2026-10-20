@@ -42,7 +42,7 @@ class BlockingActivity : ComponentActivity() {
             runCatching { repo.logStart(sessionId) }.onFailure { it.printStackTrace() }
         }
 
-        findViewById<TextView>(R.id.tvCenterMessage).text = "잠깐 숨 한번 크게 쉬어볼까요?"
+        findViewById<TextView>(R.id.tvCenterMessage).text = "잠시 멈추고, 심호흡 한번 해보세요."
         val tvMessageTime = findViewById<TextView>(R.id.tvMessageTime)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

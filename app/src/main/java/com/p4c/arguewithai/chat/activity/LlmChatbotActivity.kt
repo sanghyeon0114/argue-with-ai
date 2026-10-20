@@ -514,26 +514,4 @@ class LlmChatbotActivity : ComponentActivity() {
         }
         if (isFinishing) LlmChatbotActivityStatus.isOpen = false
     }
-
-//    private fun printChatHistory() {
-//        if (_chatHistory.isEmpty()) {
-//            Logger.d("채팅 기록이 없습니다.")
-//            return
-//        }
-//
-//        Logger.d("-------------------------------")
-//        _chatHistory.forEachIndexed { index, content ->
-//            // content.parts 내의 모든 텍스트 요소를 합칩니다.
-//            val message = content.parts.joinToString(" ") { part ->
-//                when (part) {
-//                    is TextPart -> part.text
-//                    else -> ""
-//                }
-//            }
-//
-//            val role = content.role?.uppercase() ?: "UNKNOWN"
-//            Logger.d("[$index] $role: $message")
-//        }
-//        Logger.d("-------------------------------")
-//    }
 }
