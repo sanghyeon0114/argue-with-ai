@@ -175,23 +175,6 @@ class LlmChatbotActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun sendFinalChatbotMessage() {
-        try {
-            val currentIdx = state.index.coerceIn(0, maxIndex)
-
-            val response = getChatbotMessage { getJustificationResponse(currentIdx, "") }
-            state.currentUserMessage = state.currentUserMessage.copy(score = response.score)
-            saveScoreInFirebase(response.score, state.order)
-
-            state.order++
-            showMessage(Sender.CHATBOT, response.text, state.order, state.index, isLlm = response.isLlm)
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Logger.e("[LlmChatbot] final message failed", e)
-            showMessage(Sender.CHATBOT, JustificationPrompts.FINAL_MESSAGE, state.order, state.index, isLlm = false)
-        }
-    }
-
     // ---------------------------
     // Process Chat Flow
     // ---------------------------
@@ -215,12 +198,9 @@ class LlmChatbotActivity : ComponentActivity() {
             state.isUserTurn = false
             updateSendButtonState()
 
+            // Baseline·Self-Affirmation 과 동일하게 종료 메시지 표시 0.5초 뒤 자동 종료
             delay(500)
-            sendFinalChatbotMessage()
-
-            // 자동 종료하지 않고, 사용자가 아무 응답이나 보내면 종료한다 (validateInput → CloseFinalAck).
-            state.isUserTurn = true
-            updateSendButtonState()
+            closePrompt(reason = "final_ack")
         } else {
             state.isUserTurn = true
             updateSendButtonState()
@@ -246,19 +226,32 @@ class LlmChatbotActivity : ComponentActivity() {
             return@supervisorScope JustificationResult(JustificationPrompts.FINAL_MESSAGE, true, isLlm = false)
         }
 
+        // 마지막 단계를 통과하면 AI 문장 대신 고정 종료 메시지를 쓰므로 통과용 문장을 만들지 않는다.
+        val isLastStage = currentIdx == maxIndex - 1
+
         val scoring = async { callAi("scoring") { getScoringResponse(JustificationPrompts.scoringPrompt(prevMessage)) } }
-        val passReply = async { callAi("reply:pass") { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = true)) } }
+        val passReply = if (isLastStage) null else async { callAi("reply:pass") { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = true)) } }
         val retryReply = async { callAi("reply:retry") { getChatResponse(JustificationPrompts.replyPrompt(currentIdx, prevMessage, passed = false)) } }
 
         val scoringResult = scoring.await()
         val score = scoringResult?.score ?: true
         Logger.d("[Justification] idx=$currentIdx score=$score scored=${scoringResult != null}")
 
+        if (score && isLastStage) {
+            retryReply.cancel()
+            return@supervisorScope JustificationResult(
+                text = JustificationPrompts.FINAL_MESSAGE,
+                score = true,
+                scored = scoringResult != null,
+                isLlm = false
+            )
+        }
+
         val text = if (score) {
             retryReply.cancel()
-            passReply.await()?.text
+            passReply?.await()?.text
         } else {
-            passReply.cancel()
+            passReply?.cancel()
             retryReply.await()?.text
         }
 
@@ -273,9 +266,9 @@ class LlmChatbotActivity : ComponentActivity() {
         )
     }
 
-    /** stage 0~2 → q1~q3 중 무작위 질문, 모든 단계를 통과한 경우 → 마무리 인사 */
+    /** stage 0~2 → q1~q3 중 무작위 질문, 모든 단계를 통과한 경우 → 고정 종료 메시지 */
     private fun fallbackText(stage: Int): String =
-        if (stage >= maxIndex) FallbackQuestions.CLOSING
+        if (stage >= maxIndex) JustificationPrompts.FINAL_MESSAGE
         else FallbackQuestions.random(this, stage)
 
     /** AI 호출을 시간 제한과 함께 실행한다. 에러·시간 초과·해석 실패면 null. */
@@ -514,4 +507,4 @@ class LlmChatbotActivity : ComponentActivity() {
         }
         if (isFinishing) LlmChatbotActivityStatus.isOpen = false
     }
-}
+}

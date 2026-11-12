@@ -22,9 +22,6 @@ object FallbackQuestions {
         "차분히 돌아봐 줘서 고마워요. 이렇게 생각해 보면 여러 마음이 들기도 해요. 지금 영상 본 시간을 떠올리면 만족스러운가요, 아쉬운가요?",
     )
 
-    /** 마지막 단계(stage 2)를 통과했는데 AI 가 마무리 인사를 만들지 못했을 때 쓰는 문장 */
-    const val CLOSING = "솔직하게 이야기해 줘서 고마워요. 이렇게 잠깐 돌아보는 것만으로도 의미가 있어요. 이제 계속 볼지는 편하게 정하면 돼요."
-
     private val cache = arrayOfNulls<List<String>>(FILES.size)
 
     fun random(context: Context, stage: Int): String {

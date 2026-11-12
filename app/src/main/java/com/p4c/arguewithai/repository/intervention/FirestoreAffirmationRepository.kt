@@ -20,7 +20,7 @@ data class AffirmationMessage(
 
 class FirestoreAffirmationRepository(
     private val time: TimeProvider = SystemTimeProvider()
-) {
+) : RuleBasedChatRepository {
     private val db = FirebaseFirestore.getInstance()
     private val auth get() = FirebaseAuth.getInstance()
 
@@ -54,7 +54,10 @@ class FirestoreAffirmationRepository(
             .set(payload, SetOptions.merge())
             .await()
     }
-    suspend fun logStart(sessionId: String) {
+    override suspend fun updateMessage(sessionId: String, sender: Sender, text: String, order: Int) =
+        updateMessage(AffirmationMessage(sessionId = sessionId, sender = sender, text = text), order)
+
+    override suspend fun logStart(sessionId: String) {
         val ms = time.nowMs()
         val data = mapOf(
             "start" to mapOf(
@@ -64,11 +67,11 @@ class FirestoreAffirmationRepository(
         )
         chatSessionDoc(sessionId).set(data, SetOptions.merge()).await()
     }
-    suspend fun logExit(
+    override suspend fun logExit(
         sessionId: String,
         finished: Boolean,
         method: ExitMethod,
-        note: String? = null
+        note: String?
     ) {
         val ms = time.nowMs()
         val data = mapOf(

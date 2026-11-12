@@ -7,7 +7,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
 import com.p4c.arguewithai.app.InterventionPrefs
-import com.p4c.arguewithai.chat.activity.BlockingActivity
 import com.p4c.arguewithai.chat.activity.LlmChatbotActivity
 import com.p4c.arguewithai.chat.activity.RuleBasedChatbotActivity
 import com.p4c.arguewithai.repository.SessionId
@@ -42,22 +41,18 @@ class Prompt(
         val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val interventionType = prefs.getInt("intervention_type", 0)
 
-        val targetActivityClass = when (interventionType) {
-            0 -> BlockingActivity::class.java
-            1 -> RuleBasedChatbotActivity::class.java
-            2 -> LlmChatbotActivity::class.java
-            else -> BlockingActivity::class.java
+        // 0: Number Input Task (baseline), 1: Self-Affirmation, 2: Self-Justification
+        val i = when (interventionType) {
+            2 -> Intent(context, LlmChatbotActivity::class.java)
+            1 -> Intent(context, RuleBasedChatbotActivity::class.java)
+                .putExtra(RuleBasedChatbotActivity.EXTRA_SCRIPT, RuleBasedChatbotActivity.SCRIPT_AFFIRMATION)
+            else -> Intent(context, RuleBasedChatbotActivity::class.java)
+                .putExtra(RuleBasedChatbotActivity.EXTRA_SCRIPT, RuleBasedChatbotActivity.SCRIPT_NUMBER_INPUT)
         }
 
-        val i = Intent(context, targetActivityClass)
-
-        if (interventionType == 1 || interventionType == 2) {
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            i.putExtra("receiver", resultReceiver)
-            i.putExtra("session_id", sessionId?.value ?: "")
-        } else {
-            i.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        i.putExtra("receiver", resultReceiver)
+        i.putExtra("session_id", sessionId?.value ?: "")
 
         context.startActivity(i)
         return true

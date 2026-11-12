@@ -19,15 +19,18 @@ import com.p4c.arguewithai.R
 import com.p4c.arguewithai.chat.ChatAdapter
 import com.p4c.arguewithai.chat.Message
 import com.p4c.arguewithai.chat.ui.*
-import com.p4c.arguewithai.repository.intervention.AffirmationMessage
 import com.p4c.arguewithai.repository.intervention.ExitMethod
 import com.p4c.arguewithai.repository.intervention.FirestoreAffirmationRepository
+import com.p4c.arguewithai.repository.intervention.FirestoreBlockingRepository
+import com.p4c.arguewithai.repository.intervention.RuleBasedChatRepository
 import com.p4c.arguewithai.repository.intervention.Sender
 import com.p4c.arguewithai.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.p4c.arguewithai.chat.prompts.AffirmationPrompts
+import com.p4c.arguewithai.chat.prompts.AffirmationScript
+import com.p4c.arguewithai.chat.prompts.NumberInputScript
+import com.p4c.arguewithai.chat.prompts.RuleBasedScript
 
 object RuleBasedChatbotActivityStatus {
     @Volatile var isOpen: Boolean = false
@@ -38,11 +41,16 @@ private data class RuleBasedChatbotState(
     var finalMessageShown: Boolean = false,
     var hasSentResult: Boolean = false,
     var index: Int = 0,
-    var prevMessage: String? = null,
-    var selectedKeyword: String? = null
+    var prevMessage: String? = null
 )
 
 class RuleBasedChatbotActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_SCRIPT = "script"
+        const val SCRIPT_AFFIRMATION = "affirmation"
+        const val SCRIPT_NUMBER_INPUT = "number_input"
+    }
+
     private lateinit var ui: ChatUiRefs
     private lateinit var recycler: RecyclerView
     private lateinit var etMessage: EditText
@@ -53,7 +61,21 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     private val messages = mutableListOf<Message>()
     private val messageList = mutableListOf<Content>()
 
-    private val repo = FirestoreAffirmationRepository()
+    private val scriptType: String by lazy {
+        intent.getStringExtra(EXTRA_SCRIPT) ?: SCRIPT_AFFIRMATION
+    }
+    private val script: RuleBasedScript by lazy {
+        when (scriptType) {
+            SCRIPT_NUMBER_INPUT -> NumberInputScript()
+            else -> AffirmationScript()
+        }
+    }
+    private val repo: RuleBasedChatRepository by lazy {
+        when (scriptType) {
+            SCRIPT_NUMBER_INPUT -> FirestoreBlockingRepository()
+            else -> FirestoreAffirmationRepository()
+        }
+    }
 
     private var state = RuleBasedChatbotState()
     private val sessionId: String by lazy {
@@ -90,8 +112,8 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     }
 
     private fun sendChatbotMessage() {
-        val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
-        val message: String = AffirmationPrompts.getPrompt(currentIdx)
+        val currentIdx = state.index.coerceIn(0, script.maxIndex)
+        val message: String = script.getPrompt(currentIdx)
 
         lifecycleScope.launch {
             simulateTypingDelay()
@@ -101,7 +123,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     }
 
     private suspend fun handleTurnTransition(currentIdx: Int) {
-        if (currentIdx >= AffirmationPrompts.maxIndex) {
+        if (currentIdx >= script.maxIndex) {
             state.finalMessageShown = true
             state.isUserTurn = false
             updateSendButtonState(currentIdx)
@@ -118,12 +140,12 @@ class RuleBasedChatbotActivity : ComponentActivity() {
         if (!state.isUserTurn) return
         appendMessage(Sender.USER, currentMessage)
         state.isUserTurn =  false
-        state.index = (state.index + 1).coerceAtMost(AffirmationPrompts.maxIndex)
+        state.index = (state.index + 1).coerceAtMost(script.maxIndex)
 
         if (!state.finalMessageShown) {
             sendChatbotMessage()
         } else {
-            val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
+            val currentIdx = state.index.coerceIn(0, script.maxIndex)
             updateSendButtonState(currentIdx)
         }
     }
@@ -134,7 +156,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     private fun sendUserText() {
         val raw = etMessage.text?.toString().orEmpty()
         val text = raw.trim()
-        val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
+        val currentIdx = state.index.coerceIn(0, script.maxIndex)
         val decision = validateInput(currentIdx, text) ?: return
 
         when (decision) {
@@ -147,6 +169,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
                 return
             }
             InputDecision.Accept -> {
+                script.onMessageAccepted(currentIdx, text)
                 etMessage.setText("")
                 updateSendButtonState(currentIdx)
                 sendUserMessage(text)
@@ -177,10 +200,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     private fun saveChatInFirebase(sender: Sender, text: String, index: Int) {
         lifecycleScope.launch(Dispatchers.Main) {
             runCatching {
-                repo.updateMessage(
-                    AffirmationMessage(sessionId = sessionId, sender = sender, text = text),
-                    index
-                )
+                repo.updateMessage(sessionId, sender, text, index)
             }.onFailure { it.printStackTrace() }
         }
     }
@@ -229,13 +249,13 @@ class RuleBasedChatbotActivity : ComponentActivity() {
 
         ui.bindSendActions { sendUserText() }
         etMessage.addTextChangedListener(ChatTextWatcher {
-            val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
+            val currentIdx = state.index.coerceIn(0, script.maxIndex)
             updateSendButtonState(currentIdx)
         })
 
         etMessage.requestFocus()
         showKeyboardFor(etMessage)
-        val currentIdx = state.index.coerceIn(0, AffirmationPrompts.maxIndex)
+        val currentIdx = state.index.coerceIn(0, script.maxIndex)
         updateSendButtonState(currentIdx)
     }
     // ---------------------------
@@ -247,16 +267,8 @@ class RuleBasedChatbotActivity : ComponentActivity() {
         data object CloseStopKeyword : InputDecision
         data object CloseFinalAck : InputDecision
     }
-    private fun validateMessage(index: Int, text: String): Boolean {
-        val isValid = AffirmationPrompts.isValidMessage(index, text, state.selectedKeyword)
-
-        if (isValid && index == 0) {
-            val cleanText = text.replace("\\s".toRegex(), "")
-            state.selectedKeyword = cleanText.removeSuffix(".")
-        }
-
-        return isValid
-    }
+    private fun validateMessage(index: Int, text: String): Boolean =
+        script.isValidMessage(index, text)
     private fun validateInput(index: Int, text: String): InputDecision? {
         if (text.isEmpty()) return null
         if (state.finalMessageShown) return InputDecision.CloseFinalAck

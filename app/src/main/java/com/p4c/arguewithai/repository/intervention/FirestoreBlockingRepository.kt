@@ -19,7 +19,7 @@ data class BlockingMessage(
 
 class FirestoreBlockingRepository(
     private val time: TimeProvider = SystemTimeProvider()
-) {
+) : RuleBasedChatRepository {
     private val db = FirebaseFirestore.getInstance()
     private val auth get() = FirebaseAuth.getInstance()
 
@@ -48,7 +48,25 @@ class FirestoreBlockingRepository(
             .set(payload, SetOptions.merge())
             .await()
     }
-    suspend fun logStart(sessionId: String) {
+    /** Number Input Task(RuleBasedChatbotActivity) 대화 로그: question / answer */
+    override suspend fun updateMessage(sessionId: String, sender: Sender, text: String, order: Int) {
+        val ms = time.nowMs()
+        val payload = hashMapOf<String, Any>(
+            "updatedAt" to ms,
+            "updatedAtMs" to time.dayUTC(ms)
+        )
+        when (sender) {
+            Sender.CHATBOT -> payload["question"] = text
+            Sender.USER -> payload["answer"] = text
+            else -> Unit
+        }
+        chatMessagesCol(sessionId)
+            .document(order.toString())
+            .set(payload, SetOptions.merge())
+            .await()
+    }
+
+    override suspend fun logStart(sessionId: String) {
         val ms = time.nowMs()
         val data = mapOf(
             "start" to mapOf(
@@ -58,11 +76,11 @@ class FirestoreBlockingRepository(
         )
         chatSessionDoc(sessionId).set(data, SetOptions.merge()).await()
     }
-    suspend fun logExit(
+    override suspend fun logExit(
         sessionId: String,
         finished: Boolean,
         method: ExitMethod,
-        note: String? = null
+        note: String?
     ) {
         val ms = time.nowMs()
         val data = mapOf(
