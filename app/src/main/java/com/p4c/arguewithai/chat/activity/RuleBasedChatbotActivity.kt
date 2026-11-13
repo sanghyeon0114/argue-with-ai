@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
+import com.p4c.arguewithai.app.PilotSession
 import com.p4c.arguewithai.chat.ChatAdapter
 import com.p4c.arguewithai.chat.Message
 import com.p4c.arguewithai.chat.ui.*
@@ -78,6 +79,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     }
 
     private var state = RuleBasedChatbotState()
+    private lateinit var pilot: PilotSession
     private val sessionId: String by lazy {
         intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
     }
@@ -94,6 +96,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
+        pilot = PilotSession(if (scriptType == SCRIPT_NUMBER_INPUT) "baseline" else "affirmation")
         RuleBasedChatbotActivityStatus.isOpen = true
         setupUI()
         lifecycleScope.launch {
@@ -169,6 +172,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
                 return
             }
             InputDecision.Accept -> {
+                pilot.onUserMessage(text)
                 script.onMessageAccepted(currentIdx, text)
                 etMessage.setText("")
                 updateSendButtonState(currentIdx)
@@ -329,6 +333,7 @@ class RuleBasedChatbotActivity : ComponentActivity() {
             })
             state.hasSentResult = true
         }
+        pilot.finish(this, reason)
         finish()
     }
 

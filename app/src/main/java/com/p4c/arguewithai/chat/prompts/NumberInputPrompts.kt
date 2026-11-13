@@ -1,5 +1,6 @@
 package com.p4c.arguewithai.chat.prompts
 
+import com.p4c.arguewithai.utils.KeystrokeCounter
 import kotlin.random.Random
 
 /**
@@ -27,25 +28,7 @@ class NumberInputScript(private val random: Random = Random.Default) : RuleBased
         private const val NEXT_PROMPT = "다음 글자를 그대로 따라 입력해주세요.\n\n"
         private const val FINAL_PROMPT = "감사합니다. 앱을 종료하겠습니다."
 
-        // 두벌식 기준 키 입력 수가 2인 중성/종성 인덱스
-        private val DOUBLE_JUNG = setOf(9, 10, 11, 14, 15, 16, 19)          // ㅘㅙㅚㅝㅞㅟㅢ
-        private val DOUBLE_JONG = setOf(3, 5, 6, 9, 10, 11, 12, 13, 14, 15, 18) // ㄳㄵㄶㄺㄻㄼㄽㄾㄿㅀㅄ
-
-        fun countKeystrokes(text: String): Int = text.sumOf { ch ->
-            val code = ch.code - 0xAC00
-            if (code in 0 until 11172) {
-                val jung = (code % 588) / 28
-                val jong = code % 28
-                1 + (if (jung in DOUBLE_JUNG) 2 else 1) +
-                    when {
-                        jong == 0 -> 0
-                        jong in DOUBLE_JONG -> 2
-                        else -> 1
-                    }
-            } else {
-                1
-            }
-        }
+        fun countKeystrokes(text: String): Int = KeystrokeCounter.count(text)
 
         private fun normalize(text: String) = text.replace("\\s".toRegex(), "")
     }

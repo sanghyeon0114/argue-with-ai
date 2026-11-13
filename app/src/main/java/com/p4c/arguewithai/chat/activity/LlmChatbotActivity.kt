@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import com.p4c.arguewithai.R
+import com.p4c.arguewithai.app.PilotSession
 import com.p4c.arguewithai.chat.ChatAdapter
 import com.p4c.arguewithai.chat.Message
 import com.p4c.arguewithai.chat.prompts.FallbackQuestions
@@ -79,6 +80,7 @@ class LlmChatbotActivity : ComponentActivity() {
     private val repo = FirestoreJustificationRepository()
 
     private var state = LlmChatbotState()
+    private lateinit var pilot: PilotSession
     private val sessionId: String by lazy {
         intent.getStringExtra("session_id") ?: System.currentTimeMillis().toString()
     }
@@ -97,6 +99,7 @@ class LlmChatbotActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
+        pilot = PilotSession("justification")
         LlmChatbotActivityStatus.isOpen = true
         setupUI()
         lifecycleScope.launch {
@@ -323,6 +326,7 @@ class LlmChatbotActivity : ComponentActivity() {
                 return
             }
             InputDecision.Accept -> {
+                pilot.onUserMessage(text)
                 etMessage.setText("")
                 updateSendButtonState()
                 sendUserMessage(text)
@@ -490,6 +494,7 @@ class LlmChatbotActivity : ComponentActivity() {
             })
             state.hasSentResult = true
         }
+        pilot.finish(this, reason)
         finish()
     }
 
